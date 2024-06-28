@@ -120,6 +120,10 @@ class Clock():
             else:
                 break
 
+    def beats_until_next_bar(self):
+        """Return the number of beats until the next bar."""
+        return self._denominator - self._beat % self._denominator
+
     def add(self, time: int|float, func: Callable, quant='now'):
         """Add an event to the clock.
 
@@ -140,7 +144,7 @@ class Clock():
             if quant == 'next':
                 deadline = time
             elif quant == 'bar':
-                deadline = self._bar + 1
+                deadline = self.beats_until_next_bar()
             elif quant == 'beat':
                 deadline = self._beat + 1
             else:

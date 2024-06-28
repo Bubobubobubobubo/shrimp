@@ -75,8 +75,9 @@ class MIDIOut:
         Note: This function schedules the note on and note off messages to be sent 
         at the appropriate times using the clock.
         """
+        epsilon = duration / 100
         self.clock.add(self.clock.beat, lambda: self._note_on(note, velocity, channel))
-        self.clock.add(self.clock.beat + duration, lambda: self._note_off(note, 0, channel))
+        self.clock.add(self.clock.beat + (duration - epsilon), lambda: self._note_off(note, 0, channel))
 
     def cc(self, control: int = 0, value: int = 0, channel: int = 1) -> None:
         """Send a MIDI control change message.
