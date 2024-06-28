@@ -9,7 +9,8 @@ USER_DIRECTORY = appdirs.user_data_dir(APPNAME, APPAUTHOR)
 def _create_default_configuration() -> dict:
     """Create a default configuration for Baston."""
     configuration = {
-        "tempo": 120
+        "tempo": 120,
+        "midi_port": "MIDI Bus 1",
     }
     return configuration
 
@@ -32,6 +33,19 @@ def _check_for_configuration() -> None:
             logging.debug(f"Created configuration file with default settings at {config_path}")
     except OSError as e:
         logging.error(f"An error occurred while creating the configuration file: {e}")
+
+    # Check if the configuration file has all the required keys also present in the template
+    try:
+        with open(config_path, "r") as f:
+            content = json.load(f)
+            template = _create_default_configuration()
+            for key in template:
+                if key not in content:
+                    content[key] = template[key]
+            with open(config_path, "w") as f:
+                json.dump(content, f, indent=4)
+    except OSError as e:
+        logging.error(f"An error occurred while updating the configuration file: {e}")
 
 def read_configuration() -> dict:
     """Read the configuration file for Baston."""
