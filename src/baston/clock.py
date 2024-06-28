@@ -109,7 +109,6 @@ class Clock():
             self._execute_due_events()
             sleep(0.001)
 
-
     def _execute_due_events(self):
         """Execute all due events."""
         while not self._event_queue.empty():
@@ -121,9 +120,19 @@ class Clock():
             else:
                 break
 
-    def add(self, beat: int|float, func: Callable):
-        """Add an event to the clock."""
-        event = PriorityEvent(priority=beat, item=func)
+    def add(self, time: int|float, func: Callable, quant='now'):
+        """Add an event to the clock.
+
+        Args:
+            time(int|float): The beat at which the event should be executed.
+            func (Callable): The function to be executed.
+            quant (str): The quantization of the event. Default is 'now'. Possible values are:
+              'now', 'next', 'bar', 'beat'.
+            
+        Returns:
+            None
+        """
+        event = PriorityEvent(priority=time, item=func)
         self._event_queue.put(event)
         self._scheduled_events.append(event)
 
@@ -137,4 +146,3 @@ class Clock():
             else:
                 self._scheduled_events.remove(current_event)
         self._event_queue = temp_queue
-

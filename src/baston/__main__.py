@@ -23,7 +23,7 @@ def bip():
     """Play a note"""
     from random import randint, choice
     midi.note(randint(30, 60), 100, 1, 1)
-    clock.add(clock.beat + choice([1/2, 1, 2]), bip)
+    clock.add(int(clock.beat) + 1, bip)
 
 if __name__ == "__main__":
     code.interact(
