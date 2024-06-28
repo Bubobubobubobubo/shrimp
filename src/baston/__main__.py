@@ -1,13 +1,16 @@
 from .configuration import read_configuration
 from .clock import Clock 
-from .midi import MIDI
+from .midi import MIDIOut, MIDIIn
 import code
 
 CONFIGURATION = read_configuration()
 clock = Clock(CONFIGURATION["tempo"])
-midi = MIDI(CONFIGURATION["midi_port"], clock)
-clock.start()
 now = clock.beat
+midi = MIDIOut(CONFIGURATION["midi_out_port"], clock)
+midi_in = MIDIIn(CONFIGURATION["midi_in_port"], clock)
+# The monitoring loop is blocking exit...
+# clock.add(now, midi_in._monitoring_loop)
+clock.start()
 
 def exit():
     """Exit the interactive shell"""

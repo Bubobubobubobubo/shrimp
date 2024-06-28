@@ -1,7 +1,34 @@
 import mido
 from .clock import Clock
 
-class MIDI:
+class MIDIIn:
+
+    """MIDI class to receive MIDI messages from a MIDI port."""
+    # TODO: continue implementation
+
+    def __init__(self, port: str, clock: Clock):    
+        self.port = port
+        self.clock = clock
+        self.wheel = 0
+        try:
+            self._midi_in = mido.open_input(port)
+        except:
+            print(f"Could not open MIDI port {port}")
+
+    def _monitoring_loop(self):
+        """Monitor the MIDI port for incoming messages."""
+        for message in self._midi_in:
+            if message.type == 'pitchwheel':
+                self.wheel = message.pitch
+            if message.type == 'stop':
+                self.clock.stop()
+            if message.type in ['start', 'continue']:
+                self.clock.play()  
+
+        self.clock.add(self.clock.beat + 0.01, self._monitoring_loop)
+            
+
+class MIDIOut:
 
     """MIDI class to send MIDI messages to a MIDI port."""
 
