@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from queue import PriorityQueue
-from typing import Any
+from typing import Any, Callable
 from time import sleep
 import threading
 import link
@@ -25,6 +25,7 @@ class Clock():
         self._clock_thread: threading.Thread | None = None
         self._stop_event: threading.Event = threading.Event()
         self._event_queue = PriorityQueue(maxsize = 1000)
+        self._scheduled_events = {}
         self._isPlaying: bool = False
         self._link = link.Link(tempo)
         self._link.enabled = True
@@ -105,10 +106,36 @@ class Clock():
         """Clock Event Loop."""
         while not self._stop_event.is_set():
             self._capture_link_info()
+            self._execute_due_events()
             sleep(0.001)
 
-    # EVENT HANDLING
+    def _execute_due_events(self):
+        """Execute all due events."""
+        while not self._event_queue.empty():
+            event = self._event_queue.queue[0]
+            if event.priority <= self._beat:
+                self._event_queue.get() 
+                event.item()
+                self._scheduled_events.pop(event.item.__name__)
+            else:
+                break
 
-    def add_event(self, event: PriorityEvent):
+    def add(self, beat: int|float, func: Callable):
         """Add an event to the clock."""
-        self._event_queue.put(event)
+        func_name = func.__name__
+        if func_name not in self._scheduled_events:
+            event = PriorityEvent(priority=beat, item=func)
+            self._event_queue.put(event)
+            self._scheduled_events[func_name] = event
+
+    def remove(self, func: Callable):
+        """Remove an event from the clock."""
+        func_name = func.__name__
+        if func_name in self._scheduled_events:
+            event = self._scheduled_events.pop(func_name)
+            temp_queue = PriorityQueue(maxsize=1000)
+            while not self._event_queue.empty():
+                current_event = self._event_queue.get()
+                if current_event != event:
+                    temp_queue.put(current_event)
+            self._event_queue = temp_queue
