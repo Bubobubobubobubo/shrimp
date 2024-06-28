@@ -22,7 +22,7 @@ def dada():
 def bip():
     """Play a note"""
     from random import randint, choice
-    midi.note(randint(30, 60), 100, 1, 1)
+    midi.note(72, 100, 1, 1)
     clock.add(int(clock.beat) + 1, bip)
 
 if __name__ == "__main__":

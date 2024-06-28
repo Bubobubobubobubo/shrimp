@@ -132,9 +132,24 @@ class Clock():
         Returns:
             None
         """
-        event = PriorityEvent(priority=time, item=func)
-        self._event_queue.put(event)
-        self._scheduled_events.append(event)
+        if quant == 'now':
+            event = PriorityEvent(priority=time, item=func)
+            self._event_queue.put(event)
+            self._scheduled_events.append(event)
+        else:
+            if quant == 'next':
+                deadline = time
+            elif quant == 'bar':
+                deadline = self._bar + 1
+            elif quant == 'beat':
+                deadline = self._beat + 1
+            else:
+                raise ValueError(f"Unknown quant value: {quant}")
+
+            wrapper_func = lambda: self.add(time, func, 'now')
+            event = PriorityEvent(priority=deadline, item=wrapper_func)
+            self._event_queue.put(event)
+            self._scheduled_events.append(event)
 
     def remove(self, func: Callable):
         """Remove an event from the clock."""
