@@ -1,0 +1,24 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "Baston"
+version = "0.0.1"
+authors = [
+  {name="Raphaël Forment", email="raphael.forment@gmail.com"},
+]
+description = "La baston sur scène"
+readme = "README.md"
+requires-python = "> 3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = []
+
+
+[project.urls]
+Homepage = "https://google.fr"
+Issues = "https://google.fr"
