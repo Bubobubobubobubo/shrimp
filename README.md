@@ -20,7 +20,7 @@ It should install the required dependencies (specified in `pyproject.toml`). Ple
 
 The central piece is the `clock` object that will let you schedule recursive functions. I use them as temporal primitives to build different systems, etc... The `env` (`Environment`) object is used to dispatch messages between all system components.
 
-## Temporal recursion
+## Temporal recursion
 
 To create a recursive function, study the following example:
 
