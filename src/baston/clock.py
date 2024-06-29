@@ -5,6 +5,8 @@ from time import sleep
 import threading
 import link
 
+Number = int | float
+
 @dataclass(order=True)
 class PriorityEvent:
     priority: int|float
@@ -35,10 +37,21 @@ class Clock():
         self._beat = 0
         self._bar = 0
         self._phase = 0
+        self._grain = 0.001
 
     def sync(self, bool: bool = True):
         """Enable or disable the sync of the clock"""
         self.link.startStopSyncEnabled = bool
+
+    @property
+    def grain(self) -> Number:
+        """Return the grain of the clock"""
+        self._grain
+
+    @grain.setter
+    def grain(self, value: Number):
+        """Set the grain of the clock"""
+        self._grain = value
 
     @property
     def tempo(self):
@@ -46,7 +59,7 @@ class Clock():
         return self._tempo
     
     @tempo.setter
-    def tempo(self, value: int | float):
+    def tempo(self, value: Number):
         """Set the tempo of the clock"""
         if self._link:
             # TODO: get a wrapper for these operations
@@ -55,38 +68,38 @@ class Clock():
             self._link.commitSessionState(session)
 
     @property
-    def bar(self):
+    def bar(self) -> Number:
         """Get the bar of the clock"""
         return self._bar
 
     @property
-    def beat(self):
+    def beat(self) -> Number:
         """Get the beat of the clock"""
         return self._beat
 
     @property
-    def phase(self):
+    def phase(self) -> Number:
         """Get the phase of the clock"""
         return self._phase
 
-    def start(self):
+    def start(self) -> None:
         """Start the clock"""
         if not self._clock_thread:
             self._clock_thread = threading.Thread(target=self.run).start()
 
-    def play(self):
+    def play(self) -> None:
         """Play the clock"""
         session = self._link.captureSessionState()
         session.setIsPlaying(True, self._link.clock().micros())
         self._link.commitSessionState(session)
 
-    def pause(self):
+    def pause(self) -> None:
         """Pause the clock"""
         session = self._link.captureSessionState()
         session.setIsPlaying(False, self._link.clock().micros())
         self._link.commitSessionState(session)
 
-    def stop(self):
+    def stop(self) -> None:
         """Stop the clock and wait for the thread to finish"""
         self._stop_event.set()
 
@@ -102,12 +115,12 @@ class Clock():
         self._bar = self._beat / self._denominator
         self._isPlaying = link_state.isPlaying
 
-    def run(self):
+    def run(self) -> None:
         """Clock Event Loop."""
         while not self._stop_event.is_set():
             self._capture_link_info()
             self._execute_due_events()
-            sleep(0.001)
+            sleep(self._grain)
 
     def _execute_due_events(self):
         """Execute all due events."""
@@ -124,7 +137,7 @@ class Clock():
         """Return the number of beats until the next bar."""
         return self._denominator - self._beat % self._denominator
 
-    def add(self, time: int|float, func: Callable, quant='now'):
+    def add(self, time: int|float, func: Callable):
         """Add an event to the clock.
 
         Args:
@@ -136,26 +149,17 @@ class Clock():
         Returns:
             None
         """
-        if quant == 'now':
-            event = PriorityEvent(priority=time, item=func)
-            self._event_queue.put(event)
-            self._scheduled_events.append(event)
-        else:
-            if quant == 'next':
-                deadline = time
-            elif quant == 'bar':
-                deadline = self.beats_until_next_bar()
-            elif quant == 'beat':
-                deadline = self._beat + 1
-            else:
-                raise ValueError(f"Unknown quant value: {quant}")
+        event = PriorityEvent(priority=time, item=func)
+        self._event_queue.put(event)
+        self._scheduled_events.append(event)
 
-            wrapper_func = lambda: self.add(time, func, 'now')
-            event = PriorityEvent(priority=deadline, item=wrapper_func)
-            self._event_queue.put(event)
-            self._scheduled_events.append(event)
+    def clear(self) -> None:
+        """Clear all events from the clock."""
+        # TODO: add callback to clear MIDI notes + ongoing events
+        self._event_queue = PriorityQueue(maxsize=1000)
+        self._scheduled_events = []
 
-    def remove(self, func: Callable):
+    def remove(self, func: Callable) -> None:
         """Remove an event from the clock."""
         temp_queue = PriorityQueue(maxsize=1000)
         while not self._event_queue.empty():
@@ -165,3 +169,7 @@ class Clock():
             else:
                 self._scheduled_events.remove(current_event)
         self._event_queue = temp_queue
+
+    def next_bar(self) -> Number:
+        """Return the time position of the next bar"""
+        return self.beat + self.beats_until_next_bar()
