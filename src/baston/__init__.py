@@ -12,6 +12,7 @@ env.subscribe(clock)
 midi = MIDIOut(CONFIGURATION["midi_out_port"], clock)
 env.subscribe(midi)
 midi_in = MIDIIn(CONFIGURATION["midi_in_port"], clock)
+env.subscribe(midi_in)
 c = clock
 now = lambda: clock.beat
 silence = clock.clear

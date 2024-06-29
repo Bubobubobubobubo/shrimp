@@ -17,6 +17,7 @@ class PriorityEvent:
     name: str
     priority: int | float
     item: Any = field(compare=False)
+    has_played: bool = False
     once: bool = False
 
 class Clock(Subscriber):
@@ -137,8 +138,9 @@ class Clock(Subscriber):
         possible_callables = sorted(self._children.values(), key=lambda event: event.priority)
 
         for callable in possible_callables:
-            if callable.priority <= self._beat:
+            if callable.priority <= self._beat and not callable.has_played:
                 try: 
+                    callable.has_played = True
                     func, args, kwargs = callable.item
                     func(*args, **kwargs)
                     if callable.once:
@@ -174,12 +176,14 @@ class Clock(Subscriber):
         if func_name in self._children:
             self._children[func_name].priority = time
             self._children[func_name].item = (func, args, kwargs)
+            self._children[func_name].has_played = False
         else:
             # Extract priority from the time argument
             self._children[func_name] = PriorityEvent(
                 name=func_name, 
                 priority=time, 
                 once=once,
+                has_played=False,
                 item=(func, args, kwargs)
             )
 
