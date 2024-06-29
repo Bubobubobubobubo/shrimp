@@ -249,7 +249,10 @@ class Clock(Subscriber):
             if func.__name__ in self._children:
                 del self._children[func.__name__]
 
-
     def next_bar(self) -> Number:
         """Return the time position of the next bar"""
         return self.beat + self.beats_until_next_bar()
+
+    def next_beat(self) -> Number:
+        """Return the time position of the next beat"""
+        return self.beat + 1
