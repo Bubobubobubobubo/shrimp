@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
+import uuid
 from .utils import info_message
 from queue import PriorityQueue
+from .errors import BadFunctionError
 from typing import Any, Callable, Dict
 from time import sleep
 import threading
@@ -11,6 +13,7 @@ Number = int | float
 
 @dataclass(order=True)
 class PriorityEvent:
+    name: str
     priority: int | float
     item: Any = field(compare=False)
 
@@ -20,7 +23,7 @@ class Clock():
         self._clock_thread: threading.Thread | None = None
         self._stop_event: threading.Event = threading.Event()
         self._event_queue = PriorityQueue(maxsize=1000)
-        self._scheduled_events: Dict[str, PriorityEvent] = {}
+        self._children: Dict[str, PriorityEvent] = {}
         self._isPlaying: bool = False
         self._link = link.Link(tempo)
         self._link.enabled = True
@@ -111,30 +114,69 @@ class Clock():
         """Clock Event Loop."""
         while not self._stop_event.is_set():
             self._capture_link_info()
-            self._execute_due_events()
+            self._execute_due_functions()
             sleep(self._grain)
 
-    def _execute_due_events(self):
-        """Execute all due events."""
-        while not self._event_queue.empty():
-            event = self._event_queue.queue[0]
-            if event.priority <= self._beat:
-                self._event_queue.get()
-                event.item()
-                self._scheduled_events.pop(event.item.__name__, None)
-            else:
-                break
+    def _execute_due_functions(self) -> None:
+        """Execute all functions that are due to be executed."""
+
+        # Sort the possible callables by priority
+        possible_callables = sorted(self._children.values(), key=lambda event: event.priority)
+
+        for callable in possible_callables:
+            if callable.priority <= self._beat:
+                try: 
+                    func, args, kwargs = callable.item
+                    func(*args, **kwargs)
+                except BadFunctionError as e:
+                    info_message(f"Bad Function : {e}")
+                    pass
 
     def beats_until_next_bar(self):
         """Return the number of beats until the next bar."""
         return self._denominator - self._beat % self._denominator
 
-    def add(self, func: Callable, time: int | float = None):
-        """Add an event to the clock.
+    def add_once(self, func: Callable, time: int | float = None, *args, **kwargs) -> None:
+        """Add a function to the clock to be executed only once.
 
         Args:
             func (Callable): The function to be executed.
-            time (int|float, optional): The beat at which the event should be executed. Defaults to clock.beat + 1.
+            time (int|float, optional): The beat at which the event 
+            should be executed. Defaults to clock.beat + 1.
+        
+        Returns:
+            None
+        """
+        if time is None:
+            time = self.beat + 1
+
+        if isinstance(func, types.FunctionType):
+            func_name = func.__name__
+        else:
+            func_name = str(uuid.uuid4())
+
+        def wrapper():
+            func(*args, **kwargs)
+            self.remove(func)
+
+        if func_name in self._children:
+            self._children[func_name].priority = time
+            self._children[func_name].item = (wrapper, args, kwargs)
+        else:
+            # Extract priority from the time argument
+            self._children[func_name] = PriorityEvent(
+                name=func_name, 
+                priority=time, 
+                item=(wrapper, args, kwargs)
+            )
+
+    def add(self, func: Callable, time: int | float = None, *args, **kwargs):
+        """Add any Callable to the clock.
+
+        Args:
+            func (Callable): The function to be executed.
+            time (int|float, optional): The beat at which the event 
+            should be executed. Defaults to clock.beat + 1.
             
         Returns:
             None
@@ -142,44 +184,37 @@ class Clock():
         if time is None:
             time = self.beat + 1
 
-        func_name = func.__name__
-        is_lambda = isinstance(func, types.LambdaType) and func.__name__ == '<lambda>'
-        
-        if func_name in self._scheduled_events:
-            if not is_lambda:
-                info_message(f"Updating function [yellow]{func_name}[/yellow]")
-            self.remove(func)
+        if isinstance(func, types.FunctionType):
+            func_name = func.__name__
+        else:
+            func_name = str(uuid.uuid4())
 
-        event = PriorityEvent(priority=time, item=func)
-        self._event_queue.put(event)
-        self._scheduled_events[func_name] = event
-        if not is_lambda:
-            info_message(f"Added function [green]{func_name}[/green] at beat {time}")
+        # If the function enters the clock for the first time, it is added to the children
+        # and should be considered active with a scheduling priority. Otherwise, it should
+        # receive a new priority and be set to active again.
+        if func_name in self._children:
+            self._children[func_name].priority = time
+            self._children[func_name].item = (func, args, kwargs)
+        else:
+            # Extract priority from the time argument
+            self._children[func_name] = PriorityEvent(
+                name=func_name, 
+                priority=time, 
+                item=(func, args, kwargs)
+            )
 
     def clear(self) -> None:
         """Clear all events from the clock."""
         self._event_queue = PriorityQueue(maxsize=1000)
         self._scheduled_events = {}
-        info_message("Cleared all scheduled events")
 
-    def remove(self, func: Callable) -> None:
+    def remove(self, *args) -> None:
         """Remove an event from the clock."""
-        func_name = func.__name__
-        is_lambda = isinstance(func, types.LambdaType) and func.__name__ == '<lambda>'
-        
-        if func_name in self._scheduled_events:
-            event = self._scheduled_events.pop(func_name)
-            temp_queue = PriorityQueue(maxsize=1000)
-            while not self._event_queue.empty():
-                current_event = self._event_queue.get()
-                if current_event.item != func:
-                    temp_queue.put(current_event)
-            self._event_queue = temp_queue
-            if not is_lambda:
-                info_message(f"Removed function [red]{func_name}[/red]")
-        else:
-            if not is_lambda:
-                info_message(f"Function [red]{func_name}[/red] not found")
+        args = filter(lambda x: isinstance(x, types.FunctionType | types.LambdaType), args)
+        for func in args:
+            if func.__name__ in self._children:
+                del self._children[func.__name__]
+
 
     def next_bar(self) -> Number:
         """Return the time position of the next bar"""
