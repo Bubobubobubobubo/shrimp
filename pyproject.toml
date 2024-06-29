@@ -10,15 +10,19 @@ authors = [
 ]
 description = "La baston sur scène"
 readme = "README.md"
-requires-python = "> 3.10"
+requires-python = ">= 3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-dependencies = []
+dependencies = [
+  "mido >= 1.3.0",
+  "appdirs >= 1.4.4",
+  "LinkPython-extern >= 1.0.0"
+]
 
 
 [project.urls]
-Homepage = "https://google.fr"
-Issues = "https://google.fr"
+Homepage = "https://github.com/Bubobubobubobubo/baston"
+Issues = "https://github.com/Bubobubobubobubo/baston"
