@@ -127,7 +127,7 @@ class Clock(Subscriber):
             self._link.commitSessionState(session)
 
         if now:
-            self._on_time_callback()
+            _on_time_callback()
         else:
             self.add(
                 func=_on_time_callback,
@@ -158,12 +158,21 @@ class Clock(Subscriber):
         """Utility function to capture timing information from Link Session."""
         link_state = self._link.captureSessionState()
         link_time = self._link.clock().micros()
+        isPlaying = link_state.isPlaying()
+
+        if isPlaying and not self._playing:
+            self._playing = True
+
+        if not isPlaying and self._playing:
+            self._playing = False
+
         self._beat, self._phase, self._tempo = (
             link_state.beatAtTime(link_time, self._denominator),
             link_state.phaseAtTime(link_time, self._denominator),
             link_state.tempo()
         )
         self._bar = self._beat / self._denominator
+
 
     def run(self) -> None:
         """Clock Event Loop."""
