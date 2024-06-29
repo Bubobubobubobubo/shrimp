@@ -16,13 +16,13 @@ class PriorityEvent:
     name: str
     priority: int | float
     item: Any = field(compare=False)
+    once: bool = False
 
 class Clock():
 
     def __init__(self, tempo: int | float):
         self._clock_thread: threading.Thread | None = None
         self._stop_event: threading.Event = threading.Event()
-        self._event_queue = PriorityQueue(maxsize=1000)
         self._children: Dict[str, PriorityEvent] = {}
         self._isPlaying: bool = False
         self._link = link.Link(tempo)
@@ -73,6 +73,11 @@ class Clock():
         return self._beat
 
     @property
+    def beat_duration(self) -> Number:
+        """Get the duration of a beat"""
+        return 60 / self._tempo
+
+    @property
     def phase(self) -> Number:
         """Get the phase of the clock"""
         return self._phase
@@ -119,8 +124,6 @@ class Clock():
 
     def _execute_due_functions(self) -> None:
         """Execute all functions that are due to be executed."""
-
-        # Sort the possible callables by priority
         possible_callables = sorted(self._children.values(), key=lambda event: event.priority)
 
         for callable in possible_callables:
@@ -128,6 +131,8 @@ class Clock():
                 try: 
                     func, args, kwargs = callable.item
                     func(*args, **kwargs)
+                    if callable.once:
+                        del self._children[callable.name]
                 except BadFunctionError as e:
                     info_message(f"Bad Function : {e}")
                     pass
@@ -136,47 +141,14 @@ class Clock():
         """Return the number of beats until the next bar."""
         return self._denominator - self._beat % self._denominator
 
-    def add_once(self, func: Callable, time: int | float = None, *args, **kwargs) -> None:
-        """Add a function to the clock to be executed only once.
-
-        Args:
-            func (Callable): The function to be executed.
-            time (int|float, optional): The beat at which the event 
-            should be executed. Defaults to clock.beat + 1.
-        
-        Returns:
-            None
-        """
-        if time is None:
-            time = self.beat + 1
-
-        if isinstance(func, types.FunctionType):
-            func_name = func.__name__
-        else:
-            func_name = str(uuid.uuid4())
-
-        def wrapper():
-            func(*args, **kwargs)
-            self.remove(func)
-
-        if func_name in self._children:
-            self._children[func_name].priority = time
-            self._children[func_name].item = (wrapper, args, kwargs)
-        else:
-            # Extract priority from the time argument
-            self._children[func_name] = PriorityEvent(
-                name=func_name, 
-                priority=time, 
-                item=(wrapper, args, kwargs)
-            )
-
-    def add(self, func: Callable, time: int | float = None, *args, **kwargs):
+    def add(self, func: Callable, time: int | float = None, once: bool = False, *args, **kwargs):
         """Add any Callable to the clock.
 
         Args:
             func (Callable): The function to be executed.
             time (int|float, optional): The beat at which the event 
             should be executed. Defaults to clock.beat + 1.
+            once (bool, optional): If True, the function will only be executed once.
             
         Returns:
             None
@@ -184,14 +156,11 @@ class Clock():
         if time is None:
             time = self.beat + 1
 
-        if isinstance(func, types.FunctionType):
+        if isinstance(func, Callable) and func.__name__ != "<lambda>":
             func_name = func.__name__
         else:
             func_name = str(uuid.uuid4())
 
-        # If the function enters the clock for the first time, it is added to the children
-        # and should be considered active with a scheduling priority. Otherwise, it should
-        # receive a new priority and be set to active again.
         if func_name in self._children:
             self._children[func_name].priority = time
             self._children[func_name].item = (func, args, kwargs)
@@ -200,6 +169,7 @@ class Clock():
             self._children[func_name] = PriorityEvent(
                 name=func_name, 
                 priority=time, 
+                once=once,
                 item=(func, args, kwargs)
             )
 
