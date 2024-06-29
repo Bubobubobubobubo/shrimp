@@ -14,6 +14,7 @@ def _create_default_configuration() -> dict:
         "tempo": 120,
         "midi_out_port": "MIDI Bus 1",
         "midi_in_port": "MIDI Bus 1",
+        "default_shell": "python",
     }
     return configuration
 

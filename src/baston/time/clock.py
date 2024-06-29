@@ -154,7 +154,6 @@ class Clock(Subscriber):
             return
         self.env.dispatch(self, "stop", {})
         self._stop_event.set()
-        self._clock_thread.join()
 
     def _capture_link_info(self) -> None:
         """Utility function to capture timing information from Link Session."""
@@ -177,10 +176,16 @@ class Clock(Subscriber):
 
     def run(self) -> None:
         """Clock Event Loop."""
+        previous_time = self._link.clock().micros()
         while not self._stop_event.is_set():
+            current_time = self._link.clock().micros()
+            elapsed_time = current_time - previous_time
             self._capture_link_info()
             self._execute_due_functions()
-            sleep(self._grain)
+            sleep_time = self._grain - (elapsed_time / 1000000)
+            if sleep_time > 0:
+                sleep(sleep_time)
+            previous_time = current_time
         print("Clock thread stopped")
         
 
