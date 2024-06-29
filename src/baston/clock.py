@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from .utils import info_message
 from queue import PriorityQueue
 from typing import Any, Callable
 from time import sleep
@@ -62,7 +63,6 @@ class Clock():
     def tempo(self, value: Number):
         """Set the tempo of the clock"""
         if self._link:
-            # TODO: get a wrapper for these operations
             session = self._link.captureSessionState()
             session.setTempo(value, self._link.clock().micros())
             self._link.commitSessionState(session)
@@ -162,6 +162,7 @@ class Clock():
     def remove(self, func: Callable) -> None:
         """Remove an event from the clock."""
         temp_queue = PriorityQueue(maxsize=1000)
+        info_message(f"Removing function [red]{func.__name__}[/red]")
         while not self._event_queue.empty():
             current_event = self._event_queue.get()
             if current_event.item != func:

@@ -1,5 +1,5 @@
 from .configuration import read_configuration
-from .utils import BASTON_LOGO
+from .utils import BASTON_LOGO, info_message, greeter
 from .clock import Clock 
 from .midi import MIDIOut, MIDIIn
 import functools
@@ -10,38 +10,33 @@ clock = Clock(CONFIGURATION["tempo"])
 midi = MIDIOut(CONFIGURATION["midi_out_port"], clock)
 midi_in = MIDIIn(CONFIGURATION["midi_in_port"], clock)
 c = clock
-now = clock.beat
+now = lambda: clock.beat
 # The monitoring loop is blocking exit...
 # clock.add(now, midi_in._monitoring_loop)
 
 
 # TODO: problem, these functions are loosing identity 
 # and multiple instances can overlap
-
 def fight(quant='bar'):
     def decorator(func):
         def wrapper(*args, **kwargs):
             return func(*args, **kwargs)
         if quant == 'bar':
+            info_message(f"Starting [red]{func.__name__}[/red] on next bar")
             clock.add(clock.next_bar(), func)
         elif quant == 'beat':
+            info_message(f"Starting [red]{func.__name__}[/red] on next beat")
             clock.add(clock.beat + 1, func)
         elif quant == 'now':
+            info_message(f"Starting [red]{func.__name__}[/red] now")
             clock.add(clock.beat, func)
         elif isinstance(quant, (int, float)):
+            info_message(f"Starting [red]{func.__name__}[/red] in {quant} beats")
             clock.add(clock.beat + quant, func)
         else:
             raise ValueError("Invalid quantization option. Choose 'bar', 'beat', 'now', or a numeric value.")
         return wrapper
     return decorator
-
-def ko(func):
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-    
-    clock.remove(func)
-    
-    return wrapper
 
 def exit():
     """Exit the interactive shell"""
@@ -61,9 +56,10 @@ def bip():
 
 if __name__ == "__main__":
     clock.start()
+    greeter()
     code.interact(
         local=locals(),
-        banner=BASTON_LOGO + "\n> Live Coding blob made by BuboBubo\n", 
+        banner="", 
         exitmsg="Goodbye!"
     )
     exit()
