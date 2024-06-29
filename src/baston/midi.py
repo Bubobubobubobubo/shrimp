@@ -1,12 +1,14 @@
 import mido
 from .clock import Clock
+from .environment import Subscriber
 
-class MIDIIn:
+class MIDIIn(Subscriber):
 
     """MIDI class to receive MIDI messages from a MIDI port."""
     # TODO: continue implementation
 
     def __init__(self, port: str, clock: Clock):    
+        super().__init__()
         self.port = port
         self.clock = clock
         self.wheel = 0
@@ -28,17 +30,38 @@ class MIDIIn:
         self.clock.add(self.clock.beat + 0.01, self._monitoring_loop)
             
 
-class MIDIOut:
+class MIDIOut(Subscriber):
 
     """MIDI class to send MIDI messages to a MIDI port."""
 
     def __init__(self, port: str, clock: Clock):
+        super().__init__()
         self.port = port
         self.clock = clock
         try:
             self._midi_out = mido.open_output(port)
         except:
             print(f"Could not open MIDI port {port}")
+
+        self.register_handler("pause", self._pause_handler)
+        self.register_handler("stop", self._stop_handler)
+        self.register_handler("all_notes_off", lambda _: self._all_notes_off())
+
+    def _pause_handler(self, data: dict) -> None:
+        """Handle the pause event."""
+        print("ALL NOTES OFF")
+        self._all_notes_off()
+
+    def _stop_handler(self, data: dict) -> None:
+        """Handle the stop event."""
+        print("ALL NOTES OFF")
+        self._all_notes_off()
+
+    def _all_notes_off(self):
+        """Send all notes off message on all channels."""
+        for channel in range(16):
+            for notes in range(128):
+                self._note_off(note=notes, channel=channel)
 
     def _note_on(self, note: int = 60, velocity: int = 100, channel: int = 1) -> None:
         """Send a MIDI note on message:

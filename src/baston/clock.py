@@ -3,6 +3,7 @@ import uuid
 from .utils import info_message
 from queue import PriorityQueue
 from .errors import BadFunctionError
+from .environment import Subscriber
 from typing import Any, Callable, Dict
 from time import sleep
 import threading
@@ -18,9 +19,10 @@ class PriorityEvent:
     item: Any = field(compare=False)
     once: bool = False
 
-class Clock():
+class Clock(Subscriber):
 
     def __init__(self, tempo: int | float):
+        super().__init__()
         self._clock_thread: threading.Thread | None = None
         self._stop_event: threading.Event = threading.Event()
         self._children: Dict[str, PriorityEvent] = {}
@@ -34,7 +36,11 @@ class Clock():
         self._bar = 0
         self._phase = 0
         self._grain = 0.001
-
+        self.register_handler("start", self.start)
+        self.register_handler("play", self.play)
+        self.register_handler("pause", self.pause)
+        self.register_handler("stop", self.stop)
+ 
     def sync(self, bool: bool = True):
         """Enable or disable the sync of the clock"""
         self.link.startStopSyncEnabled = bool
@@ -84,23 +90,27 @@ class Clock():
 
     def start(self) -> None:
         """Start the clock"""
+        self.env.dispatch(self, "start", {})
         if not self._clock_thread:
             self._clock_thread = threading.Thread(target=self.run).start()
 
     def play(self) -> None:
         """Play the clock"""
+        self.env.dispatch(self, "play", {})
         session = self._link.captureSessionState()
         session.setIsPlaying(True, self._link.clock().micros())
         self._link.commitSessionState(session)
 
     def pause(self) -> None:
         """Pause the clock"""
+        self.env.dispatch(self, "pause", {})
         session = self._link.captureSessionState()
         session.setIsPlaying(False, self._link.clock().micros())
         self._link.commitSessionState(session)
 
     def stop(self) -> None:
         """Stop the clock and wait for the thread to finish"""
+        self.env.dispatch(self, "stop", {})
         self._stop_event.set()
 
     def _capture_link_info(self) -> None:
@@ -175,6 +185,7 @@ class Clock():
 
     def clear(self) -> None:
         """Clear all events from the clock."""
+        self.env.dispatch(self, "all_notes_off", {})
         self._children = {}
 
     def remove(self, *args) -> None:

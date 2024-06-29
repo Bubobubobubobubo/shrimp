@@ -2,11 +2,15 @@ from .configuration import read_configuration
 from .utils import BASTON_LOGO, info_message, greeter
 from .clock import Clock 
 from .midi import MIDIOut, MIDIIn
+from .environment import Environment
 import functools
 
 CONFIGURATION = read_configuration()
+env = Environment()
 clock = Clock(CONFIGURATION["tempo"])
+env.subscribe(clock)
 midi = MIDIOut(CONFIGURATION["midi_out_port"], clock)
+env.subscribe(midi)
 midi_in = MIDIIn(CONFIGURATION["midi_in_port"], clock)
 c = clock
 now = lambda: clock.beat
