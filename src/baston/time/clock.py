@@ -115,7 +115,11 @@ class Clock(Subscriber):
         """Start the clock"""
         self.env.dispatch(self, "start", {})
         if not self._clock_thread:
-            self._clock_thread = threading.Thread(target=self.run, daemon=True).start()
+            self._clock_thread = threading.Thread(
+                target=self.run,
+                daemon=False
+            )
+            self._clock_thread.start()
 
     def play(self, now: bool = False) -> None:
         """Play the clock"""
@@ -144,16 +148,15 @@ class Clock(Subscriber):
         session.setIsPlaying(False, self._link.clock().micros())
         self._link.commitSessionState(session)
 
-    def stop(self, _: dict) -> None:
+    def stop(self, _: dict = {}) -> None:
         """Stop the clock and wait for the thread to finish
 
         Args:
             data (dict): Data to be passed to the event handler
         """
-        if not self._playing:
-            return
         self.env.dispatch(self, "stop", {})
         self._stop_event.set()
+        self._clock_thread.join()
 
     def _capture_link_info(self) -> None:
         """Utility function to capture timing information from Link Session."""
@@ -186,7 +189,6 @@ class Clock(Subscriber):
             if sleep_time > 0:
                 sleep(sleep_time)
             previous_time = current_time
-        print("Clock thread stopped")
         
 
     def _execute_due_functions(self) -> None:

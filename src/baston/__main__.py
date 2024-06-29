@@ -1,8 +1,12 @@
 from baston import *
 from ptpython.repl import embed
-from .configuration import read_configuration
+from baston.configuration import read_configuration
 CONFIGURATION = read_configuration()
 
+def exit():
+    """Custom override for the exit function"""
+    clock.stop()
+    raise SystemExit
 
 if __name__ == "__main__":
     match CONFIGURATION.get("default_shell", "python"):
@@ -14,4 +18,3 @@ if __name__ == "__main__":
             code.interact(local=locals(), banner="", exitmsg="Bye!")
         case _:
             print("Invalid shell selection. Exiting.")
-    exit()

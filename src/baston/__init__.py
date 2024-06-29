@@ -61,6 +61,7 @@ def exit():
     env.dispatch(env, "exit", {})
     raise SystemExit
 
-
 greeter()
+
 clock.start()
+clock.play()
