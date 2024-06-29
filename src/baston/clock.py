@@ -18,6 +18,7 @@ class PriorityEvent:
     priority: int | float
     item: Any = field(compare=False)
     has_played: bool = False
+    passthrough: bool = False
     once: bool = False
 
 class Clock(Subscriber):
@@ -27,7 +28,7 @@ class Clock(Subscriber):
         self._clock_thread: threading.Thread | None = None
         self._stop_event: threading.Event = threading.Event()
         self._children: Dict[str, PriorityEvent] = {}
-        self._isPlaying: bool = False
+        self._playing: bool = True
         self._link = link.Link(tempo)
         self._link.enabled = True
         self._link.startStopSyncEnabled = True
@@ -42,6 +43,14 @@ class Clock(Subscriber):
         self.register_handler("pause", self.pause)
         self.register_handler("stop", self.stop)
  
+    def __str__(self) -> str:
+        state = "PLAY" if self._playing else "STOP"
+        return f"Clock {state}: {self.tempo} BPM, {self.bar} bars, {self.beat} beats, {self.phase} phase."
+
+    def __repr__(self) -> str:
+        state = "PLAY" if self._playing else "STOP"
+        return f"Clock {state}: {self.tempo} BPM, {self.bar} bars, {self.beat} beats, {self.phase} phase."
+
     def sync(self, bool: bool = True):
         """Enable or disable the sync of the clock"""
         self.link.startStopSyncEnabled = bool
@@ -95,24 +104,45 @@ class Clock(Subscriber):
         if not self._clock_thread:
             self._clock_thread = threading.Thread(target=self.run).start()
 
-    def play(self) -> None:
+    def play(self, now: bool = False) -> None:
         """Play the clock"""
-        self.env.dispatch(self, "play", {})
-        session = self._link.captureSessionState()
-        session.setIsPlaying(True, self._link.clock().micros())
-        self._link.commitSessionState(session)
+        if self._playing:
+            return
+
+        def _on_time_callback():
+            self.env.dispatch(self, "play", {})
+            session = self._link.captureSessionState()
+            self._playing = True
+            session.setIsPlaying(True, self._link.clock().micros())
+            self._link.commitSessionState(session)
+
+        if now:
+            self._on_time_callback()
+        else:
+            self.add(
+                func=_on_time_callback,
+                time=self.next_bar(),
+                once=True,
+                passthrough=True
+            )
 
     def pause(self) -> None:
         """Pause the clock"""
+        if not self._playing:
+            return
         self.env.dispatch(self, "pause", {})
         session = self._link.captureSessionState()
+        self._playing = False
         session.setIsPlaying(False, self._link.clock().micros())
         self._link.commitSessionState(session)
 
     def stop(self) -> None:
         """Stop the clock and wait for the thread to finish"""
+        if not self._playing:
+            return
         self.env.dispatch(self, "stop", {})
         self._stop_event.set()
+        self._playing = False
 
     def _capture_link_info(self) -> None:
         """Utility function to capture timing information from Link Session."""
@@ -124,7 +154,6 @@ class Clock(Subscriber):
             link_state.tempo()
         )
         self._bar = self._beat / self._denominator
-        self._isPlaying = link_state.isPlaying
 
     def run(self) -> None:
         """Clock Event Loop."""
@@ -140,11 +169,12 @@ class Clock(Subscriber):
         for callable in possible_callables:
             if callable.priority <= self._beat and not callable.has_played:
                 try: 
-                    callable.has_played = True
-                    func, args, kwargs = callable.item
-                    func(*args, **kwargs)
-                    if callable.once:
-                        del self._children[callable.name]
+                    if self._playing or callable.passthrough:
+                        callable.has_played = True
+                        func, args, kwargs = callable.item
+                        func(*args, **kwargs)
+                        if callable.once:
+                            del self._children[callable.name]
                 except BadFunctionError as e:
                     info_message(f"Bad Function : {e}")
                     pass
@@ -153,7 +183,7 @@ class Clock(Subscriber):
         """Return the number of beats until the next bar."""
         return self._denominator - self._beat % self._denominator
 
-    def add(self, func: Callable, time: int | float = None, once: bool = False, *args, **kwargs):
+    def add(self, func: Callable, time: int | float = None, once: bool = False, passthrough: bool = False, *args, **kwargs):
         """Add any Callable to the clock.
 
         Args:
@@ -183,6 +213,7 @@ class Clock(Subscriber):
                 name=func_name, 
                 priority=time, 
                 once=once,
+                passthrough=passthrough,
                 has_played=False,
                 item=(func, args, kwargs)
             )

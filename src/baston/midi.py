@@ -49,12 +49,10 @@ class MIDIOut(Subscriber):
 
     def _pause_handler(self, data: dict) -> None:
         """Handle the pause event."""
-        print("ALL NOTES OFF")
         self._all_notes_off()
 
     def _stop_handler(self, data: dict) -> None:
         """Handle the stop event."""
-        print("ALL NOTES OFF")
         self._all_notes_off()
 
     def _all_notes_off(self):
