@@ -2,6 +2,10 @@ import mido
 from ..time.clock import Clock
 from ..environment import Subscriber
 
+def list_midi_ports() -> list[str]:
+    """List the available MIDI ports."""
+    return mido.get_input_names()
+
 
 class MIDIIn(Subscriber):
     """MIDI class to receive MIDI messages from a MIDI port."""

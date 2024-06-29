@@ -1,7 +1,7 @@
-from .configuration import read_configuration
+from .configuration import read_configuration, open_config_folder
 from .utils import BASTON_LOGO, info_message, greeter
 from .time.clock import Clock
-from .io.midi import MIDIOut, MIDIIn
+from .io.midi import MIDIOut, MIDIIn, list_midi_ports
 from .environment import Environment
 import functools
 
@@ -9,10 +9,19 @@ CONFIGURATION = read_configuration()
 env = Environment()
 clock = Clock(CONFIGURATION["tempo"])
 env.subscribe(clock)
-midi = MIDIOut(CONFIGURATION["midi_out_port"], clock)
-env.subscribe(midi)
-midi_in = MIDIIn(CONFIGURATION["midi_in_port"], clock)
-env.subscribe(midi_in)
+
+if CONFIGURATION["midi_out_port"] != "disabled":
+    midi = MIDIOut(CONFIGURATION["midi_out_port"], clock)
+    env.subscribe(midi)
+else:
+    info_message("No MIDI output port specified. MIDI is disabled.")
+
+if CONFIGURATION["midi_in_port"] != "disabled":
+    midi_in = MIDIIn(CONFIGURATION["midi_in_port"], clock)
+    env.subscribe(midi_in)
+else:
+    info_message("No MIDI input port specified. MIDI input is disabled.")
+
 c = clock
 now = lambda: clock.beat
 silence = clock.clear

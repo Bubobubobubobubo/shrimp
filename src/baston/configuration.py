@@ -7,13 +7,26 @@ APPNAME = "Baston"
 APPAUTHOR = "Raphaël Forment"
 USER_DIRECTORY = appdirs.user_data_dir(APPNAME, APPAUTHOR)
 
+def open_config_folder():
+    """Cross-platform function to open the configuration folder in the file explorer."""
+    try:
+        os.startfile(USER_DIRECTORY)
+    except AttributeError:
+        import subprocess
+        import sys
+        if sys.platform.startswith("darwin"):
+            subprocess.call(["open", USER_DIRECTORY])
+        elif sys.platform.startswith("linux"):
+            subprocess.call(["xdg-open", USER_DIRECTORY])
+        elif sys.platform.startswith("win"):
+            subprocess.call(["explorer", USER_DIRECTORY])
 
 def _create_default_configuration() -> dict:
     """Create a default configuration for Baston."""
     configuration = {
         "tempo": 120,
-        "midi_out_port": "MIDI Bus 1",
-        "midi_in_port": "MIDI Bus 1",
+        "midi_out_port": "disabled",
+        "midi_in_port": "disabled",
         "default_shell": "python",
     }
     return configuration
