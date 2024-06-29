@@ -66,6 +66,16 @@ class Clock(Subscriber):
         self._grain = value
 
     @property
+    def time_signature(self) -> tuple[int, int]:
+        """Return the time signature of the clock"""
+        return self._nominator, self._denominator
+
+    @time_signature.setter
+    def time_signature(self, value: tuple[int, int]):
+        """Set the time signature of the clock"""
+        self._nominator, self._denominator = value
+
+    @property
     def tempo(self):
         """Get the tempo of the clock"""
         return self._tempo
