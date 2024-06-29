@@ -14,11 +14,9 @@ now = lambda: clock.beat
 # The monitoring loop is blocking exit...
 # clock.add(now, midi_in._monitoring_loop)
 
-
-# TODO: problem, these functions are loosing identity 
-# and multiple instances can overlap
 def fight(quant='bar'):
     def decorator(func):
+        @functools.wraps(func)
         def wrapper(*args, **kwargs):
             return func(*args, **kwargs)
         if quant == 'bar':
@@ -37,6 +35,14 @@ def fight(quant='bar'):
             raise ValueError("Invalid quantization option. Choose 'bar', 'beat', 'now', or a numeric value.")
         return wrapper
     return decorator
+
+# TODO: why does it repeat the function?
+def stop(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        clock.remove(func)
+        return func(*args, **kwargs)
+    return wrapper
 
 def exit():
     """Exit the interactive shell"""
