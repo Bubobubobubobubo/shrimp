@@ -205,8 +205,7 @@ class Clock():
 
     def clear(self) -> None:
         """Clear all events from the clock."""
-        self._event_queue = PriorityQueue(maxsize=1000)
-        self._scheduled_events = {}
+        self._children = {}
 
     def remove(self, *args) -> None:
         """Remove an event from the clock."""

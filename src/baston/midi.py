@@ -76,8 +76,8 @@ class MIDIOut:
         at the appropriate times using the clock.
         """
         epsilon = duration / 100
-        self.clock.add_once(func=lambda: self._note_off(note, 0, channel), time= self.clock.beat + (duration - epsilon))
-        self.clock.add_once(func=lambda: self._note_on(note, velocity, channel), time=self.clock.beat)
+        self.clock.add_once(func=lambda: self._note_on(note, velocity, channel-1), time=self.clock.beat)
+        self.clock.add_once(func=lambda: self._note_off(note, 0, channel-1), time= self.clock.beat + (duration - epsilon))
 
     def cc(self, control: int = 0, value: int = 0, channel: int = 1) -> None:
         """Send a MIDI control change message.
