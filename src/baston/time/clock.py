@@ -1,9 +1,9 @@
 from dataclasses import dataclass, field
 import uuid
-from .utils import info_message
+from ..utils import info_message
 from queue import PriorityQueue
-from .errors import BadFunctionError
-from .environment import Subscriber
+from ..errors import BadFunctionError
+from ..environment import Subscriber
 from typing import Any, Callable, Dict
 from time import sleep
 import threading
@@ -11,6 +11,7 @@ import link
 import types
 
 Number = int | float
+
 
 @dataclass(order=True)
 class PriorityEvent:
@@ -20,6 +21,7 @@ class PriorityEvent:
     has_played: bool = False
     passthrough: bool = False
     once: bool = False
+
 
 class Clock(Subscriber):
 
@@ -42,7 +44,8 @@ class Clock(Subscriber):
         self.register_handler("play", self.play)
         self.register_handler("pause", self.pause)
         self.register_handler("stop", self.stop)
- 
+        self.register_handler("exit", self.stop)
+
     def __str__(self) -> str:
         state = "PLAY" if self._playing else "STOP"
         return f"Clock {state}: {self.tempo} BPM, {self.bar} bars, {self.beat} beats, {self.phase} phase."
@@ -79,7 +82,7 @@ class Clock(Subscriber):
     def tempo(self):
         """Get the tempo of the clock"""
         return self._tempo
-    
+
     @tempo.setter
     def tempo(self, value: Number):
         """Set the tempo of the clock"""
@@ -112,7 +115,7 @@ class Clock(Subscriber):
         """Start the clock"""
         self.env.dispatch(self, "start", {})
         if not self._clock_thread:
-            self._clock_thread = threading.Thread(target=self.run).start()
+            self._clock_thread = threading.Thread(target=self.run, daemon=True).start()
 
     def play(self, now: bool = False) -> None:
         """Play the clock"""
@@ -129,12 +132,7 @@ class Clock(Subscriber):
         if now:
             _on_time_callback()
         else:
-            self.add(
-                func=_on_time_callback,
-                time=self.next_bar(),
-                once=True,
-                passthrough=True
-            )
+            self.add(func=_on_time_callback, time=self.next_bar(), once=True, passthrough=True)
 
     def pause(self) -> None:
         """Pause the clock"""
@@ -146,13 +144,17 @@ class Clock(Subscriber):
         session.setIsPlaying(False, self._link.clock().micros())
         self._link.commitSessionState(session)
 
-    def stop(self) -> None:
-        """Stop the clock and wait for the thread to finish"""
+    def stop(self, _: dict) -> None:
+        """Stop the clock and wait for the thread to finish
+
+        Args:
+            data (dict): Data to be passed to the event handler
+        """
         if not self._playing:
             return
         self.env.dispatch(self, "stop", {})
         self._stop_event.set()
-        self._playing = False
+        self._clock_thread.join()
 
     def _capture_link_info(self) -> None:
         """Utility function to capture timing information from Link Session."""
@@ -169,10 +171,9 @@ class Clock(Subscriber):
         self._beat, self._phase, self._tempo = (
             link_state.beatAtTime(link_time, self._denominator),
             link_state.phaseAtTime(link_time, self._denominator),
-            link_state.tempo()
+            link_state.tempo(),
         )
         self._bar = self._beat / self._denominator
-
 
     def run(self) -> None:
         """Clock Event Loop."""
@@ -180,6 +181,8 @@ class Clock(Subscriber):
             self._capture_link_info()
             self._execute_due_functions()
             sleep(self._grain)
+        print("Clock thread stopped")
+        
 
     def _execute_due_functions(self) -> None:
         """Execute all functions that are due to be executed."""
@@ -187,7 +190,7 @@ class Clock(Subscriber):
 
         for callable in possible_callables:
             if callable.priority <= self._beat and not callable.has_played:
-                try: 
+                try:
                     if self._playing or callable.passthrough:
                         callable.has_played = True
                         func, args, kwargs = callable.item
@@ -202,15 +205,23 @@ class Clock(Subscriber):
         """Return the number of beats until the next bar."""
         return self._denominator - self._beat % self._denominator
 
-    def add(self, func: Callable, time: int | float = None, once: bool = False, passthrough: bool = False, *args, **kwargs):
+    def add(
+        self,
+        func: Callable,
+        time: int | float = None,
+        once: bool = False,
+        passthrough: bool = False,
+        *args,
+        **kwargs,
+    ):
         """Add any Callable to the clock.
 
         Args:
             func (Callable): The function to be executed.
-            time (int|float, optional): The beat at which the event 
+            time (int|float, optional): The beat at which the event
             should be executed. Defaults to clock.beat + 1.
             once (bool, optional): If True, the function will only be executed once.
-            
+
         Returns:
             None
         """
@@ -229,12 +240,12 @@ class Clock(Subscriber):
         else:
             # Extract priority from the time argument
             self._children[func_name] = PriorityEvent(
-                name=func_name, 
-                priority=time, 
+                name=func_name,
+                priority=time,
                 once=once,
                 passthrough=passthrough,
                 has_played=False,
-                item=(func, args, kwargs)
+                item=(func, args, kwargs),
             )
 
     def clear(self) -> None:

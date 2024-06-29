@@ -1,10 +1,12 @@
-import appdirs
 import logging
 import json
 import os
+import appdirs
+
 APPNAME = "Baston"
 APPAUTHOR = "Raphaël Forment"
 USER_DIRECTORY = appdirs.user_data_dir(APPNAME, APPAUTHOR)
+
 
 def _create_default_configuration() -> dict:
     """Create a default configuration for Baston."""
@@ -14,6 +16,7 @@ def _create_default_configuration() -> dict:
         "midi_in_port": "MIDI Bus 1",
     }
     return configuration
+
 
 def _check_for_configuration() -> None:
     """Make sure the configuration file/dir exists. If not, create it."""
@@ -25,7 +28,7 @@ def _check_for_configuration() -> None:
         logging.error(f"An error occurred while creating the user directory: {e}")
 
     config_path = os.path.join(USER_DIRECTORY, "config.json")
-    
+
     try:
         if not os.path.exists(config_path) or os.path.getsize(config_path) == 0:
             file = _create_default_configuration()
@@ -48,11 +51,12 @@ def _check_for_configuration() -> None:
     except OSError as e:
         logging.error(f"An error occurred while updating the configuration file: {e}")
 
+
 def read_configuration() -> dict:
     """Read the configuration file for Baston."""
     _check_for_configuration()
     config_path = os.path.join(USER_DIRECTORY, "config.json")
-    
+
     try:
         with open(config_path, "r") as f:
             content = f.read()
@@ -61,6 +65,7 @@ def read_configuration() -> dict:
     except json.JSONDecodeError as e:
         logging.error(f"Error decoding JSON from the configuration file: {e}")
         return _create_default_configuration()
+
 
 def write_configuration(configuration: dict):
     """Write the configuration to the configuration file."""

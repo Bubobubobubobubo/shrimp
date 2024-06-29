@@ -11,10 +11,10 @@ class Environment:
             if subscriber != sender and message_type in subscriber.message_handlers:
                 subscriber.message_handlers[message_type](data)
 
+
 class Subscriber:
     def __init__(self):
         self.message_handlers = {}
 
     def register_handler(self, message_type: str, callback):
         self.message_handlers[message_type] = callback
-

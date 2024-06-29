@@ -1,13 +1,14 @@
 import mido
-from .clock import Clock
-from .environment import Subscriber
+from ..time.clock import Clock
+from ..environment import Subscriber
+
 
 class MIDIIn(Subscriber):
-
     """MIDI class to receive MIDI messages from a MIDI port."""
+
     # TODO: continue implementation
 
-    def __init__(self, port: str, clock: Clock):    
+    def __init__(self, port: str, clock: Clock):
         super().__init__()
         self.port = port
         self.clock = clock
@@ -20,18 +21,17 @@ class MIDIIn(Subscriber):
     def _monitoring_loop(self):
         """Monitor the MIDI port for incoming messages."""
         for message in self._midi_in:
-            if message.type == 'pitchwheel':
+            if message.type == "pitchwheel":
                 self.wheel = message.pitch
-            if message.type == 'stop':
+            if message.type == "stop":
                 self.clock.stop()
-            if message.type in ['start', 'continue']:
-                self.clock.play()  
+            if message.type in ["start", "continue"]:
+                self.clock.play()
 
         self.clock.add(self.clock.beat + 0.01, self._monitoring_loop)
-            
+
 
 class MIDIOut(Subscriber):
-
     """MIDI class to send MIDI messages to a MIDI port."""
 
     def __init__(self, port: str, clock: Clock):
@@ -70,7 +70,7 @@ class MIDIOut(Subscriber):
             channel (int): The MIDI channel.
 
         """
-        note = mido.Message('note_on', note=note, velocity=velocity, channel=channel)
+        note = mido.Message("note_on", note=note, velocity=velocity, channel=channel)
         self._midi_out.send(note)
 
     def _note_off(self, note: int = 60, velocity: int = 0, channel: int = 1) -> None:
@@ -81,7 +81,7 @@ class MIDIOut(Subscriber):
             velocity (int): The velocity of the note.
             channel (int): The MIDI channel.
         """
-        note = mido.Message('note_off', note=note, velocity=velocity, channel=channel)
+        note = mido.Message("note_off", note=note, velocity=velocity, channel=channel)
         self._midi_out.send(note)
 
     def note(self, note: int = 60, velocity: int = 100, channel: int = 1, duration: int = 1):
@@ -93,30 +93,28 @@ class MIDIOut(Subscriber):
             channel (int): The MIDI channel.
             duration (int): The duration of the note in beats.
 
-        Note: This function schedules the note on and note off messages to be sent 
+        Note: This function schedules the note on and note off messages to be sent
         at the appropriate times using the clock.
         """
         epsilon = duration / 100
         self.clock.add(
-            func=lambda: self._note_on(note, velocity, channel-1),
-            time=self.clock.beat,
-            once=True
+            func=lambda: self._note_on(note, velocity, channel - 1), time=self.clock.beat, once=True
         )
         self.clock.add(
-            func=lambda: self._note_off(note, 0, channel-1),
+            func=lambda: self._note_off(note, 0, channel - 1),
             time=self.clock.beat + (duration - epsilon),
-            once=True
+            once=True,
         )
 
     def cc(self, control: int = 0, value: int = 0, channel: int = 1) -> None:
         """Send a MIDI control change message.
-        
+
         Args:
             control (int): The control number.
             value (int): The control value.
             channel (int): The MIDI channel.
         """
-        cc = mido.Message('control_change', control=control, value=value, channel=channel)
+        cc = mido.Message("control_change", control=control, value=value, channel=channel)
         self._midi_out.send(cc)
 
     def pc(self, program: int = 0, channel: int = 1) -> None:
@@ -126,14 +124,14 @@ class MIDIOut(Subscriber):
             program (int): The program number.
             channel (int): The MIDI channel.
         """
-        pc = mido.Message('program_change', program=program, channel=channel)
+        pc = mido.Message("program_change", program=program, channel=channel)
         self._midi_out.send(pc)
 
     def sysex(self, data: list) -> None:
         """Send a MIDI system exclusive message.
-        
+
         Args:
             data (list): The sysex data.
         """
-        sysex = mido.Message('sysex', data=data)
+        sysex = mido.Message("sysex", data=data)
         self._midi_out.send(sysex)
