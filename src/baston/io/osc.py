@@ -42,7 +42,7 @@ class OSC(Subscriber):
             """
             while not self._osc_loop_shutdown.is_set():
                 osc_process()
-                time.sleep(0.1)
+                time.sleep(0.001)
 
         osc_startup()
         self._osc_loop_thread = threading.Thread(target=_osc_process_loop, daemon=True)
@@ -74,9 +74,10 @@ class OSC(Subscriber):
         bundle = self._make_bundle([[address, message]])
         # TODO: try to quantize the message to the next smallest
         # time division
+        epsilon = 0.001
         self._clock.add(
             func=lambda: osc_send(bundle, self.name),
-            time= self._clock.beat(), 
+            time= self._clock.beat + self._nudge - epsilon, 
             once=True, passthrough=True
         )
 
@@ -119,9 +120,10 @@ class OSC(Subscriber):
 
         """
         bundle = self._make_bundle(messages)
+        epsilon = 0.001
         self._clock.add(
             func=lambda: osc_send(bundle, self.name),
-            time=self._clock.beat(),
+            time=self._clock.beat + self._nudge - epsilon,
             once=True,
             passthrough=True,
         )
