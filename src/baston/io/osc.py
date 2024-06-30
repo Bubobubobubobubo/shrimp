@@ -9,7 +9,7 @@ import time
 
 class OSC(Subscriber):
 
-    """OSC client: Send Open Sound Control messages to a remote host."""
+    """OSC client: Send/Receive Open Sound Control messages to/from a remote host."""
 
     def __init__(self, name: str, host: str, port: int):
         super().__init__()
