@@ -1,15 +1,7 @@
 from importlib.metadata import version
 from rich.panel import Panel
 from rich import print
-
-BASTON_LOGO = """
-    __               __            
-   / /_  ____ ______/ /_____  ____ 
-  / __ \/ __ `/ ___/ __/ __ \/ __ \\
- / /_/ / /_/ (__  ) /_/ /_/ / / / /
-/_.___/\__,_/____/\__/\____/_/ /_/ 
-"""
-
+from pyfiglet import figlet_format
 
 def info_message(message: str, should_print: bool = False) -> None:
     """Print an information message"""
@@ -18,9 +10,8 @@ def info_message(message: str, should_print: bool = False) -> None:
 
 
 def greeter() -> None:
-    print(
-        f"[bold blue]{BASTON_LOGO}[/bold blue]\n[bold yellow]> Live Coding tool, BuboBubo {version('baston')}[/bold yellow]\n"
-    )
+    banner = figlet_format("Baston", font="roman")
+    print(f"[bold blue]{banner}[/bold blue][bold yellow]> Live Coding tool, BuboBubo {version('baston')}[/bold yellow]")
 
 def flatten(l: list) -> list:
     """Utility function to flatten a list.

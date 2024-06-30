@@ -112,6 +112,11 @@ class Clock(Subscriber):
         return self.beat + 1
 
     @property
+    def now(self) -> Number:
+        """Return the time position of the current beat"""
+        return self.beat
+
+    @property
     def beat_duration(self) -> Number:
         """Get the duration of a beat"""
         return 60 / self._tempo
@@ -169,9 +174,11 @@ class Clock(Subscriber):
         Args:
             data (dict): Data to be passed to the event handler
         """
-        self.env.dispatch(self, "stop", {})
+        self._link.startStopSyncEnabled = False
         self._stop_event.set()
-        self._clock_thread.join()
+        self._link.enabled = False
+        self.env.dispatch(self, "stop", {})
+        del self._link
 
     def _capture_link_info(self) -> None:
         """Utility function to capture timing information from Link Session."""

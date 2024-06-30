@@ -1,10 +1,13 @@
 from .configuration import read_configuration, open_config_folder
-from .utils import BASTON_LOGO, info_message, greeter
+from .utils import info_message, greeter
 from .time.clock import Clock
 from .io.midi import MIDIOut, MIDIIn, list_midi_ports
 from .io.osc import OSC
+from rich import print
 from .environment import Environment
 import functools
+
+greeter()
 
 CONFIGURATION = read_configuration()
 env = Environment()
@@ -14,20 +17,20 @@ env.subscribe(clock)
 # Opening MIDI output ports based on user configuration
 for midi_out_port_name, port in CONFIGURATION["midi"]["out_ports"].items():
     if port is not False:
-        info_message(f"Opening MIDI output: {port}. Variable: [red]{midi_out_port_name}[/red]", True)
+        print(f"[bold yellow]> MIDI Output added: [red]{midi_out_port_name}[/red] [/bold yellow]")
         globals()[midi_out_port_name] = MIDIOut(port, clock)
         env.subscribe(globals()[midi_out_port_name])
 
 # Opening MIDI input ports based on user configuration
 for midi_in_port_name, port in CONFIGURATION["midi"]["in_ports"].items():
     if port is not False:
-        info_message(f"Opening MIDI input: {port}, Variable: [red]{midi_in_port_name}", True)
+        print(f"[bold yellow]> MIDI Input added: [red]{midi_in_port_name}[/red] [/bold yellow]")
         globals()[midi_in_port_name] = MIDIIn(port, clock)
         env.subscribe(globals()[midi_in_port_name])
 
 # Opening OSC connexions based on user configuration
 for osc_port_name, port in CONFIGURATION["osc"]["ports"].items():
-    info_message(f"Opening OSC port: {port['host']}:{port['port']}, Variable: [red]{osc_port_name}[/red]", True)
+    print(f"[bold yellow]> OSC Port added: [red]{osc_port_name}[/red] [/bold yellow]")
     globals()[osc_port_name] = OSC(name=osc_port_name, host=port["host"], port=port["port"], clock=clock)
     env.subscribe(globals()[osc_port_name])
 
@@ -67,10 +70,8 @@ def loop_now(quant="bar"):
 
 def exit():
     """Exit the interactive shell"""
-    env.dispatch(env, "exit", {})
-    raise SystemExit
+    clock.stop()
 
-greeter()
 
 clock.start()
 clock.play()
