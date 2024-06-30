@@ -25,11 +25,31 @@ def open_config_folder():
 def _create_default_configuration() -> dict:
     """Create a default configuration for Baston."""
     configuration = {
-        "tempo": 120,
-        "midi_out_port": "disabled",
-        "midi_in_port": "disabled",
-        "default_shell": "python",
-        "vim_mode": False,
+        "clock": {
+            "default_tempo": 135,
+            "time_grain": 0.001,
+        },
+        "midi": {
+            "out_ports": {
+                "midi": False,
+            },
+            "in_ports": {
+                "midi_in": False,
+            },
+        },
+        "osc": {
+            "ports": {
+                "superdirt": {
+                    "host": "127.0.0.1",
+                    "port": 57120,
+                    "name": "SuperDirt",
+                },
+            }
+        },
+        "editor": {
+            "default_shell": "ptpython",
+            "vim_mode": False,
+        }
     }
     return configuration
 

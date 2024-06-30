@@ -25,7 +25,7 @@ class PriorityEvent:
 
 class Clock(Subscriber):
 
-    def __init__(self, tempo: int | float):
+    def __init__(self, tempo: Number, grain: Number = 0.001):
         super().__init__()
         self._clock_thread: threading.Thread | None = None
         self._stop_event: threading.Event = threading.Event()
@@ -39,7 +39,7 @@ class Clock(Subscriber):
         self._beat = 0
         self._bar = 0
         self._phase = 0
-        self._grain = 0.001
+        self._grain = grain
         self.register_handler("start", self.start)
         self.register_handler("play", self.play)
         self.register_handler("pause", self.pause)
@@ -97,14 +97,29 @@ class Clock(Subscriber):
         return self._bar
 
     @property
+    def next_bar(self) -> Number:
+        """Return the time position of the next bar"""
+        return self.beat + self.beats_until_next_bar()
+
+    @property
     def beat(self) -> Number:
         """Get the beat of the clock"""
         return self._beat
 
     @property
+    def next_beat(self) -> Number:
+        """Return the time position of the next beat"""
+        return self.beat + 1
+
+    @property
     def beat_duration(self) -> Number:
         """Get the duration of a beat"""
         return 60 / self._tempo
+
+    @property
+    def bar_duration(self) -> Number:
+        """Get the duration of a bar"""
+        return self.beat_duration * self._denominator
 
     @property
     def phase(self) -> Number:
@@ -136,7 +151,7 @@ class Clock(Subscriber):
         if now:
             _on_time_callback()
         else:
-            self.add(func=_on_time_callback, time=self.next_bar(), once=True, passthrough=True)
+            self.add(func=_on_time_callback, time=self.next_bar, once=True, passthrough=True)
 
     def pause(self) -> None:
         """Pause the clock"""
@@ -266,11 +281,3 @@ class Clock(Subscriber):
         for func in args:
             if func.__name__ in self._children:
                 del self._children[func.__name__]
-
-    def next_bar(self) -> Number:
-        """Return the time position of the next bar"""
-        return self.beat + self.beats_until_next_bar()
-
-    def next_beat(self) -> Number:
-        """Return the time position of the next beat"""
-        return self.beat + 1

@@ -9,7 +9,7 @@ def exit():
     raise SystemExit
 
 if __name__ == "__main__":
-    match CONFIGURATION.get("default_shell", "python"):
+    match CONFIGURATION["editor"]["default_shell"]:
         case "ptpython":
             from ptpython.repl import embed
             embed(
@@ -17,7 +17,7 @@ if __name__ == "__main__":
                 locals=locals(), 
                 globals=globals(), 
                 history_filename=get_ptpython_history_file(),
-                vi_mode=CONFIGURATION.get("vim_mode", False)
+                vi_mode=CONFIGURATION["editor"]["vim_mode"],
             )
         case "python":
             import code

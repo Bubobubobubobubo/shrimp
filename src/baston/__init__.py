@@ -8,26 +8,33 @@ import functools
 
 CONFIGURATION = read_configuration()
 env = Environment()
-clock = Clock(CONFIGURATION["tempo"])
+clock = Clock(CONFIGURATION["clock"]["default_tempo"], CONFIGURATION["clock"]["time_grain"])
 env.subscribe(clock)
 
-if CONFIGURATION["midi_out_port"] != "disabled":
-    midi = MIDIOut(CONFIGURATION["midi_out_port"], clock)
-    env.subscribe(midi)
-else:
-    info_message("No MIDI output port specified. MIDI is disabled.")
+# Opening MIDI output ports based on user configuration
+for midi_out_port_name, port in CONFIGURATION["midi"]["out_ports"].items():
+    if port is not False:
+        info_message(f"Opening MIDI output: {port}. Variable: [red]{midi_out_port_name}[/red]", True)
+        globals()[midi_out_port_name] = MIDIOut(port, clock)
+        env.subscribe(globals()[midi_out_port_name])
 
-if CONFIGURATION["midi_in_port"] != "disabled":
-    midi_in = MIDIIn(CONFIGURATION["midi_in_port"], clock)
-    env.subscribe(midi_in)
-else:
-    info_message("No MIDI input port specified. MIDI input is disabled.")
+# Opening MIDI input ports based on user configuration
+for midi_in_port_name, port in CONFIGURATION["midi"]["in_ports"].items():
+    if port is not False:
+        info_message(f"Opening MIDI input: {port}, Variable: [red]{midi_in_port_name}", True)
+        globals()[midi_in_port_name] = MIDIIn(port, clock)
+        env.subscribe(globals()[midi_in_port_name])
+
+# Opening OSC connexions based on user configuration
+for osc_port_name, port in CONFIGURATION["osc"]["ports"].items():
+    info_message(f"Opening OSC port: {port['host']}:{port['port']}, Variable: [red]{osc_port_name}[/red]", True)
+    globals()[osc_port_name] = OSC(name=osc_port_name, host=port["host"], port=port["port"], clock=clock)
+    env.subscribe(globals()[osc_port_name])
 
 c = clock
 now = lambda: clock.beat
+next_bar = lambda: clock.next_bar
 silence = clock.clear
-
-osc = OSC(name="Test OSC Loop", host="127.0.0.1", port=57120, clock=clock)
 
 def fight(quant="bar"):
     def decorator(func):
