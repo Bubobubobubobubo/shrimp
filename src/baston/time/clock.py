@@ -211,7 +211,10 @@ class Clock(Subscriber):
             current_time = self._link.clock().micros()
             elapsed_time = current_time - previous_time
             self._capture_link_info()
-            self._execute_due_functions()
+            try:
+                self._execute_due_functions()
+            except Exception as e:
+                print(e)
             sleep_time = self._grain - (elapsed_time / 1000000)
             if sleep_time > 0:
                 sleep(sleep_time)
@@ -224,16 +227,16 @@ class Clock(Subscriber):
 
         for callable in possible_callables:
             if callable.priority <= self._beat and not callable.has_played:
-                try:
-                    if self._playing or callable.passthrough:
-                        callable.has_played = True
+                if self._playing or callable.passthrough:
+                    callable.has_played = True
+                    try:
                         func, args, kwargs = callable.item
                         func(*args, **kwargs)
                         if callable.once:
                             del self._children[callable.name]
-                except BadFunctionError as e:
-                    info_message(f"Bad Function : {e}")
-                    pass
+                    except Exception as e:
+                        info_message(f"Error in function [red]{func.__name__}[/red]: [yellow]{e}[/yellow]", should_print=True)
+                        pass
 
     def beats_until_next_bar(self):
         """Return the number of beats until the next bar."""
@@ -260,10 +263,10 @@ class Clock(Subscriber):
         Returns:
             None
         """
-        time = self.beat + 1 if time is None else time
-        # if relative, schedule relatively to the current beat
         if relative:
-            time += self.beat
+            time = self.beat + 1 if time is None else time + self.beat
+        else:
+            time = 1 if time is None else time
 
         if isinstance(func, Callable) and func.__name__ != "<lambda>":
             func_name = func.__name__
