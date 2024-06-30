@@ -21,6 +21,7 @@ if __name__ == "__main__":
             )
         case "python":
             import code
-            code.interact(local=locals(), banner="", exitmsg="Bye!")
+            code.interact(local=locals(), banner="", exitmsg="")
+            exit()
         case _:
             print("Invalid shell selection. Exiting.")

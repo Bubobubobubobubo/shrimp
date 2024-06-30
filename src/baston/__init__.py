@@ -35,8 +35,9 @@ c = clock
 now = lambda: clock.beat
 next_bar = lambda: clock.next_bar
 silence = clock.clear
+loop = clock.add
 
-def fight(quant="bar"):
+def loop_now(quant="bar"):
     def decorator(func):
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
