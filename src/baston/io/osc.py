@@ -64,6 +64,29 @@ class OSC(Subscriber):
     def __str__(self):
         return self.__repr__()
 
+    def _send_timed_message(
+        self, address: str, message: list, timestamp: Optional[int | float] = None
+    ) -> None:
+        """Build and send OSC bundles
+
+        Args:
+            address (str): The OSC address.
+            message (list): The OSC message.
+            timestamp (int | float, optional): The timestamp to send the message. Defaults to None.
+        """
+        timestamp = time.time() + self._nudge if timestamp is None else timestamp
+        msg = oscbuildparse.OSCMessage(address, None, message)
+        bun = oscbuildparse.OSCBundle(
+            oscbuildparse.unixtime2timetag(timestamp),
+            [msg],
+        )
+        self._clock.add(
+            func=lambda: osc_send(bun, self.name),
+            time=self._clock.beat,
+            passthrough=True,
+            once=True
+        )
+
     def _send(self, address: str, message: list) -> None:
         """Send an OSC message to the client.
         
@@ -92,7 +115,7 @@ class OSC(Subscriber):
         messages to the SuperDirt audio engine. The kwargs are converted to a
         flat list of key-value pairs.
         """
-        self._send(address="/dirt/play", message=kwargs_to_flat_list(**kwargs))
+        self._send_timed_message(address="/dirt/play", message=kwargs_to_flat_list(**kwargs))
 
     def panic(self) -> None:
         """Send a panic message to the SuperDirt audio engine."""
