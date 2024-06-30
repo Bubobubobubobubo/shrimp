@@ -74,9 +74,9 @@ class OSC(Subscriber):
         bundle = self._make_bundle([[address, message]])
         # TODO: try to quantize the message to the next smallest
         # time division
-        self.clock.add(
+        self._clock.add(
             func=lambda: osc_send(bundle, self.name),
-            time= self.clock.beat(), 
+            time= self._clock.beat(), 
             once=True, passthrough=True
         )
 
@@ -119,9 +119,9 @@ class OSC(Subscriber):
 
         """
         bundle = self._make_bundle(messages)
-        self.clock.add(
+        self._clock.add(
             func=lambda: osc_send(bundle, self.name),
-            time=self.clock.beat(),
+            time=self._clock.beat(),
             once=True,
             passthrough=True,
         )
