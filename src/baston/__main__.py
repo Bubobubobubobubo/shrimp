@@ -13,9 +13,11 @@ if __name__ == "__main__":
         case "ptpython":
             from ptpython.repl import embed
             embed(
+                title="Baston",
                 locals=locals(), 
                 globals=globals(), 
-                history_filename=get_ptpython_history_file()
+                history_filename=get_ptpython_history_file(),
+                vi_mode=CONFIGURATION.get("vim_mode", False)
             )
         case "python":
             import code

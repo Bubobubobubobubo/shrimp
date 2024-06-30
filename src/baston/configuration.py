@@ -29,6 +29,7 @@ def _create_default_configuration() -> dict:
         "midi_out_port": "disabled",
         "midi_in_port": "disabled",
         "default_shell": "python",
+        "vim_mode": False,
     }
     return configuration
 
