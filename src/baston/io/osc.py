@@ -81,7 +81,7 @@ class OSC(Subscriber):
             once=True, passthrough=True
         )
 
-    def _dirt_play(self, *args, **kwargs) -> None:
+    def dirt(self, *args, **kwargs) -> None:
         """Send a /dirt/play message to the SuperDirt audio engine.
         
         Args:
@@ -96,7 +96,7 @@ class OSC(Subscriber):
 
     def panic(self) -> None:
         """Send a panic message to the SuperDirt audio engine."""
-        self._dirt_play(sound="superpanic")
+        self.dirt(sound="superpanic")
 
     def _make_bundle(self, messages: list) -> oscbuildparse.OSCBundle:
         """Create an OSC bundle.
