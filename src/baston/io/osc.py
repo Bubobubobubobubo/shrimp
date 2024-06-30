@@ -2,7 +2,8 @@ from osc4py3 import oscbuildparse
 from osc4py3.as_eventloop import *
 from osc4py3.oscmethod import *
 from ..environment import Subscriber
-from typing import Optional
+from ..utils import flatten
+from typing import Optional, Any, Callable
 import threading
 import time
 
@@ -17,6 +18,9 @@ class OSC(Subscriber):
         self._osc_loop_shutdown = threading.Event()
         self._osc_loop_thread: Optional[threading.Thread] = None
         self._nudge = 0.0
+
+        # OSC-In communication
+        self._watched_values = {}
 
         # Initialise the background OSC process loop
         self.setup_osc_loop()
@@ -87,6 +91,65 @@ class OSC(Subscriber):
 
         Args:
             messages (list): A list of OSC messages.
+
         """
         bundle = self._make_bundle(messages)
         osc_send(bundle, self.name)
+
+    def _generic_store(self, address) -> None:
+        """Generic storage function to attach to a given address
+
+        Args:
+            address (str): The OSC address to store the value of.
+        """
+
+        def generic_value_tracker(*args, **kwargs):
+            """Generic value tracker to be attached to an address"""
+            self._watched_values[address] = {"args": flatten(args), "kwargs": kwargs}
+            return (args, kwargs)
+
+        osc_method(address, generic_value_tracker, argscheme=OSCARG_DATA)
+
+    def watch(self, address: str) -> None:
+        """
+        Watch the value of a given OSC address. Will be recorded in memory
+        in the self._watched_values dictionary accessible through the get()
+        method
+
+        Args:
+            address (str): The OSC address to watch.
+        """
+        print(f"[yellow]Watching address [red]{address}[/red].[/yellow]")
+        self._generic_store(address)
+
+    def attach(
+        self, address: str, function: Callable, watch: bool = False, argscheme=None
+    ) -> None:
+        """
+        Attach a callback to a given address. You can also toggle the watch boolean 
+        value to tell if the value should be tracked by the receiver. This allows to
+        return values from the callback that you can retrieve later on through 
+        the get(address) method.
+
+        Args:
+            address (str): The OSC address to attach the function to.
+            function (Callable): The function to attach.
+            watch (bool): Whether to watch the value of the address.
+            argscheme: The OSC argument scheme.
+
+        """
+        print(f"[yellow]Attaching function [red]{function.__name__}[/red] to address [red]{address}[/red][/yellow]")
+        osc_method(
+            address,
+            function,
+            argscheme=OSCARG_DATAUNPACK if argscheme is None else argscheme,
+        )
+        if watch:
+            self.watch(address)
+
+    def get(self, address: str) -> Any | None:
+        """Get a watched value. Return None if not found"""
+        try:
+            return self._watched_values[address]
+        except KeyError:
+            return None

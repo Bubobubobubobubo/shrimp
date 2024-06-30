@@ -21,3 +21,17 @@ def greeter() -> None:
     print(
         f"[bold blue]{BASTON_LOGO}[/bold blue]\n[bold yellow]> Live Coding tool, BuboBubo {version('baston')}[/bold yellow]\n"
     )
+
+def flatten(l: list) -> list:
+    """Utility function to flatten a list.
+    
+    Args:
+        l (list): A list to flatten
+    """
+    if isinstance(l, (list, tuple)):
+        if len(l) > 1:
+            return [l[0]] + flatten(l[1:])
+        else:
+            return l[0]
+    else:
+        return [l]
