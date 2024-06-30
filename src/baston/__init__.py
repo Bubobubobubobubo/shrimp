@@ -2,6 +2,7 @@ from .configuration import read_configuration, open_config_folder
 from .utils import BASTON_LOGO, info_message, greeter
 from .time.clock import Clock
 from .io.midi import MIDIOut, MIDIIn, list_midi_ports
+from .io.osc import OSC
 from .environment import Environment
 import functools
 
@@ -25,9 +26,8 @@ else:
 c = clock
 now = lambda: clock.beat
 silence = clock.clear
-# The monitoring loop is blocking exit...
-# clock.add(now, midi_in._monitoring_loop)
 
+osc = OSC("Test OSC Loop", "127.0.0.1", 9000)
 
 def fight(quant="bar"):
     def decorator(func):

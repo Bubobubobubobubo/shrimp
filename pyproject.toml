@@ -21,7 +21,8 @@ dependencies = [
   "appdirs >= 1.4.4",
   "LinkPython-extern >= 1.0.0",
   "rich >= 13.7.1",
-  "ptpython >= 3.0.0"
+  "ptpython >= 3.0.0",
+  "osc4py3 >= 1.0.8"
 ]
 
 [tool.black]
