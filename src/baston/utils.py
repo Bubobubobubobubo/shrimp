@@ -35,3 +35,19 @@ def flatten(l: list) -> list:
             return l[0]
     else:
         return [l]
+
+def kwargs_to_flat_list(**kwargs):
+    """
+    Convert keyword arguments to a flat list of key-value pairs.
+    
+    Parameters:
+        **kwargs: Arbitrary keyword arguments.
+
+    Returns:
+        List where each key is followed by its value.
+    """
+    flat_list = []
+    for key, value in kwargs.items():
+        flat_list.append(key)
+        flat_list.append(value)
+    return flat_list

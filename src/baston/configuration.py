@@ -2,6 +2,7 @@ import logging
 import json
 import os
 import appdirs
+import pathlib
 
 APPNAME = "Baston"
 APPAUTHOR = "Raphaël Forment"
@@ -92,3 +93,24 @@ def write_configuration(configuration: dict):
         logging.debug(f"Wrote configuration to {config_path}")
     except OSError as e:
         logging.error(f"An error occurred while writing to the configuration file: {e}")
+
+def get_ptpython_history_file() -> str:
+    """
+    Retrieve the path to the ptpython history file, ensuring the directory and file exist.
+
+    Returns:
+        str: Path to the history file.
+    """
+
+    # Ensure the directory exists
+    pathlib.Path(USER_DIRECTORY).mkdir(parents=True, exist_ok=True)
+    
+    # Path to the history file
+    history_file = os.path.join(USER_DIRECTORY, "history")
+    
+    # Ensure the history file exists
+    if not os.path.exists(history_file):
+        with open(history_file, 'a'):
+            os.utime(history_file, None)
+    
+    return history_file

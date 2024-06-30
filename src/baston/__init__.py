@@ -27,7 +27,7 @@ c = clock
 now = lambda: clock.beat
 silence = clock.clear
 
-osc = OSC("Test OSC Loop", "127.0.0.1", 9000)
+osc = OSC("Test OSC Loop", "127.0.0.1", 57120)
 
 def fight(quant="bar"):
     def decorator(func):

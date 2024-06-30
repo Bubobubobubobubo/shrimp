@@ -2,7 +2,7 @@ from osc4py3 import oscbuildparse
 from osc4py3.as_eventloop import *
 from osc4py3.oscmethod import *
 from ..environment import Subscriber
-from ..utils import flatten
+from ..utils import flatten, kwargs_to_flat_list
 from typing import Optional, Any, Callable
 import threading
 import time
@@ -71,6 +71,23 @@ class OSC(Subscriber):
         """
         bundle = self._make_bundle([[address, message]])
         osc_send(bundle, self.name)
+
+    def _dirt_play(self, *args, **kwargs) -> None:
+        """Send a /dirt/play message to the SuperDirt audio engine.
+        
+        Args:
+            *args: all discarded!
+            **kwargs: Arbitrary keyword arguments.
+
+        Note: This method is intended to be used as a helper function to send
+        messages to the SuperDirt audio engine. The kwargs are converted to a
+        flat list of key-value pairs.
+        """
+        self._send(address="/dirt/play", message=kwargs_to_flat_list(**kwargs))
+
+    def panic(self) -> None:
+        """Send a panic message to the SuperDirt audio engine."""
+        self._dirt_play(sound="superpanic")
 
     def _make_bundle(self, messages: list) -> oscbuildparse.OSCBundle:
         """Create an OSC bundle.
