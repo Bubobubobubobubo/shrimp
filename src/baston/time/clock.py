@@ -22,7 +22,6 @@ class PriorityEvent:
     passthrough: bool = False
     once: bool = False
 
-
 class Clock(Subscriber):
 
     def __init__(self, tempo: Number, grain: Number = 0.001):
@@ -62,6 +61,11 @@ class Clock(Subscriber):
     def grain(self) -> Number:
         """Return the grain of the clock"""
         self._grain
+
+    @property
+    def time(self) -> Number:
+        """Return the time of the clock"""
+        return self._link.clock().micros() / 1000000
 
     @grain.setter
     def grain(self, value: Number):
@@ -109,7 +113,8 @@ class Clock(Subscriber):
     @property
     def next_beat(self) -> Number:
         """Return the time position of the next beat"""
-        return self.beat + 1
+        next_beat = 1 - (self._beat - int(self._beat))
+        return self.beat + next_beat
 
     @property
     def now(self) -> Number:
@@ -238,6 +243,7 @@ class Clock(Subscriber):
         self,
         func: Callable,
         time: int | float = None,
+        relative: bool = False,
         once: bool = False,
         passthrough: bool = False,
         *args,
@@ -254,8 +260,10 @@ class Clock(Subscriber):
         Returns:
             None
         """
-        if time is None:
-            time = self.beat + 1
+        time = self.beat + 1 if time is None else time
+        # if relative, schedule relatively to the current beat
+        if relative:
+            time += self.beat
 
         if isinstance(func, Callable) and func.__name__ != "<lambda>":
             func_name = func.__name__
@@ -288,3 +296,23 @@ class Clock(Subscriber):
         for func in args:
             if func.__name__ in self._children:
                 del self._children[func.__name__]
+            
+    def add_on_next_bar(self, func: Callable, *args, **kwargs) -> None:
+        """Add a function to the clock to be executed on the next bar.
+
+        Args:
+            func (Callable): The function to be executed.
+            *args: Arguments to be passed to the function.
+            **kwargs: Keyword arguments to be passed to the function.
+        """
+        self.add(func, self.next_bar, *args, **kwargs)
+
+    def add_on_next_beat(self, func: Callable, *args, **kwargs) -> None:
+        """Add a function to the clock to be executed on the next beat.
+
+        Args:
+            func (Callable): The function to be executed.
+            *args: Arguments to be passed to the function.
+            **kwargs: Keyword arguments to be passed to the function.
+        """
+        self.add(func, self.next_beat, *args, **kwargs)

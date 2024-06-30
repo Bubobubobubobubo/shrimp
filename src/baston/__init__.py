@@ -1,6 +1,7 @@
 from .configuration import read_configuration, open_config_folder
 from .utils import info_message, greeter
 from .time.clock import Clock
+from functools import partial
 from .io.midi import MIDIOut, MIDIIn, list_midi_ports
 from .io.osc import OSC
 from rich import print
@@ -37,8 +38,11 @@ for osc_port_name, port in CONFIGURATION["osc"]["ports"].items():
 c = clock
 now = lambda: clock.beat
 next_bar = lambda: clock.next_bar
+on_next_bar = clock.add_on_next_bar
+on_next_beat = clock.add_on_next_beat
 silence = clock.clear
 loop = clock.add
+loopr = partial(loop, relative=True)
 stop = clock.remove
 
 def loop_now(quant="bar"):
@@ -67,11 +71,9 @@ def loop_now(quant="bar"):
 
     return decorator
 
-
 def exit():
     """Exit the interactive shell"""
     clock.stop()
-
 
 clock.start()
 clock.play()

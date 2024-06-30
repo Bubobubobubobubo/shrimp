@@ -2,16 +2,17 @@ from importlib.metadata import version
 from rich.panel import Panel
 from rich import print
 from pyfiglet import figlet_format
+import random
 
 def info_message(message: str, should_print: bool = False) -> None:
     """Print an information message"""
     if should_print:
         print(Panel(f"[bold blue]{message}[/bold blue]"))
 
-
 def greeter() -> None:
-    banner = figlet_format("Baston", font="roman")
-    print(f"[bold blue]{banner}[/bold blue][bold yellow]> Live Coding tool, BuboBubo {version('baston')}[/bold yellow]")
+    font_choice = random.choice(['roman', 'basic', 'computer'])
+    banner = figlet_format("Baston", font=font_choice)
+    print(f"[bold blue]{banner}[/bold blue][bold yellow]\n> Live Coding tool, BuboBubo {version('baston')}[/bold yellow]", end="")
 
 def flatten(l: list) -> list:
     """Utility function to flatten a list.
