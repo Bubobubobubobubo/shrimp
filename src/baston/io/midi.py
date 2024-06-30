@@ -110,6 +110,16 @@ class MIDIOut(Subscriber):
             once=True,
         )
 
+    def pitch_bend(self, value: int = 0, channel: int = 1) -> None:
+        """Send a MIDI pitch bend message.
+
+        Args:
+            value (int): The pitch bend value.
+            channel (int): The MIDI channel.
+        """
+        pb = mido.Message("pitchwheel", pitch=value, channel=channel)
+        self._midi_out.send(pb)
+
     def cc(self, control: int = 0, value: int = 0, channel: int = 1) -> None:
         """Send a MIDI control change message.
 
