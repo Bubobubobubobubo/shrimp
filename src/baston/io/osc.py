@@ -2,6 +2,7 @@ from osc4py3 import oscbuildparse
 from osc4py3.as_eventloop import *
 from osc4py3.oscmethod import *
 from ..environment import Subscriber
+from ..time.clock import Clock
 from ..utils import flatten, kwargs_to_flat_list
 from typing import Optional, Any, Callable
 import threading
@@ -11,9 +12,10 @@ class OSC(Subscriber):
 
     """OSC client: Send/Receive Open Sound Control messages to/from a remote host."""
 
-    def __init__(self, name: str, host: str, port: int):
+    def __init__(self, name: str, host: str, port: int, clock: Clock):
         super().__init__()
         self.name, self.host, self.port = name, host, port
+        self._clock = clock
         self.client = osc_udp_client(address=self.host, port=self.port, name=self.name)
         self._osc_loop_shutdown = threading.Event()
         self._osc_loop_thread: Optional[threading.Thread] = None
@@ -70,7 +72,13 @@ class OSC(Subscriber):
             message (list): The OSC message.
         """
         bundle = self._make_bundle([[address, message]])
-        osc_send(bundle, self.name)
+        # TODO: try to quantize the message to the next smallest
+        # time division
+        self.clock.add(
+            func=lambda: osc_send(bundle, self.name),
+            time= self.clock.beat(), 
+            once=True, passthrough=True
+        )
 
     def _dirt_play(self, *args, **kwargs) -> None:
         """Send a /dirt/play message to the SuperDirt audio engine.
@@ -111,7 +119,12 @@ class OSC(Subscriber):
 
         """
         bundle = self._make_bundle(messages)
-        osc_send(bundle, self.name)
+        self.clock.add(
+            func=lambda: osc_send(bundle, self.name),
+            time=self.clock.beat(),
+            once=True,
+            passthrough=True,
+        )
 
     def _generic_store(self, address) -> None:
         """Generic storage function to attach to a given address
