@@ -45,10 +45,10 @@ def loop_now(quant="bar"):
 
         if quant == "bar":
             info_message(f"Starting [red]{func.__name__}[/red] on next bar")
-            clock.add(func, clock.next_bar())
+            clock.add(func, clock.next_bar)
         elif quant == "beat":
             info_message(f"Starting [red]{func.__name__}[/red] on next beat")
-            clock.add(func, clock.beat + 1)
+            clock.add(func, clock.next_beat)
         elif quant == "now":
             info_message(f"Starting [red]{func.__name__}[/red] now")
             clock.add(func, clock.beat)
