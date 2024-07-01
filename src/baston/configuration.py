@@ -52,6 +52,7 @@ def _create_default_configuration() -> dict:
         "editor": {
             "default_shell": "ptpython",
             "vim_mode": False,
+            "print_above": False,
         },
     }
     return configuration
@@ -77,14 +78,21 @@ def _check_for_configuration() -> None:
     except OSError as e:
         logging.error(f"An error occurred while creating the configuration file: {e}")
 
+    def _update_configuration(config: dict, template: dict) -> dict:
+        """Recursively update the configuration dictionary with missing keys from the template."""
+        for key in template:
+            if key not in config:
+                config[key] = template[key]
+            elif isinstance(config[key], dict) and isinstance(template[key], dict):
+                config[key] = _update_configuration(config[key], template[key])
+        return config
+
     # Check if the configuration file has all the required keys also present in the template
     try:
         with open(config_path, "r") as f:
             content = json.load(f)
             template = _create_default_configuration()
-            for key in template:
-                if key not in content:
-                    content[key] = template[key]
+            content = _update_configuration(content, template)
             with open(config_path, "w") as f:
                 json.dump(content, f, indent=4)
     except OSError as e:

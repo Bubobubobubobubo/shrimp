@@ -89,7 +89,14 @@ class MIDIOut(Subscriber):
         note = mido.Message("note_off", note=note, velocity=velocity, channel=channel)
         self._midi_out.send(note)
 
-    def note(self, note: int = 60, velocity: int = 100, channel: int = 1, duration: int = 1, **kwargs):
+    def note(
+        self,
+        note: int | list[int] = 60,
+        velocity: int = 100,
+        channel: int = 1,
+        duration: int = 1,
+        **kwargs,
+    ):
         """Play a note for a given duration.
 
         Args:
@@ -101,12 +108,22 @@ class MIDIOut(Subscriber):
         Note: This function schedules the note on and note off messages to be sent
         at the appropriate times using the clock.
         """
+
+        if isinstance(note, list):
+            for n in note:
+                self.note(note=int(n), velocity=velocity, channel=channel, duration=duration)
+            return
+
         epsilon = duration / 100
         self.clock.add(
-            func=lambda: self._note_on(note, velocity, channel - 1), time=self.clock.beat, once=True
+            func=lambda: self._note_on(
+                note=int(note), velocity=int(velocity), channel=int(channel) - 1
+            ),
+            time=self.clock.beat,
+            once=True,
         )
         self.clock.add(
-            func=lambda: self._note_off(note, 0, channel - 1),
+            func=lambda: self._note_off(note=int(note), velocity=0, channel=int(channel) - 1),
             time=self.clock.beat + (duration - epsilon),
             once=True,
         )

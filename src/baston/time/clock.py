@@ -1,10 +1,12 @@
 from dataclasses import dataclass, field
 import uuid
+import traceback
 from ..utils import info_message
 from queue import PriorityQueue
 from ..errors import BadFunctionError
 from ..environment import Subscriber
 from typing import Any, Callable, Dict, Optional
+from types import LambdaType
 from time import sleep
 import threading
 import link
@@ -236,6 +238,7 @@ class Clock(Subscriber):
                         if callable.once:
                             del self._children[callable.name]
                     except Exception as e:
+                        print(traceback.format_exc())
                         info_message(
                             f"Error in function [red]{func.__name__}[/red]: [yellow]{e}[/yellow]",
                             should_print=True,
@@ -268,10 +271,14 @@ class Clock(Subscriber):
         Returns:
             None
         """
-        if relative:
-            time = self.beat + (1 if time is None else time)
-        else:
-            time = time if time is not None else self.beat + 1
+        if time:
+            if isinstance(time, (Callable, LambdaType)):
+                while isinstance(time, (Callable | LambdaType)):
+                    time = time()
+            if relative:
+                time = self.beat + (1 if time is None else time)
+            else:
+                time = time if time is not None else self.beat + 1
 
         # NOTE: experimental, trying to assign a name to registered functions
         if not name:

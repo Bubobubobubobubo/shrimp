@@ -6,7 +6,9 @@ from .io.midi import MIDIOut, MIDIIn, list_midi_ports
 from .io.osc import OSC
 from rich import print
 from .environment import Environment
-from .systems.Player import Player
+from .systems.Player import Player, pattern_printer
+from .systems.PlayerLibrary import *
+from .systems import PScale
 import functools
 
 greeter()
@@ -105,6 +107,9 @@ if superdirt:
 
 
 if midi:
+
+    def debug(*args, **kwargs):
+        return Player._play_factory(pattern_printer, *args, **kwargs)
 
     def n(*args, **kwargs):
         return Player._play_factory(midi.note, *args, **kwargs)

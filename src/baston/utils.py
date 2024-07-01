@@ -50,3 +50,22 @@ def kwargs_to_flat_list(**kwargs):
         flat_list.append(key)
         flat_list.append(value)
     return flat_list
+
+
+def euclidian_rhythm(pulses: int, length: int, rotate: int = 0):
+    """Calculate Euclidean rhythms."""
+
+    def _starts_descent(list, index):
+        length = len(list)
+        next_index = (index + 1) % length
+        return list[index] > list[next_index]
+
+    if pulses >= length:
+        return [1]
+    res_list = [pulses * t % length for t in range(-1, length - 1)]
+    bool_list = [_starts_descent(res_list, index) for index in range(length)]
+
+    def rotation(l, n):
+        return l[-n:] + l[:-n]
+
+    return rotation([1 if x is True else 0 for x in bool_list], rotate)

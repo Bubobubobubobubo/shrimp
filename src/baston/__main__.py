@@ -17,6 +17,7 @@ if __name__ == "__main__":
             from ptpython.repl import embed
 
             embed(
+                patch_stdout=CONFIGURATION["editor"]["print_above"],
                 title="Baston",
                 locals=locals(),
                 globals=globals(),
