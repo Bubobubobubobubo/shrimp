@@ -56,8 +56,8 @@ class Player(Subscriber):
         """
         # Kwargs are potentially any Callable that need to be resolved
         try:
-            #resolved_kwargs = {key: (value() if callable(value) else value) for key, value in pattern.kwargs.items()}
-            self._pattern.send_method(*pattern.args, **pattern.kwargs)
+            resolved_kwargs = {key: (value() if callable(value) else value) for key, value in pattern.kwargs.items()}
+            self._pattern.send_method(*pattern.args, **resolved_kwargs)
         except Exception as e:
             print(e)
         self._push(again=True)

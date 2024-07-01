@@ -89,7 +89,7 @@ class MIDIOut(Subscriber):
         note = mido.Message("note_off", note=note, velocity=velocity, channel=channel)
         self._midi_out.send(note)
 
-    def note(self, note: int = 60, velocity: int = 100, channel: int = 1, duration: int = 1):
+    def note(self, note: int = 60, velocity: int = 100, channel: int = 1, duration: int = 1, **kwargs):
         """Play a note for a given duration.
 
         Args:
@@ -111,7 +111,7 @@ class MIDIOut(Subscriber):
             once=True,
         )
 
-    def pitch_bend(self, value: int = 0, channel: int = 1) -> None:
+    def pitch_bend(self, value: int = 0, channel: int = 1, **kwargs) -> None:
         """Send a MIDI pitch bend message.
 
         Args:
@@ -121,7 +121,7 @@ class MIDIOut(Subscriber):
         pb = mido.Message("pitchwheel", pitch=value, channel=channel)
         self._midi_out.send(pb)
 
-    def cc(self, control: int = 0, value: int = 0, channel: int = 1) -> None:
+    def control_change(self, control: int = 0, value: int = 0, channel: int = 1, **kwargs) -> None:
         """Send a MIDI control change message.
 
         Args:
@@ -132,7 +132,7 @@ class MIDIOut(Subscriber):
         cc = mido.Message("control_change", control=control, value=value, channel=channel)
         self._midi_out.send(cc)
 
-    def pc(self, program: int = 0, channel: int = 1) -> None:
+    def program_change(self, program: int = 0, channel: int = 1, **kwargs) -> None:
         """Send a MIDI program change message.
 
         Args:
@@ -142,7 +142,7 @@ class MIDIOut(Subscriber):
         pc = mido.Message("program_change", program=program, channel=channel)
         self._midi_out.send(pc)
 
-    def sysex(self, data: list) -> None:
+    def sysex(self, data: list, *kwargs) -> None:
         """Send a MIDI system exclusive message.
 
         Args:

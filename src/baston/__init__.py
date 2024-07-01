@@ -102,3 +102,18 @@ if superdirt:
         >> aa.stop()
         """
         return Player._play_factory(superdirt.dirt, *args, **kwargs)
+
+
+if midi:
+
+    def n(*args, **kwargs):
+        return Player._play_factory(midi.note, *args, **kwargs)
+
+    def cc(*args, **kwargs):
+        return Player._play_factory(midi.control_change, *args, **kwargs)
+
+    def pc(*args, **kwargs):
+        return Player._play_factory(midi.program_change, *args, **kwargs)
+
+    def pb(*args, **kwargs):
+        return Player._play_factory(midi.pitch_bend, *args, **kwargs)
