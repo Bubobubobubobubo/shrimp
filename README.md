@@ -33,7 +33,7 @@ The central piece is the `clock` instance that will let you schedule recursive f
 
 There are tutorials available in the `tutorials/` folder. The tutorials are using Python Notebook as a convenient way to mingle text and code. You can run them using Jupyter Notebook or Jupyter Lab. You can also pre-visualize them on GitHub, how convenient!
 
-The `demos/` folder contains examples of using Baston as a library. You can run each example using your Python interpreter. The examples are meant to be simple and to the point. They are also meant to be easy to understand and to modify.
+The `examples/` folder contains examples of using Baston as a library. You can run each example using your Python interpreter. The examples are meant to be simple and to the point. They are also meant to be easy to understand and to modify.
 
 ### Contributing
 
