@@ -54,7 +54,12 @@ class Player(Subscriber):
         Note: this is the central piece of the player system. This player system abstracts
         away the need to manage recursive functions manually.
         """
-        self._pattern.send_method(*pattern.args, **pattern.kwargs)
+        # Kwargs are potentially any Callable that need to be resolved
+        try:
+            #resolved_kwargs = {key: (value() if callable(value) else value) for key, value in pattern.kwargs.items()}
+            self._pattern.send_method(*pattern.args, **pattern.kwargs)
+        except Exception as e:
+            print(e)
         self._push(again=True)
 
     def __mul__(self, pattern: Optional[PlayerPattern] = None) -> None:
@@ -94,7 +99,6 @@ class Player(Subscriber):
                 kwargs["time"] = self._clock.beat
             elif isinstance(quant_policy, (int, float)):
                 kwargs["time"] = self._clock.beat + quant_policy
-
         self._clock.add(func=self._func, name=self._name, **kwargs)
 
     def stop(self):

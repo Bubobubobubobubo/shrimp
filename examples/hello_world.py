@@ -8,11 +8,11 @@ def interrupt_handler(sig, frame):
 
 def recursive():
     print("Hello, World! My recursion is eternal!")
-    clock.add(recursive, clock.next_bar())
+    clock.add(recursive, clock.next_bar)
 
 if __name__ == "__main__":
     # We install a signal handler to stop the clock when the user presses Ctrl+C
     signal.signal(signal.SIGINT, interrupt_handler)
-    clock.add(recursive, clock.next_bar())
+    clock.add(recursive)
     clock.play()
 

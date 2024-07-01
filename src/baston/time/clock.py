@@ -119,8 +119,7 @@ class Clock(Subscriber):
     @property
     def next_beat(self) -> Number:
         """Return the time position of the next beat"""
-        next_beat = 1 - (self._beat - int(self._beat))
-        return self.beat + next_beat
+        return self.beat + 1
 
     @property
     def now(self) -> Number:
@@ -270,9 +269,9 @@ class Clock(Subscriber):
             None
         """
         if relative:
-            time = self.beat + 1 if time is None else time + self.beat
+            time = self.beat + (1 if time is None else time)
         else:
-            time = 1 if time is None else time
+            time = time if time is not None else self.beat + 1
 
         # NOTE: experimental, trying to assign a name to registered functions
         if not name:
