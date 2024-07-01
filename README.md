@@ -1,6 +1,15 @@
 # Baston
 
-Baston is a very new project, started on June 29 2024. The end goal is to provide a simple and efficient framework for _live coding_ with Python: MIDI, OSC, etc. I'm trying to keep it as simple as possible and to make it easy to use. For this very reason, Ableton Link synchronisation is a must. `Baston` uses the same LinkClock package as [Sardine](https://sardine.raphaelforment.fr) but implements a different approach to the problem (_threaded_ clock vs _asyncio_ clock).
+Baston is a very new project, started on June 29 2024. The end goal is to provide a simple and efficient framework for _live coding_ music with Python: MIDI, OSC, etc. I'm trying to keep it as simple as possible and to make it easy to use for everyone. Baston uses Ableton Link for synchronisation with other softwares and devices. It comes with a timing system and a pattern scheduling system.  Check out the tutorials section!
+
+**Features**:
+- networked clock (_Ableton Link_) for synchronisation and sequencing in time.
+- pattern scheduling system for easy and efficient time-reactive code.
+- MIDI and OSC support for live coding music. More protocols to come.
+- State of the art REPL (_Read, Eval, Print, Loop_) with goodies (history, vi mode).
+- easy to use and to understand, with a focus on simplicity and efficiency.
+
+![](images/baston_shell.png)
 
 ## Installation
 
@@ -10,7 +19,7 @@ To install this package in dev mode, please run the following command (Unix/MacO
 python -m pip install -e .
 ```
 
-It should install the required dependencies (specified in `pyproject.toml`). Please note that I am targetting Python 3.11+ for an eventual release. 
+It should install the required dependencies (specified in `pyproject.toml`). Please note that I am targetting Python 3.11+ for an eventual release. Make sure you have the required version of Python installed on your machine. Use [pyenv](https://github.com/pyenv/pyenv) or virtual environments if you know how to use them.
 
 ### Usage
 
@@ -18,49 +27,20 @@ It should install the required dependencies (specified in `pyproject.toml`). Ple
 - `from baston import *`: will import all `__init__.py` without `__main__.py`.
 - `python -m baston`: will import both consequently, start a new interpreter.
 
-The central piece is the `clock` object that will let you schedule recursive functions. I use them as temporal primitives to build different systems, etc... The `env` (`Environment`) object is used to dispatch messages between all system components.
+The central piece is the `clock` instance that will let you schedule recursive functions easily. You can use this mechanism to build time-reactive code, data sequences, etc. Importing Baston as a library is like importing Baston without its interactive REPL (_Read, Eval, Print, Loop_).
 
-## Temporal recursion
+### Learning
 
-To create a recursive function, study the following example:
+There are tutorials available in the `tutorials/` folder. The tutorials are using Python Notebook as a convenient way to mingle text and code. You can run them using Jupyter Notebook or Jupyter Lab. You can also pre-visualize them on GitHub, how convenient!
 
-```python
+The `demos/` folder contains examples of using Baston as a library. You can run each example using your Python interpreter. The examples are meant to be simple and to the point. They are also meant to be easy to understand and to modify.
 
-# Your regular Python function, with a final call to the scheduler
-def demo_function(count: int = 0):
-    print(f"Hello, I am recursive: {count})
-    clock.add(demo_function, time=clock.beat + 1, count=count + 1)
+### Contributing
 
-# Start playing on the next bar
-clock.add(demo_function, time=clock.next_bar())
+Please report any issue you might encounter, I will be happy to help you out. I am also open to any suggestion or feature request. I am looking for contributors to work on this project :smile:.
 
-# Start playing on the next beat
-clock.add(demo_function, time=clock.next_beat())
-
-# Start playing anytime really...
-clock.add(demo_function, time=clock.beat + 2.23712)
-```
-
-There are multiple methods to stop a recursive function:
-
-```python
-# clear all functions running on the scheduler
-clock.clear()
-```
-
-```python
-# each *args will be removed from the scheduler
-clock.remove(any, number, of, funcs)
-```
-
-If you peek into the `__init__.py` file, you will also see the prototype of a decorator (`@fight` because `baston` means `rumble` in french). This decorator is planned to automatically add a function to the scheduler as soon as the function is evaluated by the user. I would love to implement the opposite decorator, a `@stop` one, idk..
- 
-
-## Left to be implemented
-
-This project is only a few hours old so there is still some work to do! The basics are here. Here is what I have in mind for the next steps:
-- compensate for I/O late messages or any potential drifting (is there any? I think so)
-- solid/robust `play` and `pause` methods that can be activated both local and remote. They are implemented already, play with them and see if they are to your liking.
-- resetting the `beat/bar` count when `play` is pressed. Always a pain to implement correctly with Ableton Link.
-
-Please report any issue you might encounter, I will be happy to help you out. I am also open to any suggestion or feature request. I would be delighted to collaborate with you on developing a solid synchronisation scheduling/sync mechanism for Python! It is long overdue...
+I am developing free and open source software on my own. Please consider supporting me on [Ko-fi](https://ko-fi.com/I2I2RSBHF) if you like my work. It will help me to keep going and to improve my projects. Thank you!
+<br>
+<p align="center">
+  <a href='https://ko-fi.com/I2I2RSBHF' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi3.png?v=3' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
+</p>
