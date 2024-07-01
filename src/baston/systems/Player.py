@@ -55,7 +55,7 @@ class Player(Subscriber):
         away the need to manage recursive functions manually.
         """
         self._pattern.send_method(*pattern.args, **pattern.kwargs)
-        self._push_again()
+        self._push(again=True)
 
     def __mul__(self, pattern: Optional[PlayerPattern] = None) -> None:
         """Push new pattern to the player.
@@ -71,41 +71,36 @@ class Player(Subscriber):
                 self.stop()
         else:
             if pattern is not None:
-                quant_policy = pattern.kwargs.get("quant_policy", None)
                 self._pattern = pattern
-                self._push(quant_policy)
+                self._push()
 
-    def _push(self, quant_policy: str | int | float) -> None:
-        """Managing the lifetime of the pattern
+    def _push(self, again: bool = False) -> None:
+        """Managing the lifetime of the pattern"""
 
-        Args:
-            quant_policy (str | int | float): The quantization policy for the pattern (first launch)
-        """
         kwargs = {
             "pattern": self._pattern,
             "passthrough": self._pattern.kwargs.get("passthrough", False),
             "once": self._pattern.kwargs.get("once", False),
-            "relative": True,
+            "relative": True if again else False,
             "time": self._pattern.kwargs.get("dur", 1),
         }
+        if not again:
+            quant_policy = self._pattern.kwargs.get("quant", "bar")
+            if quant_policy == 'bar':
+                kwargs["time"] = self._clock.next_bar
+            elif quant_policy == 'beat':
+                kwargs["time"] = self._clock.next_beat
+            elif quant_policy == 'now':
+                kwargs["time"] = self._clock.beat
+            elif isinstance(quant_policy, (int, float)):
+                kwargs["time"] = self._clock.beat + quant_policy
 
-        if quant_policy == "bar":
-            self._clock.add_on_next_bar(func=self._func, name=self._name, **kwargs)
-        elif quant_policy == "beat":
-            self._clock.add_on_next_beat(func=self._func, name=self._name, **kwargs)
-        elif quant_policy in ["now", None]:
-            self._clock.add(func=self._func, name=self._name, **kwargs)
-        elif isinstance(quant_policy, (int, float)):
-            self._clock.add(func=self._func, name=self._name, **kwargs)
+        self._clock.add(func=self._func, name=self._name, **kwargs)
 
     def stop(self):
         """Stop the current pattern."""
         self._pattern = None
         self._clock.remove_by_name(self._name)
-
-    def _push_again(self) -> None:
-        """Same but without the quant policy"""
-        self._push(quant_policy=None)
 
     @classmethod
     def initialize_patterns(cls, clock: Clock) -> Dict[str, Self]:
