@@ -6,6 +6,7 @@ from .io.midi import MIDIOut, MIDIIn, list_midi_ports
 from .io.osc import OSC
 from rich import print
 from .environment import Environment
+from .systems.Player import Player
 import functools
 
 greeter()
@@ -13,6 +14,7 @@ greeter()
 CONFIGURATION = read_configuration()
 env = Environment()
 clock = Clock(CONFIGURATION["clock"]["default_tempo"], CONFIGURATION["clock"]["time_grain"])
+pattern = Player.initialize_patterns(clock)
 env.subscribe(clock)
 
 # Opening MIDI output ports based on user configuration
@@ -32,7 +34,9 @@ for midi_in_port_name, port in CONFIGURATION["midi"]["in_ports"].items():
 # Opening OSC connexions based on user configuration
 for osc_port_name, port in CONFIGURATION["osc"]["ports"].items():
     print(f"[bold yellow]> OSC Port added: [red]{osc_port_name}[/red] [/bold yellow]")
-    globals()[osc_port_name] = OSC(name=osc_port_name, host=port["host"], port=port["port"], clock=clock)
+    globals()[osc_port_name] = OSC(
+        name=osc_port_name, host=port["host"], port=port["port"], clock=clock
+    )
     env.subscribe(globals()[osc_port_name])
 
 c = clock
@@ -44,6 +48,7 @@ silence = clock.clear
 loop = clock.add
 loopr = partial(loop, relative=True)
 stop = clock.remove
+
 
 def loop_now(quant="bar"):
     def decorator(func):
@@ -71,9 +76,29 @@ def loop_now(quant="bar"):
 
     return decorator
 
+
 def exit():
     """Exit the interactive shell"""
     clock.stop()
 
+
 clock.start()
 clock.play()
+
+# == TEST AREA FOR THE PATTERN SYSTEM ======================================================
+
+# Adding all patterns to the global scope
+for key, value in pattern.items():
+    globals()[key] = value
+
+if superdirt:
+
+    def d(*args, **kwargs):
+        """Example use:
+
+        >> aa * d(sound="bd", speed=2, amp=4)
+
+        >> aa * None
+        >> aa.stop()
+        """
+        return Player._play_factory(superdirt.dirt, *args, **kwargs)

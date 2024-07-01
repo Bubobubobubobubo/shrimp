@@ -8,8 +8,8 @@ from typing import Optional, Any, Callable
 import threading
 import time
 
-class OSC(Subscriber):
 
+class OSC(Subscriber):
     """OSC client: Send/Receive Open Sound Control messages to/from a remote host."""
 
     def __init__(self, name: str, host: str, port: int, clock: Clock):
@@ -37,7 +37,7 @@ class OSC(Subscriber):
             """Background OSC processing loop.
 
             Note: This function is intended to be run in a separate thread.
-            It should call osc_process() repeatedly to keep the OSC server 
+            It should call osc_process() repeatedly to keep the OSC server
             alive. It will run until the _osc_loop_shutdown event is set.
             """
             while not self._osc_loop_shutdown.is_set():
@@ -84,12 +84,12 @@ class OSC(Subscriber):
             func=lambda: osc_send(bun, self.name),
             time=self._clock.beat,
             passthrough=True,
-            once=True
+            once=True,
         )
 
     def _send(self, address: str, message: list) -> None:
         """Send an OSC message to the client.
-        
+
         Args:
             address (str): The OSC address.
             message (list): The OSC message.
@@ -100,13 +100,14 @@ class OSC(Subscriber):
         epsilon = 0.001
         self._clock.add(
             func=lambda: osc_send(bundle, self.name),
-            time= self._clock.beat + self._nudge - epsilon, 
-            once=True, passthrough=True
+            time=self._clock.beat + self._nudge - epsilon,
+            once=True,
+            passthrough=True,
         )
 
     def dirt(self, *args, **kwargs) -> None:
         """Send a /dirt/play message to the SuperDirt audio engine.
-        
+
         Args:
             *args: all discarded!
             **kwargs: Arbitrary keyword arguments.
@@ -129,10 +130,7 @@ class OSC(Subscriber):
         """
         return oscbuildparse.OSCBundle(
             oscbuildparse.unixtime2timetag(time.time() + self._nudge),
-            [
-                oscbuildparse.OSCMessage(message[0], None, message[1])
-                for message in messages
-            ],
+            [oscbuildparse.OSCMessage(message[0], None, message[1]) for message in messages],
         )
 
     def _send_bundle(self, messages: list) -> None:
@@ -177,13 +175,11 @@ class OSC(Subscriber):
         print(f"[yellow]Watching address [red]{address}[/red].[/yellow]")
         self._generic_store(address)
 
-    def attach(
-        self, address: str, function: Callable, watch: bool = False, argscheme=None
-    ) -> None:
+    def attach(self, address: str, function: Callable, watch: bool = False, argscheme=None) -> None:
         """
-        Attach a callback to a given address. You can also toggle the watch boolean 
+        Attach a callback to a given address. You can also toggle the watch boolean
         value to tell if the value should be tracked by the receiver. This allows to
-        return values from the callback that you can retrieve later on through 
+        return values from the callback that you can retrieve later on through
         the get(address) method.
 
         Args:
@@ -193,7 +189,9 @@ class OSC(Subscriber):
             argscheme: The OSC argument scheme.
 
         """
-        print(f"[yellow]Attaching function [red]{function.__name__}[/red] to address [red]{address}[/red][/yellow]")
+        print(
+            f"[yellow]Attaching function [red]{function.__name__}[/red] to address [red]{address}[/red][/yellow]"
+        )
         osc_method(
             address,
             function,

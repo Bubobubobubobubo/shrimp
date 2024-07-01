@@ -8,6 +8,7 @@ APPNAME = "Baston"
 APPAUTHOR = "Raphaël Forment"
 USER_DIRECTORY = appdirs.user_data_dir(APPNAME, APPAUTHOR)
 
+
 def open_config_folder():
     """Cross-platform function to open the configuration folder in the file explorer."""
     try:
@@ -15,12 +16,14 @@ def open_config_folder():
     except AttributeError:
         import subprocess
         import sys
+
         if sys.platform.startswith("darwin"):
             subprocess.call(["open", USER_DIRECTORY])
         elif sys.platform.startswith("linux"):
             subprocess.call(["xdg-open", USER_DIRECTORY])
         elif sys.platform.startswith("win"):
             subprocess.call(["explorer", USER_DIRECTORY])
+
 
 def _create_default_configuration() -> dict:
     """Create a default configuration for Baston."""
@@ -49,7 +52,7 @@ def _create_default_configuration() -> dict:
         "editor": {
             "default_shell": "ptpython",
             "vim_mode": False,
-        }
+        },
     }
     return configuration
 
@@ -115,6 +118,7 @@ def write_configuration(configuration: dict):
     except OSError as e:
         logging.error(f"An error occurred while writing to the configuration file: {e}")
 
+
 def get_ptpython_history_file() -> str:
     """
     Retrieve the path to the ptpython history file, ensuring the directory and file exist.
@@ -125,13 +129,13 @@ def get_ptpython_history_file() -> str:
 
     # Ensure the directory exists
     pathlib.Path(USER_DIRECTORY).mkdir(parents=True, exist_ok=True)
-    
+
     # Path to the history file
     history_file = os.path.join(USER_DIRECTORY, "history")
-    
+
     # Ensure the history file exists
     if not os.path.exists(history_file):
-        with open(history_file, 'a'):
+        with open(history_file, "a"):
             os.utime(history_file, None)
-    
+
     return history_file

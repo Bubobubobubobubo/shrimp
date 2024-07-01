@@ -4,7 +4,7 @@ from ..utils import info_message
 from queue import PriorityQueue
 from ..errors import BadFunctionError
 from ..environment import Subscriber
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional
 from time import sleep
 import threading
 import link
@@ -21,6 +21,7 @@ class PriorityEvent:
     has_played: bool = False
     passthrough: bool = False
     once: bool = False
+
 
 class Clock(Subscriber):
 
@@ -56,6 +57,11 @@ class Clock(Subscriber):
     def sync(self, bool: bool = True):
         """Enable or disable the sync of the clock"""
         self.link.startStopSyncEnabled = bool
+
+    @property
+    def children(self):
+        """Return the children of the clock"""
+        return self._children
 
     @property
     def grain(self) -> Number:
@@ -140,10 +146,7 @@ class Clock(Subscriber):
         """Start the clock"""
         self.env.dispatch(self, "start", {})
         if not self._clock_thread:
-            self._clock_thread = threading.Thread(
-                target=self.run,
-                daemon=False
-            )
+            self._clock_thread = threading.Thread(target=self.run, daemon=False)
             self._clock_thread.start()
 
     def play(self, now: bool = False) -> None:
@@ -219,7 +222,6 @@ class Clock(Subscriber):
             if sleep_time > 0:
                 sleep(sleep_time)
             previous_time = current_time
-        
 
     def _execute_due_functions(self) -> None:
         """Execute all functions that are due to be executed."""
@@ -235,7 +237,10 @@ class Clock(Subscriber):
                         if callable.once:
                             del self._children[callable.name]
                     except Exception as e:
-                        info_message(f"Error in function [red]{func.__name__}[/red]: [yellow]{e}[/yellow]", should_print=True)
+                        info_message(
+                            f"Error in function [red]{func.__name__}[/red]: [yellow]{e}[/yellow]",
+                            should_print=True,
+                        )
                         pass
 
     def beats_until_next_bar(self):
@@ -245,6 +250,7 @@ class Clock(Subscriber):
     def add(
         self,
         func: Callable,
+        name: Optional[str] = None,
         time: int | float = None,
         relative: bool = False,
         once: bool = False,
@@ -268,10 +274,14 @@ class Clock(Subscriber):
         else:
             time = 1 if time is None else time
 
-        if isinstance(func, Callable) and func.__name__ != "<lambda>":
-            func_name = func.__name__
+        # NOTE: experimental, trying to assign a name to registered functions
+        if not name:
+            if isinstance(func, Callable) and func.__name__ != "<lambda>":
+                func_name = func.__name__
+            else:
+                func_name = str(uuid.uuid4())
         else:
-            func_name = str(uuid.uuid4())
+            func_name = name
 
         if func_name in self._children:
             self._children[func_name].priority = time
@@ -299,7 +309,12 @@ class Clock(Subscriber):
         for func in args:
             if func.__name__ in self._children:
                 del self._children[func.__name__]
-            
+
+    def remove_by_name(self, name: str) -> None:
+        """Remove an event from the clock by name."""
+        if name in self._children:
+            del self._children[name]
+
     def add_on_next_bar(self, func: Callable, *args, **kwargs) -> None:
         """Add a function to the clock to be executed on the next bar.
 
