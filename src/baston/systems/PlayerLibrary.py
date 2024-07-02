@@ -1,15 +1,42 @@
 import random
 import math
 from ..utils import euclidian_rhythm
-from .PScale import get_note_global
 from typing import Optional
 from functools import partial
 from ..environment import get_global_environment
-
+from .PScale import SCALES
 
 Number: int | float
 
-__ALL__ = ["prand"]
+
+class GlobalConfig:
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(GlobalConfig, cls).__new__(cls)
+            cls._instance.scale = "major"
+            cls._root_note = 60
+        return cls._instance
+
+    @property
+    def scale(self):
+        return self._instance._scale
+
+    @scale.setter
+    def scale(self, value):
+        self._instance._scale = value
+
+    @property
+    def root(self):
+        return self._instance._root_note
+
+    @root.setter
+    def root(self, value):
+        self._instance._root_note = value
+
+
+global_config = GlobalConfig()
 
 
 class Rest:
@@ -70,6 +97,22 @@ class Pattern:
 
     def __init__(self):
         self.env = get_global_environment()
+
+    @property
+    def root(self):
+        return global_config.root
+
+    @root.setter
+    def root(self, value):
+        global_config.root = value
+
+    @property
+    def scale(self):
+        return global_config.scale
+
+    @scale.setter
+    def scale(self, value):
+        global_config.scale = value
 
     def _convert(self, value):
         if isinstance(value, int):
@@ -373,6 +416,37 @@ class Pseq(Pattern, SequencePattern):
         else:
             index = iterator % len(self.values) if self._length is None else iterator % self._length
         return self.values[index]
+
+
+class Pnote(Pseq):
+    def __init__(
+        self,
+        *values,
+        len: int | None = None,
+        reverse: bool = False,
+        root: Optional[int] = None,
+        scale: Optional[str] = None,
+    ):
+        super().__init__(*values, len=len, reverse=reverse)
+        if root is not None:
+            self._local_root = root
+        if scale is not None:
+            self._local_scale = scale
+
+    def __call__(self, iterator):
+        if self._reverse:
+            index = len(self.values) - 1 - iterator % len(self.values)
+        else:
+            index = iterator % len(self.values) if self._length is None else iterator % self._length
+        note = self.values[index]
+        scale = SCALES[
+            global_config.scale if not hasattr(self, "_local_scale") else self._local_scale
+        ]
+        octave_shift = note // len(scale)
+        scale_position = note % len(scale)
+        root = self._local_root if hasattr(self, "_local_root") else global_config.root
+        note = root + scale[scale_position] + (octave_shift * 12)
+        return note
 
 
 class Pstutter(Pattern, SequencePattern):

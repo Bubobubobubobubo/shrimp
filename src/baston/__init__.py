@@ -8,8 +8,8 @@ from rich import print
 from .environment import get_global_environment
 from .systems.Player import Player, pattern_printer
 from .systems.PlayerLibrary import *
-from .systems import PScale
 import functools
+
 
 greeter()
 
@@ -46,7 +46,6 @@ now = lambda: clock.beat
 next_bar = lambda: clock.next_bar
 on_next_bar = clock.add_on_next_bar
 on_next_beat = clock.add_on_next_beat
-silence = clock.clear
 loop = clock.add
 loopr = partial(loop, relative=True)
 stop = clock.remove
@@ -89,9 +88,6 @@ clock.play()
 
 # == TEST AREA FOR THE PATTERN SYSTEM ======================================================
 
-# Adding all patterns to the global scope
-for key, value in pattern.items():
-    globals()[key] = value
 
 if superdirt:
 
@@ -114,11 +110,22 @@ if midi:
     def n(*args, **kwargs):
         return Player._play_factory(midi.note, *args, **kwargs)
 
-    def cc(*args, **kwargs):
+    def control(*args, **kwargs):
         return Player._play_factory(midi.control_change, *args, **kwargs)
 
-    def pc(*args, **kwargs):
+    def program(*args, **kwargs):
         return Player._play_factory(midi.program_change, *args, **kwargs)
 
-    def pb(*args, **kwargs):
+    def bend(*args, **kwargs):
         return Player._play_factory(midi.pitch_bend, *args, **kwargs)
+
+
+# Adding all patterns to the global scope
+for key, value in pattern.items():
+    globals()[key] = value
+
+
+def silence():
+    for key in pattern.keys():
+        globals()[key].stop()
+    clock.clear()

@@ -1,8 +1,4 @@
-from typing import Optional
-
-root = 60
-default = "major"
-scales = {
+SCALES = {
     "major": [0, 2, 4, 5, 7, 9, 11],
     "minor": [0, 2, 3, 5, 7, 8, 10],
     "hminor": [0, 2, 3, 5, 7, 8, 11],
@@ -67,13 +63,3 @@ scales = {
     "thirds": [0, 4, 8, 12],
     "octaves": [0, 12, 24, 36, 48],
 }
-
-
-def get_note_global(n: int, root: int = root):
-    if default not in scales:
-        raise ValueError(f"Default Scale '{default}' not found in scales dictionary.")
-    scale = scales[default]
-    octave_shift = n // len(scale)
-    scale_position = n % len(scale)
-    note = root + scale[scale_position + 0] + (octave_shift * 12)
-    return note
