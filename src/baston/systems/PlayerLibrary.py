@@ -386,3 +386,84 @@ class Pstutter(Pattern, SequencePattern):
         index = iterator // self.repeat
         value_index = index % len(self.values)
         return self.values[value_index]
+
+
+class Psine(Pattern):
+    def __init__(
+        self,
+        freq: int | float,
+        min: int | float = 0,
+        max: int | float = 1,
+        phase: int | float = 0,
+    ):
+        super().__init__()
+        self.min = min
+        self.max = max
+        self.freq = freq
+        self.phase = phase
+
+    def __call__(self, _):
+        return (math.sin((self.env.clock.beat + self.phase) * self.freq) + 1) / 2 * (
+            self.max - self.min
+        ) + self.min
+
+
+class Psaw(Pattern):
+    def __init__(
+        self,
+        freq: int | float,
+        min: int | float = 0,
+        max: int | float = 1,
+        phase: int | float = 0,
+    ):
+        super().__init__()
+        self.min = min
+        self.max = max
+        self.freq = freq
+        self.phase = phase
+
+    def __call__(self, _):
+        return (self.env.clock.beat * self.freq + self.phase) % 1 * (self.max - self.min) + self.min
+
+
+class Ptri(Pattern):
+    def __init__(
+        self,
+        freq: int | float,
+        min: int | float = 0,
+        max: int | float = 1,
+        phase: int | float = 0,
+    ):
+        super().__init__()
+        self.min = min
+        self.max = max
+        self.freq = freq
+        self.phase = phase
+
+    def __call__(self, _):
+        return (
+            2
+            * abs((self.env.clock.beat * self.freq + self.phase) % 1 - 0.5)
+            * (self.max - self.min)
+            + self.min
+        )
+
+
+class Pcos(Pattern):
+    def __init__(
+        self,
+        freq: int | float,
+        min: int | float = 0,
+        max: int | float = 1,
+        phase: int | float = 0,
+    ):
+        super().__init__()
+        self.min = min
+        self.max = max
+        self.freq = freq
+        self.phase = phase
+
+    def __call__(self, _):
+        return (math.cos((self.env.clock.beat + self.phase) * self.freq) + 1) / 2 * (
+            self.max - self.min
+        ) + self.min
