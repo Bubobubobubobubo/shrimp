@@ -28,6 +28,7 @@ class Player(Subscriber):
         self._iterator = 0
         self._silence_count = 0
         self._pattern: Optional[PlayerPattern] = None
+        self._sync_quant_policy: Optional[str] = None
 
     def __repr__(self):
         return f"Player {self._name}, pattern: {self._pattern}"
@@ -146,6 +147,11 @@ class Player(Subscriber):
         """Managing the lifetime of the pattern"""
         schedule_silence = False
 
+        if self._sync_quant_policy:
+            kwargs["quant"] = self._sync_quant_policy
+            # Reset sync quant policy after one use
+            self._sync_quant_policy = None
+
         kwargs = {
             "pattern": self._pattern,
             "passthrough": self._pattern.kwargs.get("passthrough", False),
@@ -165,7 +171,7 @@ class Player(Subscriber):
             self._silence_count += 1
             schedule_silence = True
 
-        if not again:
+        if not again and not self._sync_quant_policy:
             quant_policy = self._pattern.kwargs.get("quant", "bar")
             if quant_policy == "bar":
                 kwargs["time"] = self._clock.next_bar
@@ -186,6 +192,20 @@ class Player(Subscriber):
         self.iterator = 0
         self._silence_count = 0
         self._clock.remove_by_name(self._name)
+
+    def sync(self, quant_policy: str):
+        """Apply a temporary quantization policy for the next call.
+
+        Args:
+            quant_policy (str): The quantization policy to apply temporarily.
+                                Can be 'bar', 'beat', 'now', or a specific duration (int or float).
+        """
+        if quant_policy not in ["bar", "beat", "now"] and not isinstance(
+            quant_policy, (int, float)
+        ):
+            raise ValueError("Invalid quantization policy.")
+        print(f"Syncing {self._name} to {quant_policy}")
+        self._sync_quant_policy = quant_policy
 
     @classmethod
     def initialize_patterns(cls, clock: Clock) -> Dict[str, Self]:
