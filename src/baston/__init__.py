@@ -8,6 +8,7 @@ from rich import print
 from .environment import get_global_environment
 from .systems.Player import Player, pattern_printer
 from .systems.PlayerLibrary import *
+from .systems.PlayerLibrary import global_config as PlayerConfig
 import functools
 
 

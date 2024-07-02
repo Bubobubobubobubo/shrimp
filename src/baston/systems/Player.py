@@ -26,7 +26,6 @@ class Player(Subscriber):
         self._name = name
         self._clock = clock
         self._iterator = 0
-        self._real_iterator = 0
         self._silence_count = 0
         self._pattern: Optional[PlayerPattern] = None
 
@@ -106,13 +105,11 @@ class Player(Subscriber):
             print(e)
 
         self.iterator += 1
-        self._real_iterator += 1
         self._push(again=True)
 
     def _silence(self, *args, _: Optional[PlayerPattern] = None, **kwargs) -> None:
         """Internal recursive function implementing a silence."""
         self.iterator += 1
-        self._real_iterator += 1
         self._push(again=True)
 
     def __mul__(self, pattern: Optional[PlayerPattern] = None) -> None:
@@ -173,7 +170,7 @@ class Player(Subscriber):
     def stop(self):
         """Stop the current pattern."""
         self._pattern = None
-        self.iterator = 0
+        self.iterator = -1
         self._clock.remove_by_name(self._name)
 
     @classmethod

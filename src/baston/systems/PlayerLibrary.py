@@ -2,7 +2,6 @@ import random
 import math
 from ..utils import euclidian_rhythm
 from typing import Optional
-from functools import partial
 from ..environment import get_global_environment
 from .PScale import SCALES
 
@@ -442,11 +441,20 @@ class Pnote(Pseq):
         scale = SCALES[
             global_config.scale if not hasattr(self, "_local_scale") else self._local_scale
         ]
-        octave_shift = note // len(scale)
-        scale_position = note % len(scale)
         root = self._local_root if hasattr(self, "_local_root") else global_config.root
-        note = root + scale[scale_position] + (octave_shift * 12)
-        return note
+        if isinstance(note, int):
+            octave_shift = note // len(scale)
+            scale_position = note % len(scale)
+            note = root + scale[scale_position] + (octave_shift * 12)
+            return note
+        elif isinstance(note, list):
+            final_notes = []
+            for n in note:
+                octave_shift = n // len(scale)
+                scale_position = n % len(scale)
+                note = root + scale[scale_position] + (octave_shift * 12)
+                final_notes.append(note)
+            return final_notes
 
 
 class Pstutter(Pattern, SequencePattern):
