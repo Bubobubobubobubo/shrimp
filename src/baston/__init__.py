@@ -127,6 +127,7 @@ for key, value in pattern.items():
 
 
 def silence():
+    env.dispatch("main", "silence", {})
     for key in pattern.keys():
         globals()[key].stop()
     clock.clear()

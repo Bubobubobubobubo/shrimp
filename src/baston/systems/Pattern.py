@@ -329,15 +329,31 @@ class Place(Pattern):
 
 
 class Peuclid(Pattern):
-    """Generating euclidian rhythms.
-
-    TODO: convert so Rests are usable.
-    """
+    """Generating euclidian rhythms."""
 
     def __init__(self, pulses: int, length: int, rotate: int = 0, base: int = 1):
         super().__init__()
         self.rhythm = euclidian_rhythm(pulses, length, rotate)
         self._base = base
+
+    def __call__(self, iterator):
+        index = iterator % len(self.rhythm)
+        value = self._base if self.rhythm[index] == 1 else Rest(self._base)
+        return value
+
+
+class Pbin(Pattern):
+    """Generating rhythms from binary representation of a number."""
+
+    def __init__(self, number: int, base: int = 1):
+        super().__init__()
+        self.rhythm = self.binary_rhythm(number)
+        self._base = base
+
+    def binary_rhythm(self, number: int) -> list:
+        """Convert a number to its binary representation as a list of 1s and 0s."""
+        binary_string = format(number, "08b")
+        return [int(bit) for bit in binary_string]
 
     def __call__(self, iterator):
         index = iterator % len(self.rhythm)
@@ -445,18 +461,24 @@ class Pnote(Pseq):
             global_config.scale if not hasattr(self, "_local_scale") else self._local_scale
         ]
         root = self._local_root if hasattr(self, "_local_root") else global_config.root
-        if isinstance(note, int):
-            octave_shift = note // len(scale)
-            scale_position = note % len(scale)
-            note = root + scale[scale_position] + (octave_shift * 12)
-            return note
-        elif isinstance(note, list):
+
+        if isinstance(note, Pattern):  # Check if note is a Pattern instance
+            note_value = note(iterator)  # Evaluate the pattern with the iterator
+        else:
+            note_value = note
+
+        if isinstance(note_value, int):
+            octave_shift = note_value // len(scale)
+            scale_position = note_value % len(scale)
+            note_value = root + scale[scale_position] + (octave_shift * 12)
+            return note_value
+        elif isinstance(note_value, list):
             final_notes = []
-            for n in note:
+            for n in note_value:
                 octave_shift = n // len(scale)
                 scale_position = n % len(scale)
-                note = root + scale[scale_position] + (octave_shift * 12)
-                final_notes.append(note)
+                note_value = root + scale[scale_position] + (octave_shift * 12)
+                final_notes.append(note_value)
             return final_notes
 
 
@@ -552,3 +574,89 @@ class Pcos(Pattern):
         return (math.cos((self.env.clock.beat + self.phase) * self.freq) + 1) / 2 * (
             self.max - self.min
         ) + self.min
+
+
+class Pcat(Pattern):
+    def __init__(self, *patterns):
+        super().__init__()
+        self.patterns = patterns
+
+    def __call__(self, iterator):
+        result = []
+        for pattern in self.patterns:
+            result.append(pattern(iterator))
+        return result
+
+
+class Pcoin(Pattern):
+    def __init__(self, p: float):
+        super().__init__()
+        self.p = p
+
+    def __call__(self, _):
+        return random.random() < self.p
+
+
+class Pinterp(Pattern):
+    """Interpolates between two patterns based on a given factor."""
+
+    def __init__(self, pattern_a, pattern_b, interpolation_factor):
+        """
+        Initialize with two patterns and an interpolation factor.
+
+        Args:
+            pattern_a: The first pattern.
+            pattern_b: The second pattern.
+            interpolation_factor: The factor to interpolate between the two patterns.
+        """
+        super().__init__()
+        self.pattern_a = pattern_a
+        self.pattern_b = pattern_b
+        self.interpolation_factor = interpolation_factor
+
+    def __call__(self, iterator):
+        """
+        Interpolate between pattern_a and pattern_b based on the interpolation factor.
+
+        Args:
+            iterator: The current iterator value.
+
+        Returns:
+            The interpolated value.
+        """
+        if isinstance(self.interpolation_factor, Pattern):
+            current_factor = self.interpolation_factor(iterator)
+        else:
+            current_factor = self.interpolation_factor
+        if random.random() < current_factor:
+            return self.pattern_b(iterator)
+        else:
+            return self.pattern_a(iterator)
+
+
+class Pfunc(Pattern):
+    """Pattern that applies a function to the iterator.
+
+    Args:
+        function: The function to apply to the iterator.
+    """
+
+    def __init__(self, function):
+        super().__init__()
+        self.function = function
+
+    def __call__(self, iterator):
+        return self.function(iterator)
+
+
+class Pwchoose(Pattern):
+    def __init__(self, *values, weights: Optional[list[float]] = None):
+        super().__init__()
+        self.values = values
+        if weights is None:
+            self.weights = [1] * len(values)
+        else:
+            self.weights = weights
+
+    def __call__(self, _):
+        return random.choices(self.values, weights=self.weights)[0]

@@ -1,6 +1,7 @@
 from osc4py3 import oscbuildparse
 from osc4py3.as_eventloop import *
 from osc4py3.oscmethod import *
+from itertools import cycle, islice
 from ..environment import Subscriber
 from ..time.clock import Clock
 from ..utils import flatten, kwargs_to_flat_list
@@ -30,6 +31,7 @@ class OSC(Subscriber):
 
         # Event handlers
         self.register_handler("stop", lambda _: self._osc_loop_shutdown.set())
+        self.register_handler("silence", lambda _: self.panic())
 
     def setup_osc_loop(self) -> None:
         """Initialise the background OSC process loop."""
@@ -121,11 +123,86 @@ class OSC(Subscriber):
 
     def player_dirt(self, *args, **kwargs):
         """Alternative version for the systems/Player pattern system."""
-        kwargs = kwargs_to_flat_list(**kwargs)
-        kwargs = [value.to_number() if isinstance(value, Rest) else value for value in kwargs]
-        self._send_timed_message(address="/dirt/play", message=kwargs)
+        sound = kwargs.pop("sound", None)
+        n = kwargs.pop("n", None)
 
-    def panic(self) -> None:
+        if isinstance(sound, list) and sound:
+            max_length = max(
+                len(sound), *(len(v) if isinstance(v, list) else 1 for v in kwargs.values())
+            )
+        else:
+            max_length = max((len(v) if isinstance(v, list) else 1) for v in kwargs.values())
+
+        if isinstance(n, list) and n:
+            max_length = max(max_length, len(n))
+
+        # Prepare arguments for each iteration
+        for i in range(max_length):
+            iter_kwargs = {}
+            for k, v in kwargs.items():
+                if isinstance(v, list):
+                    iter_kwargs[k] = v[i % len(v)]  # Cycle through the list if needed
+                else:
+                    iter_kwargs[k] = v
+
+            iter_sound = sound[i % len(sound)] if isinstance(sound, list) and sound else sound
+            iter_n = n[i % len(n)] if isinstance(n, list) and n else n
+
+            if iter_sound is not None and iter_n is not None:
+                iter_kwargs["sound"] = f"{iter_sound}:{iter_n}"
+            elif iter_sound is not None:
+                iter_kwargs["sound"] = iter_sound
+            elif iter_n is not None:
+                iter_kwargs["sound"] = iter_n
+
+            iter_kwargs = kwargs_to_flat_list(**iter_kwargs)
+            iter_kwargs = [
+                value.to_number() if isinstance(value, Rest) else value for value in iter_kwargs
+            ]
+            self._send_timed_message(address="/dirt/play", message=iter_kwargs)
+
+    def player_dirt(self, *args, **kwargs):
+        """Alternative version for the systems/Player pattern system."""
+        sound = kwargs.pop("sound", None)
+        n = kwargs.pop("n", None)
+
+        # Determine max length based on sound, n, and other kwargs
+        max_length = 1
+
+        if isinstance(sound, list) and sound:
+            max_length = max(max_length, len(sound))
+        if isinstance(n, list) and n:
+            max_length = max(max_length, len(n))
+        for v in kwargs.values():
+            if isinstance(v, list):
+                max_length = max(max_length, len(v))
+
+        # Prepare arguments for each iteration
+        for i in range(max_length):
+            iter_kwargs = {}
+            for k, v in kwargs.items():
+                if isinstance(v, list):
+                    iter_kwargs[k] = v[i % len(v)]  # Cycle through the list if needed
+                else:
+                    iter_kwargs[k] = v
+
+            iter_sound = sound[i % len(sound)] if isinstance(sound, list) and sound else sound
+            iter_n = n[i % len(n)] if isinstance(n, list) and n else n
+
+            if iter_sound is not None and iter_n is not None:
+                iter_kwargs["sound"] = f"{iter_sound}:{iter_n}"
+            elif iter_sound is not None:
+                iter_kwargs["sound"] = iter_sound
+            elif iter_n is not None:
+                iter_kwargs["sound"] = iter_n
+
+            iter_kwargs = kwargs_to_flat_list(**iter_kwargs)
+            iter_kwargs = [
+                value.to_number() if isinstance(value, Rest) else value for value in iter_kwargs
+            ]
+            self._send_timed_message(address="/dirt/play", message=iter_kwargs)
+
+    def panic(self, _={}) -> None:
         """Send a panic message to the SuperDirt audio engine."""
         self.dirt(sound="superpanic")
 
