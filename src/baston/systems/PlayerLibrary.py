@@ -15,52 +15,52 @@ class Rest:
         self.duration = duration
 
     def __add__(self, other):
-        return self.duration + other
+        return Rest(self.duration + other)
 
     def __radd__(self, other):
-        return other + self.duration
+        return Rest(other + self.duration)
 
     def __sub__(self, other):
-        return self.duration - other
+        return Rest(self.duration - other)
 
     def __rsub__(self, other):
-        return other - self.duration
+        return Rest(other - self.duration)
 
     def __mul__(self, other):
-        return self.duration * other
+        return Rest(self.duration * other)
 
     def __rmul__(self, other):
-        return other * self.duration
+        return Rest(other * self.duration)
 
     def __truediv__(self, other):
-        return self.duration / other
+        return Rest(self.duration / other)
 
     def __rtruediv__(self, other):
-        return other / self.duration
+        return Rest(other / self.duration)
 
     def __mod__(self, other):
-        return self.duration % other
+        return Rest(self.duration % other)
 
     def __rmod__(self, other):
-        return other % self.duration
+        return Rest(other % self.duration)
 
     def __pow__(self, other):
-        return self.duration**other
+        return Rest(self.duration**other)
 
     def __rpow__(self, other):
-        return other**self.duration
+        return Rest(other**self.duration)
 
     def __lshift__(self, other):
-        return self.duration << other
+        return Rest(self.duration << other)
 
     def __rlshift__(self, other):
-        return other << self.duration
+        return Rest(other << self.duration)
 
     def __rshift__(self, other):
-        return self.duration >> other
+        return Rest(self.duration >> other)
 
     def __rrshift__(self, other):
-        return other >> self.duration
+        return Rest(other >> self.duration)
 
 
 class Pattern:
@@ -314,10 +314,12 @@ class Peuclid(Pattern):
     TODO: convert so Rests are usable.
     """
 
-    def __init__(self, pulses: int, length: int, rotate: int = 0):
+    def __init__(self, pulses: int, length: int, rotate: int = 0, base: int = 1):
         super().__init__()
         self.rhythm = euclidian_rhythm(pulses, length, rotate)
+        self._base = base
 
     def __call__(self, iterator):
         index = iterator % len(self.rhythm)
-        return self.rhythm[index]
+        value = self._base if self.rhythm[index] == 1 else Rest(self._base)
+        return value

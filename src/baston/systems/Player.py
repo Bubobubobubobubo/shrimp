@@ -26,6 +26,8 @@ class Player(Subscriber):
         self._name = name
         self._clock = clock
         self._iterator = 0
+        self._real_iterator = 0
+        self._silence_count = 0
         self._pattern: Optional[PlayerPattern] = None
 
     def __repr__(self):
@@ -64,7 +66,7 @@ class Player(Subscriber):
 
         for arg in args:
             if isinstance(arg, Pattern):
-                new_args += (arg(self.iterator),)
+                new_args += (arg(self.iterator - self._silence_count),)
             elif isinstance(arg, Callable | LambdaType):
                 new_args += (arg(),)
 
@@ -73,7 +75,7 @@ class Player(Subscriber):
     def _kwargs_resolver(self, kwargs: dict[str, Any]) -> dict[str, Any]:
         def resolve_value(value: Any) -> Any:
             if isinstance(value, Pattern):
-                resolved = value(self.iterator)
+                resolved = value(self.iterator - self._silence_count)
                 return resolve_value(resolved)
             elif isinstance(value, Callable | LambdaType):
                 return value()
@@ -104,11 +106,13 @@ class Player(Subscriber):
             print(e)
 
         self.iterator += 1
+        self._real_iterator += 1
         self._push(again=True)
 
     def _silence(self, *args, _: Optional[PlayerPattern] = None, **kwargs) -> None:
         """Internal recursive function implementing a silence."""
         self.iterator += 1
+        self._real_iterator += 1
         self._push(again=True)
 
     def __mul__(self, pattern: Optional[PlayerPattern] = None) -> None:
@@ -148,6 +152,7 @@ class Player(Subscriber):
 
         if isinstance(kwargs["time"], Rest):
             kwargs["time"] = kwargs["time"].duration
+            self._silence_count += 1
             schedule_silence = True
 
         if not again:
