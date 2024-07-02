@@ -5,7 +5,7 @@ from functools import partial
 from .io.midi import MIDIOut, MIDIIn, list_midi_ports
 from .io.osc import OSC
 from rich import print
-from .environment import Environment
+from .environment import get_global_environment
 from .systems.Player import Player, pattern_printer
 from .systems.PlayerLibrary import *
 from .systems import PScale
@@ -14,10 +14,10 @@ import functools
 greeter()
 
 CONFIGURATION = read_configuration()
-env = Environment()
+env = get_global_environment()
 clock = Clock(CONFIGURATION["clock"]["default_tempo"], CONFIGURATION["clock"]["time_grain"])
+env.add_clock(clock)
 pattern = Player.initialize_patterns(clock)
-env.subscribe(clock)
 
 # Opening MIDI output ports based on user configuration
 for midi_out_port_name, port in CONFIGURATION["midi"]["out_ports"].items():

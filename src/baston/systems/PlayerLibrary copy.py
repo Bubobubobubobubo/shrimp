@@ -1,10 +1,8 @@
 import random
-import math
 from ..utils import euclidian_rhythm
 from .PScale import get_note_global
 from typing import Optional
 from functools import partial
-from ..environment import get_global_environment
 
 
 Number: int | float
@@ -69,7 +67,7 @@ class Pattern:
     """Base class for all patterns. Patterns are used to generate sequences of values"""
 
     def __init__(self):
-        self.env = get_global_environment()
+        pass
 
     def _convert(self, value):
         if isinstance(value, int):

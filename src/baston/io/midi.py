@@ -3,6 +3,11 @@ from ..time.clock import Clock
 from ..environment import Subscriber
 
 
+def _clamp_midi(value: int) -> int:
+    """Clamp a MIDI value to the range [0, 127]."""
+    return max(0, min(127, value))
+
+
 def list_midi_ports() -> list[str]:
     """List the available MIDI ports."""
     return mido.get_input_names()
@@ -108,6 +113,10 @@ class MIDIOut(Subscriber):
         Note: This function schedules the note on and note off messages to be sent
         at the appropriate times using the clock.
         """
+        note = (
+            int(_clamp_midi(note)) if isinstance(note, int) else [int(_clamp_midi(n)) for n in note]
+        )
+        velocity = int(_clamp_midi(velocity))
 
         if isinstance(note, list):
             for n in note:
