@@ -20,7 +20,7 @@ class OSC(Subscriber):
         self.client = osc_udp_client(address=self.host, port=self.port, name=self.name)
         self._osc_loop_shutdown = threading.Event()
         self._osc_loop_thread: Optional[threading.Thread] = None
-        self._nudge = 0.0
+        self._nudge = 0.1
 
         # OSC-In communication
         self._watched_values = {}

@@ -30,7 +30,7 @@ def _create_default_configuration() -> dict:
     configuration = {
         "clock": {
             "default_tempo": 135,
-            "time_grain": 0.001,
+            "time_grain": 0.01,
         },
         "midi": {
             "out_ports": {

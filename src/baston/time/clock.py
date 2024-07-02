@@ -2,12 +2,10 @@ from dataclasses import dataclass, field
 import uuid
 import traceback
 from ..utils import info_message
-from queue import PriorityQueue
-from ..errors import BadFunctionError
 from ..environment import Subscriber
 from typing import Any, Callable, Dict, Optional
 from types import LambdaType
-from time import sleep
+from time import sleep, perf_counter
 import threading
 import link
 import types
@@ -27,7 +25,7 @@ class PriorityEvent:
 
 class Clock(Subscriber):
 
-    def __init__(self, tempo: Number, grain: Number = 0.001):
+    def __init__(self, tempo: Number, grain: Number = 0.1):
         super().__init__()
         self._clock_thread: threading.Thread | None = None
         self._stop_event: threading.Event = threading.Event()
@@ -210,16 +208,16 @@ class Clock(Subscriber):
 
     def run(self) -> None:
         """Clock Event Loop."""
-        previous_time = self._link.clock().micros()
+        previous_time = perf_counter()
         while not self._stop_event.is_set():
-            current_time = self._link.clock().micros()
+            current_time = perf_counter()
             elapsed_time = current_time - previous_time
             self._capture_link_info()
             try:
                 self._execute_due_functions()
             except Exception as e:
                 print(e)
-            sleep_time = self._grain - (elapsed_time / 1000000)
+            sleep_time = self._grain - elapsed_time
             if sleep_time > 0:
                 sleep(sleep_time)
             previous_time = current_time
@@ -252,8 +250,9 @@ class Clock(Subscriber):
     def add(
         self,
         func: Callable,
+        time: Optional[int | float] = None,
+        resolution: Optional[int | float] = 0.01,
         name: Optional[str] = None,
-        time: int | float = None,
         relative: bool = False,
         once: bool = False,
         passthrough: bool = False,
@@ -279,6 +278,9 @@ class Clock(Subscriber):
                 time = self.beat + (1 if time is None else time)
             else:
                 time = time if time is not None else self.beat + 1
+
+        resolution = resolution if resolution else self._grain
+        time = round(time / resolution) * resolution
 
         # NOTE: experimental, trying to assign a name to registered functions
         if not name:
