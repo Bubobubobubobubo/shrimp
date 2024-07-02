@@ -4,9 +4,8 @@ from typing import TypeVar, Callable, ParamSpec, Optional, Dict, Self, Any
 from ..time.clock import Clock
 from string import ascii_lowercase, ascii_uppercase
 from itertools import product
-from inspect import signature
 from types import LambdaType
-from .PlayerLibrary import Pattern, Rest
+from .Pattern import Pattern, Rest
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -20,6 +19,7 @@ class PlayerPattern:
 
 
 class Player(Subscriber):
+    """Player class to manage short musical patterns and play them on the clock."""
 
     def __init__(self, name: str, clock: Clock):
         super().__init__()
@@ -61,6 +61,14 @@ class Player(Subscriber):
         return self._name
 
     def _args_resolver(self, args: tuple[Any]) -> tuple[Any]:
+        """Resolve the arguments of the pattern.
+
+        Args:
+            args (tuple): The arguments to resolve
+
+        Returns:
+            tuple: The resolved arguments
+        """
         new_args = ()
 
         for arg in args:
@@ -69,9 +77,18 @@ class Player(Subscriber):
             elif isinstance(arg, Callable | LambdaType):
                 new_args += (arg(),)
 
-        return new_args
+        return new_args  # type: ignore
 
     def _kwargs_resolver(self, kwargs: dict[str, Any]) -> dict[str, Any]:
+        """Resolve the keyword arguments of the pattern.
+
+        Args:
+            kwargs (dict): The keyword arguments to resolve
+
+        Returns:
+            dict: The resolved keyword arguments
+        """
+
         def resolve_value(value: Any) -> Any:
             if isinstance(value, Pattern):
                 resolved = value(self.iterator - self._silence_count)
@@ -87,20 +104,16 @@ class Player(Subscriber):
 
         return new_kwargs
 
-    def _func(self, pattern: Optional[PlayerPattern] = None, *args, **kwargs) -> None:
-        """Internal recursive function.
+    def _func(self, pattern: PlayerPattern, *args, **kwargs) -> None:
+        """Internal recursive function (central piece of the machanism).
         Args:
             *args: Arguments
             pattern (PlayerPattern): The pattern to play
-
-        Note: this is the central piece of the player system. This player system abstracts
-        away the need to manage recursive functions manually.
         """
+        args = self._args_resolver(pattern.args)
+        kwargs = self._kwargs_resolver(pattern.kwargs)
         try:
-            self._pattern.send_method(
-                *self._args_resolver(pattern.args),
-                **self._kwargs_resolver(pattern.kwargs),
-            )
+            self._pattern.send_method(*args, **kwargs)
         except Exception as e:
             print(e)
 
@@ -170,7 +183,8 @@ class Player(Subscriber):
     def stop(self):
         """Stop the current pattern."""
         self._pattern = None
-        self.iterator = -1
+        self.iterator = 0
+        self._silence_count = 0
         self._clock.remove_by_name(self._name)
 
     @classmethod
@@ -197,7 +211,7 @@ class Player(Subscriber):
         return patterns
 
     @staticmethod
-    def _play_factory(send_method: Callable[P, T], *args, **kwargs) -> None:
+    def _play_factory(send_method: Callable[P, T], *args, **kwargs) -> PlayerPattern:
         """Factory method to create a PlayerPattern object. This is used to create a specific
         pattern type calling a specific output method.
 
@@ -210,5 +224,5 @@ class Player(Subscriber):
 
 
 def pattern_printer(*args, **kwargs):
-    """Utility function to debug patterns by printing them"""
+    """Utility function to debug patterns"""
     print(f"{args}{kwargs}")

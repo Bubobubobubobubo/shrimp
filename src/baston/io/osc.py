@@ -5,6 +5,7 @@ from ..environment import Subscriber
 from ..time.clock import Clock
 from ..utils import flatten, kwargs_to_flat_list
 from typing import Optional, Any, Callable
+from ..systems.Pattern import Rest
 import threading
 import time
 
@@ -105,7 +106,7 @@ class OSC(Subscriber):
             passthrough=True,
         )
 
-    def dirt(self, *args, **kwargs) -> None:
+    def dirt(self, **kwargs) -> None:
         """Send a /dirt/play message to the SuperDirt audio engine.
 
         Args:
@@ -117,6 +118,12 @@ class OSC(Subscriber):
         flat list of key-value pairs.
         """
         self._send_timed_message(address="/dirt/play", message=kwargs_to_flat_list(**kwargs))
+
+    def player_dirt(self, *args, **kwargs):
+        """Alternative version for the systems/Player pattern system."""
+        kwargs = kwargs_to_flat_list(**kwargs)
+        kwargs = [value.to_number() if isinstance(value, Rest) else value for value in kwargs]
+        self._send_timed_message(address="/dirt/play", message=kwargs)
 
     def panic(self) -> None:
         """Send a panic message to the SuperDirt audio engine."""

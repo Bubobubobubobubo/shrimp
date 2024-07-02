@@ -7,8 +7,8 @@ from .io.osc import OSC
 from rich import print
 from .environment import get_global_environment
 from .systems.Player import Player, pattern_printer
-from .systems.PlayerLibrary import *
-from .systems.PlayerLibrary import global_config as PlayerConfig
+from .systems.Pattern import *
+from .systems.Pattern import global_config as PlayerConfig
 import functools
 
 
@@ -92,7 +92,7 @@ clock.play()
 
 if superdirt:
 
-    def d(*args, **kwargs):
+    def dirt(*args, **kwargs):
         """Example use:
 
         >> aa * d(sound="bd", speed=2, amp=4)
@@ -100,7 +100,7 @@ if superdirt:
         >> aa * None
         >> aa.stop()
         """
-        return Player._play_factory(superdirt.dirt, *args, **kwargs)
+        return Player._play_factory(superdirt.player_dirt, *args, **kwargs)
 
 
 if midi:
