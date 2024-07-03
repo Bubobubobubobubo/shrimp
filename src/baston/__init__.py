@@ -21,11 +21,36 @@ env.add_clock(clock)
 pattern = Player.initialize_patterns(clock)
 
 # Opening MIDI output ports based on user configuration
-for midi_out_port_name, port in CONFIGURATION["midi"]["out_ports"].items():
-    if port is not False:
-        print(f"[bold yellow]> MIDI Output added: [red]{midi_out_port_name}[/red] [/bold yellow]")
-        globals()[midi_out_port_name] = MIDIOut(port, clock)
-        env.subscribe(globals()[midi_out_port_name])
+for out_port_info in CONFIGURATION["midi"]["out_ports"]:
+    for midi_out_port_name, port in out_port_info.items():
+        if midi_out_port_name != "instruments" and port:
+            print(
+                f"[bold yellow]> MIDI Output added: [red]{midi_out_port_name}[/red] [/bold yellow]"
+            )
+            globals()[midi_out_port_name] = MIDIOut(port, clock)
+            env.subscribe(globals()[midi_out_port_name])
+
+            # Declaring new MIDI instruments
+            instruments = out_port_info.get("instruments", [])
+            for instrument in instruments:
+                name = instrument["name"]
+                channel = instrument["channel"]
+                new_instrument = globals()[midi_out_port_name].make_instrument(
+                    channel, instrument["control_map"]
+                )
+                globals()[name] = new_instrument
+                print(f"[bold yellow]> MIDI Instrument added: [red]{name}[/red] [/bold yellow]")
+
+            # Declaring new MIDI controllers
+            controllers = out_port_info.get("controllers", [])
+            for controller in controllers:
+                name = controller["name"]
+                new_controller = globals()[midi_out_port_name].make_controller(
+                    controller["control_map"]
+                )
+                globals()[name] = new_controller
+                print(f"[bold yellow]> MIDI Controller added: [red]{name}[/red] [/bold yellow]")
+
 
 # Opening MIDI input ports based on user configuration
 for midi_in_port_name, port in CONFIGURATION["midi"]["in_ports"].items():
@@ -90,7 +115,8 @@ clock.play()
 # == TEST AREA FOR THE PATTERN SYSTEM ======================================================
 
 
-if superdirt:
+if globals().get("superdirt", None) is not None:
+    superdirt = globals()["superdirt"]
 
     def dirt(*args, **kwargs):
         """Example use:
@@ -103,7 +129,8 @@ if superdirt:
         return Player._play_factory(superdirt.player_dirt, *args, **kwargs)
 
 
-if midi:
+if globals().get("midi", None) is not None:
+    midi = globals()["midi"]
 
     def debug(*args, **kwargs):
         return Player._play_factory(pattern_printer, *args, **kwargs)
@@ -119,6 +146,12 @@ if midi:
 
     def bend(*args, **kwargs):
         return Player._play_factory(midi.pitch_bend, *args, **kwargs)
+
+    if globals().get("kabelsalat_instrument", None) is not None:
+        kabel = globals()["kabelsalat_instrument"]
+
+        def kabelsalat(*args, **kwargs):
+            return Player._play_factory(kabel, *args, **kwargs)
 
 
 # Adding all patterns to the global scope

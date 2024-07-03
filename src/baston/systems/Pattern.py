@@ -626,21 +626,21 @@ class Psine(Pattern):
     Psine is a pattern that generates values based on a sine wave.
 
     Args:
-        freq (int | float): The frequency of the sine wave.
-        min (int | float, optional): The minimum value of the generated pattern. Defaults to 0.
-        max (int | float, optional): The maximum value of the generated pattern. Defaults to 1.
-        phase (int | float, optional): The phase offset of the sine wave. Defaults to 0.
+        freq (int | float | Pattern): The frequency of the sine wave.
+        min (int | float | Pattern, optional): The minimum value of the generated pattern. Defaults to 0.
+        max (int | float | Pattern, optional): The maximum value of the generated pattern. Defaults to 1.
+        phase (int | float | Pattern, optional): The phase offset of the sine wave. Defaults to 0.
 
     Returns:
-        int | float: The generated value based on the sine wave.
+        int | float | Pattern: The generated value based on the sine wave.
     """
 
     def __init__(
         self,
-        freq: int | float,
-        min: int | float = 0,
-        max: int | float = 1,
-        phase: int | float = 0,
+        freq: int | float | Pattern,
+        min: int | float | Pattern = 0,
+        max: int | float | Pattern = 1,
+        phase: int | float | Pattern = 0,
     ):
         super().__init__()
         self.min = min
@@ -648,10 +648,20 @@ class Psine(Pattern):
         self.freq = freq
         self.phase = phase
 
+    def _resolve_pattern(self, pattern, iterator):
+        if isinstance(pattern, Pattern):
+            return pattern(iterator)
+        else:
+            return pattern
+
     def __call__(self, _):
-        return (math.sin((self.env.clock.beat + self.phase) * self.freq) + 1) / 2 * (
-            self.max - self.min
-        ) + self.min
+        freq = self._resolve_pattern(self.freq, self.env.clock.beat)
+        min_val = self._resolve_pattern(self.min, self.env.clock.beat)
+        max_val = self._resolve_pattern(self.max, self.env.clock.beat)
+        phase_val = self._resolve_pattern(self.phase, self.env.clock.beat)
+        return (math.sin((self.env.clock.beat + phase_val) * freq) + 1) / 2 * (
+            max_val - min_val
+        ) + min_val
 
 
 class Psaw(Pattern):
@@ -766,7 +776,10 @@ class Pcat(Pattern):
     def __call__(self, iterator):
         result = []
         for pattern in self.patterns:
-            result.append(pattern(iterator))
+            if isinstance(pattern, Pattern):
+                result.append(pattern(iterator))
+            else:
+                result.append(pattern)
         return result
 
 

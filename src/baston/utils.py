@@ -2,6 +2,7 @@ from importlib.metadata import version
 from rich.panel import Panel
 from rich import print
 from pyfiglet import figlet_format
+import shutil
 import random
 
 
@@ -14,9 +15,14 @@ def info_message(message: str, should_print: bool = False) -> None:
 def greeter() -> None:
     font_choice = random.choice(["roman", "basic", "computer"])
     banner = figlet_format("Baston", font=font_choice)
+    # Detect terminal size
+    terminal_size = shutil.get_terminal_size()
+    # Get length of one line of the banner string
+    banner_length = len(banner.split("\n")[0])
+    if banner_length > terminal_size.columns:
+        banner = "=== BASTON ==="
     print(
         f"[bold blue]{banner}[/bold blue][bold yellow]\n> Live Coding tool, BuboBubo {version('baston')}[/bold yellow]",
-        end="",
     )
 
 

@@ -176,3 +176,66 @@ class MIDIOut(Subscriber):
         """
         sysex = mido.Message("sysex", data=data)
         self._midi_out.send(sysex)
+
+    def make_instrument(self, channel: int, control_map: dict[str, int]):
+        """
+        Create a function to control a MIDI instrument.
+
+        Args:
+            channel (int): The MIDI channel.
+            control_map (dict[str, int]): A mapping of control names to control numbers.
+
+        Returns:
+            function: A function to control the MIDI instrument.
+        """
+
+        def instrument_controller(*args, **kwargs):
+            # Handle note messages
+            if "note" in kwargs:
+                note = kwargs["note"]
+                velocity = kwargs.get("velocity", 100)
+                duration = kwargs.get("duration", 1)
+                self.note(note=note, velocity=velocity, channel=channel, duration=duration)
+
+            # Handle control change messages
+            for control_name, control_value in kwargs.items():
+                if control_name in control_map:
+                    control_number = control_map[control_name]
+                    self.control_change(
+                        control=control_number, value=control_value, channel=channel
+                    )
+
+            # Handle program change message
+            if "program_change" in kwargs:
+                program = kwargs["program_change"]
+                self.program_change(program=program, channel=channel)
+
+        return instrument_controller
+
+    def make_controller(self, channel: int, control_map: dict[str, int]):
+        """
+        Create a function to control MIDI hardware/software.
+
+        Args:
+            channel (int): The MIDI channel.
+            control_map (dict[str, int]): A mapping of control names to control numbers.
+
+        Returns:
+            function: A function to control the MIDI instrument.
+        """
+
+        def controller_interface(*_, **kwargs):
+            # Handle control change messages
+            for control_name, control_value in kwargs.items():
+                if control_name in control_map:
+                    control_number = control_map[control_name]
+                    self.control_change(
+                        control=control_number, value=control_value, channel=channel
+                    )
+
+            # Handle program change message
+            if "program_change" in kwargs:
+                program = kwargs["program_change"]
+                self.program_change(program=program, channel=channel)
+
+        return controller_interface

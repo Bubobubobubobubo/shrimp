@@ -33,9 +33,7 @@ def _create_default_configuration() -> dict:
             "time_grain": 0.01,
         },
         "midi": {
-            "out_ports": {
-                "midi": False,
-            },
+            "out_ports": [{"midi": False, "instruments": [], "controllers": []}],
             "in_ports": {
                 "midi_in": False,
             },
