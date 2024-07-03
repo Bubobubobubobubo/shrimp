@@ -5,6 +5,7 @@ from typing import Optional, Callable
 from typing import Any
 from ..environment import get_global_environment
 from .Scales import SCALES
+import itertools
 from .Rest import Rest
 
 Number: int | float
@@ -64,7 +65,7 @@ global_config = GlobalConfig()
 class Pattern:
     """Base class for all patterns. Patterns are used to generate sequences of values"""
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         self.env = get_global_environment()
 
     @property
@@ -82,6 +83,12 @@ class Pattern:
     @scale.setter
     def scale(self, value):
         global_config.scale = value
+
+    def _resolve_pattern(self, pattern, iterator):
+        if isinstance(pattern, Pattern):
+            return pattern(iterator)
+        else:
+            return pattern
 
     def _convert(self, value):
         if isinstance(value, int):
@@ -158,7 +165,17 @@ class _AddPattern(Pattern):
         self.p2 = p2
 
     def __call__(self, iterator):
-        return self.p1(iterator) + self.p2(iterator)
+        p1_result = self.p1(iterator)
+        p2_result = self.p2(iterator)
+
+        if isinstance(p1_result, list) and isinstance(p2_result, list):
+            return [v1 + v2 for v1, v2 in zip(p1_result, p2_result)]
+        elif isinstance(p1_result, list):
+            return [v + p2_result for v in p1_result]
+        elif isinstance(p2_result, list):
+            return [p1_result + v for v in p2_result]
+        else:
+            return p1_result + p2_result
 
 
 class _SubPattern(Pattern):
@@ -271,12 +288,6 @@ class Prand(Pattern):
         else:
             return random.uniform(min_value, max_value)
 
-    def _resolve_pattern(self, pattern, iterator):
-        if isinstance(pattern, Pattern):
-            return pattern(iterator)
-        else:
-            return pattern
-
 
 class Pchoose(Pattern):
     """
@@ -386,12 +397,6 @@ class Peuclid(Pattern):
 
         self.rhythm = euclidian_rhythm(pulses, length, rotate)
         return base if self.rhythm[iterator % len(self.rhythm)] == 1 else Rest(base)
-
-    def _resolve_pattern(self, pattern, iterator):
-        if isinstance(pattern, Pattern):
-            return pattern(iterator)
-        else:
-            return pattern
 
 
 class Pbin(Pattern):
@@ -536,88 +541,149 @@ class Ptpar(Pattern):
 # Sequence patterns
 
 
-class SequencePattern: ...
-
-
-class Pseq(Pattern, SequencePattern):
-    def __init__(self, *values, len: Optional[int] = None, reverse: bool = False):
-        super().__init__()
-        self._length = len
-        self._reverse = reverse
-        self.values = values
-
-    def __call__(self, iterator):
-        if self._reverse:
-            index = len(self.values) - 1 - iterator % len(self.values)
-        else:
-            index = iterator % len(self.values) if self._length is None else iterator % self._length
-        return self.values[index]
-
-
-class Pnote(Pseq):
-    """
-    Pnote class represents a pattern of musical notes.
-
-    Args:
-        *values: Variable number of values representing the notes in the pattern.
-        len (int | None, optional): Length of the pattern. Defaults to None.
-        reverse (bool, optional): Flag indicating whether the pattern should be reversed. Defaults to False.
-        root (int | None, optional): Root note of the pattern. Defaults to None.
-        scale (str | None, optional): Scale of the pattern. Defaults to None.
-
-    Methods:
-        __call__(self, iterator): Evaluates the pattern with the given iterator.
-
-    Returns:
-        int | list[int]: The evaluated note value(s) based on the pattern.
-
-    Note:
-        - The pattern can contain both individual notes and patterns of notes.
-        - The evaluated note value(s) are calculated based on the root note and scale of the pattern.
-    """
-
+class SequencePattern:
     def __init__(
         self,
         *values,
-        len: int | None = None,
-        reverse: bool = False,
-        root: Optional[int] = None,
-        scale: Optional[str] = None,
+        length: Optional[int | Pattern] = None,
+        reverse: bool | Pattern = False,
+        shuffle: bool | Pattern = False,
+        repeat: Optional[int | Pattern] = False,
+        invert: Optional[int | Pattern] = False,
     ):
-        super().__init__(*values, len=len, reverse=reverse)
-        if root is not None:
-            self._local_root = root
-        if scale is not None:
-            self._local_scale = scale
+        """
+        A base class for sequence patterns.
+
+        Args:
+            *values: Variable number of values to be used in the pattern.
+            length (int | Pattern, optional): The length of the pattern. Defaults to None.
+            reverse (bool | Pattern, optional): Whether to reverse the pattern. Defaults to False.
+            shuffle (bool | Pattern, optional): Whether to shuffle the pattern. Defaults to False.
+            repeat (int | Pattern, optional): The number of times to repeat the pattern. Defaults to False.
+            invert (int | Pattern, optional): The value to subtract from each pattern value. Defaults to False.
+        """
+        self._length = length
+        self._reverse = reverse
+        self._shuffle = shuffle
+        self._invert = invert
+        self._repeat = repeat
+        self._original_values = values  # Store the original values
+        self.values = list(values)  # Initialize self.values with the original values
+
+    def _repeat_values(self, values, repeat, iterator):
+        expanded_values = []
+        if not isinstance(repeat, Pattern):
+            expanded_values = list(
+                itertools.chain.from_iterable(itertools.repeat(x, repeat) for x in values)
+            )
+        else:
+            repeat_value = repeat(iterator)
+            expanded_values = list(
+                itertools.chain.from_iterable(itertools.repeat(x, repeat_value) for x in values)
+            )
+        return expanded_values
+
+    def _resolve_pattern(self, pattern, iterator):
+        if isinstance(pattern, Pattern):
+            return pattern(iterator)
+        return pattern
 
     def __call__(self, iterator):
-        if self._reverse:
+        # Use the original values for computation
+        self.values = list(self._original_values)
+
+        if self._repeat is not None:
+            self.values = self._repeat_values(self.values, self._repeat, iterator)
+
+        if isinstance(self._shuffle, Pattern):
+            shuffle = self._resolve_pattern(self._shuffle, iterator)
+        else:
+            shuffle = self._shuffle
+
+        if shuffle:
+            random.shuffle(self.values)
+
+        if isinstance(self._reverse, Pattern):
+            reverse = self._resolve_pattern(self._reverse, iterator)
+        else:
+            reverse = self._reverse
+
+        if reverse:
             index = len(self.values) - 1 - iterator % len(self.values)
         else:
             index = iterator % len(self.values) if self._length is None else iterator % self._length
-        note = self.values[index]
-        scale = SCALES[
-            global_config.scale if not hasattr(self, "_local_scale") else self._local_scale
-        ]
-        root = self._local_root if hasattr(self, "_local_root") else global_config.root
 
-        if isinstance(note, Pattern):  # Check if note is a Pattern instance
-            note_value = note(iterator)  # Evaluate the pattern with the iterator
-        else:
-            note_value = note
+        value = self.values[index]
+
+        if self._invert is not None:
+            if isinstance(self._invert, Pattern):
+                invert = self._resolve_pattern(self._invert, iterator)
+            else:
+                invert = self._invert
+            value -= invert
+        return value
+
+
+class Pseq(Pattern, SequencePattern):
+    def __init__(
+        self,
+        *values,
+        length: Optional[int] = None,
+        reverse: bool = False,
+        shuffle: bool = False,
+        repeat: Optional[int] = None,
+        invert: Optional[int] = False,
+    ):
+        Pattern.__init__(self)  # Initialize the base Pattern class
+        SequencePattern.__init__(
+            self,
+            *values,
+            length=length,
+            reverse=reverse,
+            shuffle=shuffle,
+            invert=invert,
+            repeat=repeat,
+        )
+
+    def __call__(self, iterator):
+        return SequencePattern.__call__(self, iterator)
+
+
+class Pnote(Pseq):
+    def __init__(
+        self,
+        *values,
+        length: Optional[int] = None,
+        reverse: bool = False,
+        shuffle: bool = False,
+        invert: Optional[int] = None,
+        repeat: Optional[int] = None,
+        root: Optional[int] = None,
+        scale: Optional[str] = None,
+    ):
+        super().__init__(
+            *values, length=length, reverse=reverse, shuffle=shuffle, invert=invert, repeat=repeat
+        )
+        self._local_root = root if root is not None else global_config.root
+        self._local_scale = scale if scale is not None else global_config.scale
+
+    def __call__(self, iterator):
+        note = super().__call__(iterator)
+        scale = SCALES[self._local_scale]
+        root = self._local_root
+
+        note_value = self._resolve_pattern(note, iterator) if isinstance(note, Pattern) else note
 
         if isinstance(note_value, int):
             octave_shift = note_value // len(scale)
             scale_position = note_value % len(scale)
-            note_value = root + scale[scale_position] + (octave_shift * 12)
-            return note_value
+            return root + scale[scale_position] + (octave_shift * 12)
         elif isinstance(note_value, list):
             final_notes = []
             for n in note_value:
                 octave_shift = n // len(scale)
                 scale_position = n % len(scale)
-                note_value = root + scale[scale_position] + (octave_shift * 12)
-                final_notes.append(note_value)
+                final_notes.append(root + scale[scale_position] + (octave_shift * 12))
             return final_notes
 
 
@@ -647,12 +713,6 @@ class Psine(Pattern):
         self.max = max
         self.freq = freq
         self.phase = phase
-
-    def _resolve_pattern(self, pattern, iterator):
-        if isinstance(pattern, Pattern):
-            return pattern(iterator)
-        else:
-            return pattern
 
     def __call__(self, _):
         freq = self._resolve_pattern(self.freq, self.env.clock.beat)
@@ -782,6 +842,9 @@ class Pcat(Pattern):
                 result.append(pattern)
         return result
 
+    def __add__(self, other):
+        return _AddPattern(self, self._convert(other))
+
 
 class Pcoin(Pattern):
     """
@@ -844,12 +907,6 @@ class Pfunc(Pattern):
         super().__init__()
         self.function = function
 
-    def _resolve_value(self, value, iterator):
-        if isinstance(value, Pattern):
-            return value(iterator)
-        else:
-            return value
-
     def __call__(self, iterator):
         return self.function(iterator)
 
@@ -896,21 +953,11 @@ class Pexp(Pattern):
         self.max = max
         self.n = n
 
-    def _get_value(
-        self,
-        value,
-        iterator,
-    ):
-        if isinstance(value, Pattern):
-            return value(iterator)
-        else:
-            return value
-
     def __call__(self, iterator):
         index = iterator % self.n
-        min_value = self._get_value(self.min, iterator)
-        max_value = self._get_value(self.max, iterator)
-        n_value = self._get_value(self.n, iterator)
+        min_value = self._resolve_pattern(self.min, iterator)
+        max_value = self._resolve_pattern(self.max, iterator)
+        n_value = self._resolve_pattern(self.n, iterator)
         return min_value * (max_value / min_value) ** (index / n_value)
 
 
@@ -932,16 +979,15 @@ class Plin(Pattern):
 
     def __call__(self, iterator):
         index = iterator % self.n
-        if isinstance(self.start, Pattern):
-            start_value = self.start(iterator)
-        else:
-            start_value = self.start
 
-        if isinstance(self.end, Pattern):
-            end_value = self.end(iterator)
-        else:
-            end_value = self.end
-
+        start_value = (
+            self._resolve_pattern(self.start, iterator)
+            if isinstance(self.start, Pattern)
+            else self.start
+        )
+        end_value = (
+            self._resolve_pattern(self.end, iterator) if isinstance(self.end, Pattern) else self.end
+        )
         return start_value + (end_value - start_value) * index / self.n
 
 

@@ -280,7 +280,8 @@ class Clock(Subscriber):
                 time = time if time is not None else self.beat + 1
 
         resolution = resolution if resolution else self._grain
-        time = round(time / resolution) * resolution
+        if time:
+            time = round(time / resolution) * resolution
 
         # NOTE: experimental, trying to assign a name to registered functions
         if not name:
