@@ -1,10 +1,11 @@
 import random
 import math
 from ..utils import euclidian_rhythm
-from typing import Optional
+from typing import Optional, Callable
 from typing import Any
 from ..environment import get_global_environment
 from .Scales import SCALES
+from .Rest import Rest
 
 Number: int | float
 
@@ -28,8 +29,17 @@ class GlobalConfig:
         if cls._instance is None:
             cls._instance = super(GlobalConfig, cls).__new__(cls)
             cls._instance.scale = "major"
+            cls._register = {}
             cls._root_note = 60
         return cls._instance
+
+    @property
+    def register(self):
+        return self._instance._register
+
+    @register.setter
+    def register(self, value):
+        self._instance._register = value
 
     @property
     def scale(self):
@@ -49,76 +59,6 @@ class GlobalConfig:
 
 
 global_config = GlobalConfig()
-
-
-class Rest:
-    """
-    Represents a rest in a musical pattern.
-
-    Args:
-        duration (int | float): The duration of the rest.
-    """
-
-    def __init__(self, duration: int | float):
-        self.duration = duration
-
-    def __add__(self, other):
-        return Rest(self.duration + other)
-
-    def __radd__(self, other):
-        return Rest(other + self.duration)
-
-    def __sub__(self, other):
-        return Rest(self.duration - other)
-
-    def __rsub__(self, other):
-        return Rest(other - self.duration)
-
-    def __mul__(self, other):
-        return Rest(self.duration * other)
-
-    def __rmul__(self, other):
-        return Rest(other * self.duration)
-
-    def __truediv__(self, other):
-        return Rest(self.duration / other)
-
-    def __rtruediv__(self, other):
-        return Rest(other / self.duration)
-
-    def __mod__(self, other):
-        return Rest(self.duration % other)
-
-    def __rmod__(self, other):
-        return Rest(other % self.duration)
-
-    def __pow__(self, other):
-        return Rest(self.duration**other)
-
-    def __rpow__(self, other):
-        return Rest(other**self.duration)
-
-    def __lshift__(self, other):
-        return Rest(self.duration << other)
-
-    def __rlshift__(self, other):
-        return Rest(other << self.duration)
-
-    def __rshift__(self, other):
-        return Rest(self.duration >> other)
-
-    def __rrshift__(self, other):
-        return Rest(other >> self.duration)
-
-    def to_number(self):
-        """
-        Converts the duration of the rest to a number.
-
-        Returns:
-            int | float: The duration of the rest as a number.
-
-        """
-        return self.duration
 
 
 class Pattern:
@@ -306,8 +246,8 @@ class Prand(Pattern):
     A pattern that generates random numbers within a given range.
 
     Args:
-        min (int | float): The minimum value of the range.
-        max (int | float): The maximum value of the range.
+        min (int | float | Pattern): The minimum value of the range.
+        max (int | float | Pattern): The maximum value of the range.
         as_float (bool, optional): If True, the generated numbers will be returned as floats.
             If False (default), the generated numbers will be returned as integers.
 
@@ -315,17 +255,27 @@ class Prand(Pattern):
         int | float: A random number within the specified range.
     """
 
-    def __init__(self, min: int | float, max: int | float, as_float: bool = False):
+    def __init__(
+        self, min: int | float | Pattern, max: int | float | Pattern, as_float: bool = False
+    ):
         super().__init__()
         self.min = min
         self.max = max
         self.return_integer = as_float
 
     def __call__(self, _):
+        min_value = self._resolve_pattern(self.min, _)
+        max_value = self._resolve_pattern(self.max, _)
         if self.return_integer:
-            return random.randint(int(self.min), int(self.max))
+            return random.randint(int(min_value), int(max_value))
         else:
-            return random.uniform(self.min, self.max)
+            return random.uniform(min_value, max_value)
+
+    def _resolve_pattern(self, pattern, iterator):
+        if isinstance(pattern, Pattern):
+            return pattern(iterator)
+        else:
+            return pattern
 
 
 class Pchoose(Pattern):
@@ -448,16 +398,16 @@ class Pbin(Pattern):
     """A pattern class that generates values based on a binary rhythm.
 
     Args:
-        number (int): The number used to generate the binary rhythm.
-        base (int, optional): The base value for the generated pattern. Defaults to 1.
+        number (int | Pattern): The number used to generate the binary rhythm.
+        base (int | Pattern, optional): The base value for the generated pattern. Defaults to 1.
 
     Returns:
         int | Rest: The generated value based on the binary rhythm.
     """
 
-    def __init__(self, number: int, base: int = 1):
+    def __init__(self, number: int | Pattern, base: int | Pattern = 1):
         super().__init__()
-        self.rhythm = self.binary_rhythm(number)
+        self._number = number
         self._base = base
 
     def binary_rhythm(self, number: int) -> list:
@@ -473,8 +423,11 @@ class Pbin(Pattern):
         return [int(bit) for bit in binary_string]
 
     def __call__(self, iterator):
-        index = iterator % len(self.rhythm)
-        value = self._base if self.rhythm[index] == 1 else Rest(self._base)
+        number = self._number(iterator) if isinstance(self._number, Pattern) else self._number
+        base = self._base(iterator) if isinstance(self._base, Pattern) else self._base
+        rhythm = self.binary_rhythm(number)
+        index = iterator % len(rhythm)
+        value = base if rhythm[index] == 1 else Rest(base)
         return value
 
 
@@ -549,7 +502,7 @@ class Ppar(Pattern):
         self.patterns = patterns
 
     def __call__(self, iterator):
-        return [pattern(iterator) for pattern in self.patterns]
+        return [pattern(iterator) if callable(pattern) else pattern for pattern in self.patterns]
 
 
 class Ptpar(Pattern):
@@ -574,7 +527,10 @@ class Ptpar(Pattern):
         ]
 
     def _get_value(self, pattern, iterator, offset):
-        return pattern(iterator + offset)
+        if callable(pattern):
+            return pattern(iterator + offset)
+        else:
+            return pattern
 
 
 # Sequence patterns
@@ -871,9 +827,15 @@ class Pfunc(Pattern):
         function (callable): The function to be applied to the iterator.
     """
 
-    def __init__(self, function):
+    def __init__(self, function: Callable | Pattern):
         super().__init__()
         self.function = function
+
+    def _resolve_value(self, value, iterator):
+        if isinstance(value, Pattern):
+            return value(iterator)
+        else:
+            return value
 
     def __call__(self, iterator):
         return self.function(iterator)
@@ -900,8 +862,9 @@ class Pwchoose(Pattern):
         else:
             self.weights = weights
 
-    def __call__(self, _):
-        return random.choices(self.values, weights=self.weights)[0]
+    def __call__(self, iterator):
+        resolved_weights = [w(iterator) if isinstance(w, Pattern) else w for w in self.weights]
+        return random.choices(self.values, weights=resolved_weights)[0]
 
 
 class Pexp(Pattern):
@@ -909,20 +872,33 @@ class Pexp(Pattern):
     Represents an exponential pattern.
 
     Args:
-        min (int | float): The minimum value of the pattern.
-        max (int | float): The maximum value of the pattern.
-        n (int): The number of steps in the pattern.
+        min (int | float | Pattern): The minimum value or pattern of values of the pattern.
+        max (int | float | Pattern): The maximum value or pattern of values of the pattern.
+        n (int | Pattern): The number of steps or pattern of steps in the pattern.
     """
 
-    def __init__(self, min: int | float, max: int | float, n: int):
+    def __init__(self, min: int | float | Pattern, max: int | float | Pattern, n: int | Pattern):
         super().__init__()
         self.min = min
         self.max = max
         self.n = n
 
+    def _get_value(
+        self,
+        value,
+        iterator,
+    ):
+        if isinstance(value, Pattern):
+            return value(iterator)
+        else:
+            return value
+
     def __call__(self, iterator):
         index = iterator % self.n
-        return self.min * (self.max / self.min) ** (index / self.n)
+        min_value = self._get_value(self.min, iterator)
+        max_value = self._get_value(self.max, iterator)
+        n_value = self._get_value(self.n, iterator)
+        return min_value * (max_value / min_value) ** (index / n_value)
 
 
 class Plin(Pattern):
@@ -930,12 +906,12 @@ class Plin(Pattern):
     Represents a linear pattern that generates values between a start and end value.
 
     Args:
-        start (int | float): The starting value of the pattern.
-        end (int | float): The ending value of the pattern.
+        start (int | float | Pattern): The starting value or pattern of values of the pattern.
+        end (int | float | Pattern): The ending value or pattern of values of the pattern.
         n (int): The number of steps in the pattern.
     """
 
-    def __init__(self, start: int | float, end: int | float, n: int):
+    def __init__(self, start: int | float | Pattern, end: int | float | Pattern, n: int):
         super().__init__()
         self.start = start
         self.end = end
@@ -943,7 +919,17 @@ class Plin(Pattern):
 
     def __call__(self, iterator):
         index = iterator % self.n
-        return self.start + (self.end - self.start) * index / self.n
+        if isinstance(self.start, Pattern):
+            start_value = self.start(iterator)
+        else:
+            start_value = self.start
+
+        if isinstance(self.end, Pattern):
+            end_value = self.end(iterator)
+        else:
+            end_value = self.end
+
+        return start_value + (end_value - start_value) * index / self.n
 
 
 class Plog(Pattern):

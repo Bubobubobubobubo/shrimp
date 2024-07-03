@@ -119,6 +119,13 @@ class OSC(Subscriber):
         messages to the SuperDirt audio engine. The kwargs are converted to a
         flat list of key-value pairs.
         """
+        kwargs.update(
+            {
+                "cps": (self._clock.tempo / self._clock._denominator) / 60,
+                "cycle": self._clock.beat,
+                "delta": self._clock.beat,
+            }
+        )
         self._send_timed_message(address="/dirt/play", message=kwargs_to_flat_list(**kwargs))
 
     def player_dirt(self, *args, **kwargs):
