@@ -205,6 +205,8 @@ class Player(Subscriber):
         ):
             raise ValueError("Invalid quantization policy.")
         print(f"Syncing {self._name} to {quant_policy}")
+        self._iterator = 0
+        self._silence_count = 0
         self._sync_quant_policy = quant_policy
 
     @classmethod
