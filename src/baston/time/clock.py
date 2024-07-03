@@ -56,7 +56,7 @@ class Clock(Subscriber):
 
     def sync(self, bool: bool = True):
         """Enable or disable the sync of the clock"""
-        self.link.startStopSyncEnabled = bool
+        self._link.startStopSyncEnabled = bool
 
     @property
     def children(self):
