@@ -30,6 +30,8 @@ class Player(Subscriber):
         self._pattern: Optional[PlayerPattern] = None
         self._sync_quant_policy: Optional[str] = None
 
+        self.register_handler("all_notes_off", self.stop)
+
     def __repr__(self):
         return f"Player {self._name}, pattern: {self._pattern}"
 
@@ -133,25 +135,26 @@ class Player(Subscriber):
             pattern (Optional[PlayerPattern], optional): The pattern to push. Defaults to None.
             None will stop the current pattern and clear the pattern attribute.
         """
-        if self._pattern is not None:
-            if pattern is not None:
-                self._pattern = pattern
-            else:
-                self.stop()
-        else:
-            if pattern is not None:
-                if "quant" not in pattern.kwargs:
-                    pattern.kwargs["quant"] = "bar"
-                self._pattern = pattern
-                self._push()
+        was_playing_a_pattern = self._pattern is not None
+
+        if pattern is None and was_playing_a_pattern:
+            self.stop()
+            return
+
+        if was_playing_a_pattern:
+            self._pattern = pattern
+            return
+
+        self._pattern = pattern
+        self._push()
 
     def _push(self, again: bool = False, **kwargs) -> None:
         """Managing the lifetime of the pattern"""
         schedule_silence = False
 
         if self._sync_quant_policy:
-            kwargs["quant"] = self._sync_quant_policy
             # Reset sync quant policy after one use
+            kwargs["quant"] = self._sync_quant_policy
             self._sync_quant_policy = None
 
         kwargs = {
@@ -162,25 +165,26 @@ class Player(Subscriber):
             "time": lambda: self._pattern.kwargs.get("dur", 1),
         }
 
+        # Resolve time if it is a pattern, a callable or any complex thing
         while isinstance(kwargs["time"], Callable | LambdaType | Pattern):
             if isinstance(kwargs["time"], Pattern):
                 kwargs["time"] = kwargs["time"](self.iterator)
             elif isinstance(kwargs["time"], Callable | LambdaType):
                 kwargs["time"] = kwargs["time"]()
 
+        # If time is a rest, schedule a silence and count it for other seqs
         if isinstance(kwargs["time"], Rest):
             kwargs["time"] = kwargs["time"].duration
             self._silence_count += 1
             schedule_silence = True
 
-        if not again and not self._sync_quant_policy:
-            quant_policy = self._pattern.kwargs.get("quant", "bar")
+        # Handling pattern rescheduling!
+        if not again:
+            if self._sync_quant_policy is None:
+                quant_policy = self._pattern.kwargs.get("quant", "bar")
+
             if quant_policy == "bar":
-                kwargs["time"] = (
-                    self._clock.next_bar
-                    if not kwargs["relative"]
-                    else self._clock.beats_until_next_bar()
-                )
+                kwargs["time"] = self._clock.next_bar
             elif quant_policy == "beat":
                 kwargs["time"] = self._clock.next_beat
             elif quant_policy == "now":
@@ -194,12 +198,16 @@ class Player(Subscriber):
             **kwargs,
         )
 
-    def stop(self):
+    def stop(self, _: dict = {}):
         """Stop the current pattern."""
         self._pattern = None
         self.iterator = 0
         self._silence_count = 0
         self._clock.remove_by_name(self._name)
+
+    def play(self) -> None:
+        """Play the current pattern."""
+        self._push()
 
     def sync(self, quant_policy: str):
         """Apply a temporary quantization policy for the next call.

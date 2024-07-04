@@ -40,8 +40,8 @@ class Clock(Subscriber):
         self._beat, self._bar, self._phase = 0, 0, 0
         self._nominator, self._denominator = 4, 4
         self._grain = grain
-        self._nudge = 0.05
-        self._delay = 200
+        self._nudge = 0.00
+        self._delay = 0
         self.register_handler("start", self.start)
         self.register_handler("play", self.play)
         self.register_handler("pause", self.pause)
