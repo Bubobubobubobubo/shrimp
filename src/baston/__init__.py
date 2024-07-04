@@ -11,10 +11,11 @@ from .systems.Pattern import *
 from .systems.Pattern import global_config as PlayerConfig
 import functools
 
-
-greeter()
-
 CONFIGURATION = read_configuration()
+
+if CONFIGURATION["editor"]["greeter"]:
+    greeter()
+
 env = get_global_environment()
 clock = Clock(CONFIGURATION["clock"]["default_tempo"], CONFIGURATION["clock"]["time_grain"])
 env.add_clock(clock)
@@ -24,9 +25,10 @@ pattern = Player.initialize_patterns(clock)
 for out_port_info in CONFIGURATION["midi"]["out_ports"]:
     for midi_out_port_name, port in out_port_info.items():
         if midi_out_port_name != "instruments" and port:
-            print(
-                f"[bold yellow]> MIDI Output added: [red]{midi_out_port_name}[/red] [/bold yellow]"
-            )
+            if CONFIGURATION["editor"]["greeter"]:
+                print(
+                    f"[bold yellow]> MIDI Output added: [red]{midi_out_port_name}[/red] [/bold yellow]"
+                )
             globals()[midi_out_port_name] = MIDIOut(port, clock)
             env.subscribe(globals()[midi_out_port_name])
 
@@ -39,7 +41,8 @@ for out_port_info in CONFIGURATION["midi"]["out_ports"]:
                     channel, instrument["control_map"]
                 )
                 globals()[name] = new_instrument
-                print(f"[bold yellow]> MIDI Instrument added: [red]{name}[/red] [/bold yellow]")
+                if CONFIGURATION["editor"]["greeter"]:
+                    print(f"[bold yellow]> MIDI Instrument added: [red]{name}[/red] [/bold yellow]")
 
             # Declaring new MIDI controllers
             controllers = out_port_info.get("controllers", [])
@@ -49,19 +52,22 @@ for out_port_info in CONFIGURATION["midi"]["out_ports"]:
                     controller["control_map"]
                 )
                 globals()[name] = new_controller
-                print(f"[bold yellow]> MIDI Controller added: [red]{name}[/red] [/bold yellow]")
+                if CONFIGURATION["editor"]["greeter"]:
+                    print(f"[bold yellow]> MIDI Controller added: [red]{name}[/red] [/bold yellow]")
 
 
 # Opening MIDI input ports based on user configuration
 for midi_in_port_name, port in CONFIGURATION["midi"]["in_ports"].items():
     if port is not False:
-        print(f"[bold yellow]> MIDI Input added: [red]{midi_in_port_name}[/red] [/bold yellow]")
+        if CONFIGURATION["editor"]["greeter"]:
+            print(f"[bold yellow]> MIDI Input added: [red]{midi_in_port_name}[/red] [/bold yellow]")
         globals()[midi_in_port_name] = MIDIIn(port, clock)
         env.subscribe(globals()[midi_in_port_name])
 
 # Opening OSC connexions based on user configuration
 for osc_port_name, port in CONFIGURATION["osc"]["ports"].items():
-    print(f"[bold yellow]> OSC Port added: [red]{osc_port_name}[/red] [/bold yellow]")
+    if CONFIGURATION["editor"]["greeter"]:
+        print(f"[bold yellow]> OSC Port added: [red]{osc_port_name}[/red] [/bold yellow]")
     globals()[osc_port_name] = OSC(
         name=osc_port_name, host=port["host"], port=port["port"], clock=clock
     )

@@ -12,13 +12,13 @@ class Environment:
     @property
     def clock(self):
         if self._clock is None:
-            raise Exception("Clock not set")
+            pass
         else:
             return self._clock
 
     def add_clock(self, clock: "Clock"):
         if self._clock is not None:
-            raise Exception("Clock already set")
+            pass
         else:
             self._clock = clock
             self.subscribe(self._clock)

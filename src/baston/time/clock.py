@@ -2,11 +2,12 @@ from dataclasses import dataclass, field
 import uuid
 import traceback
 from ..utils import info_message
-from ..environment import Subscriber
+from ..environment import Subscriber, Environment
 from typing import Any, Callable, Dict, Optional
 from types import LambdaType
 from time import sleep, perf_counter
 import threading
+import math
 import link
 import types
 
@@ -16,7 +17,8 @@ Number = int | float
 @dataclass(order=True)
 class PriorityEvent:
     name: str
-    priority: int | float
+    next_time: int | float
+    next_ideal_time: int | float
     item: Any = field(compare=False)
     has_played: bool = False
     passthrough: bool = False
@@ -25,13 +27,14 @@ class PriorityEvent:
 
 class Clock(Subscriber):
 
-    def __init__(self, tempo: Number, grain: Number = 0.1):
+    def __init__(self, tempo: Number, grain: float = 0.001):
         super().__init__()
         self._clock_thread: threading.Thread | None = None
         self._stop_event: threading.Event = threading.Event()
         self._children: Dict[str, PriorityEvent] = {}
         self._playing: bool = True
         self._link = link.Link(tempo)
+        self.env: Optional[Environment] = None
         self._link.enabled = True
         self._link.startStopSyncEnabled = True
         self._nominator = 4
@@ -40,6 +43,7 @@ class Clock(Subscriber):
         self._bar = 0
         self._phase = 0
         self._grain = grain
+        self._nudge = 0.0
         self.register_handler("start", self.start)
         self.register_handler("play", self.play)
         self.register_handler("pause", self.pause)
@@ -64,9 +68,19 @@ class Clock(Subscriber):
         return self._children
 
     @property
-    def grain(self) -> Number:
+    def nudge(self) -> float:
+        """Return the nudge of the clock"""
+        return self._nudge
+
+    @nudge.setter
+    def nudge(self, value: float):
+        """Set the nudge of the clock"""
+        self._nudge = value
+
+    @property
+    def grain(self) -> float:
         """Return the grain of the clock"""
-        self._grain
+        return self._grain
 
     @property
     def time(self) -> Number:
@@ -103,8 +117,8 @@ class Clock(Subscriber):
 
     @property
     def bar(self) -> Number:
-        """Get the bar of the clock"""
-        return self._bar
+        """Get the current bar number."""
+        return math.floor(self.beat / self._denominator)
 
     @property
     def next_bar(self) -> Number:
@@ -113,8 +127,10 @@ class Clock(Subscriber):
 
     @property
     def beat(self) -> Number:
-        """Get the beat of the clock"""
-        return self._beat
+        """Get the current beat number from Link."""
+        return self._link.captureSessionState().beatAtTime(
+            self._link.clock().micros(), self._denominator
+        )
 
     @property
     def next_beat(self) -> Number:
@@ -138,12 +154,15 @@ class Clock(Subscriber):
 
     @property
     def phase(self) -> Number:
-        """Get the phase of the clock"""
-        return self._phase
+        """Get the current phase from Link."""
+        state = self._link.captureSessionState()
+        time = self._link.clock().micros()
+        return state.phaseAtTime(time, self._denominator)
 
     def start(self) -> None:
         """Start the clock"""
-        self.env.dispatch(self, "start", {})
+        if self.env:
+            self.env.dispatch(self, "start", {})
         if not self._clock_thread:
             self._clock_thread = threading.Thread(target=self.run, daemon=False)
             self._clock_thread.start()
@@ -154,14 +173,18 @@ class Clock(Subscriber):
             return
 
         def _on_time_callback():
-            self.env.dispatch(self, "play", {})
+            if self.env:
+                self.env.dispatch(self, "play", {})
             session = self._link.captureSessionState()
             self._playing = True
             session.setIsPlaying(True, self._link.clock().micros())
+            session.requestBeatAtTime(0, self._link.clock().micros(), self._denominator)
             self._link.commitSessionState(session)
+            print("New beat is: ", self.beat)
 
         if now:
             _on_time_callback()
+            print(f"New beat is: {self.beat}")
         else:
             self.add(func=_on_time_callback, time=self.next_bar, once=True, passthrough=True)
 
@@ -169,9 +192,10 @@ class Clock(Subscriber):
         """Pause the clock"""
         if not self._playing:
             return
-        self.env.dispatch(self, "pause", {})
-        session = self._link.captureSessionState()
         self._playing = False
+        if self.env:
+            self.env.dispatch(self, "pause", {})
+        session = self._link.captureSessionState()
         session.setIsPlaying(False, self._link.clock().micros())
         self._link.commitSessionState(session)
 
@@ -184,7 +208,8 @@ class Clock(Subscriber):
         self._link.startStopSyncEnabled = False
         self._stop_event.set()
         self._link.enabled = False
-        self.env.dispatch(self, "stop", {})
+        if self.env:
+            self.env.dispatch(self, "stop", {})
         del self._link
 
     def _capture_link_info(self) -> None:
@@ -193,46 +218,46 @@ class Clock(Subscriber):
         link_time = self._link.clock().micros()
         isPlaying = link_state.isPlaying()
 
-        if isPlaying and not self._playing:
-            self._playing = True
-
-        if not isPlaying and self._playing:
-            self._playing = False
+        epsilon = 1e-6
+        if isPlaying and not self._playing and abs(self._phase) < epsilon:
+            self.play(now=False)
+        elif not isPlaying and self._playing:
+            self.pause()
 
         self._beat, self._phase, self._tempo = (
             link_state.beatAtTime(link_time, self._denominator),
             link_state.phaseAtTime(link_time, self._denominator),
             link_state.tempo(),
         )
-        self._bar = self._beat / self._denominator
+        self._bar = self._beat // self._denominator
 
     def run(self) -> None:
         """Clock Event Loop."""
-        previous_time = perf_counter()
         while not self._stop_event.is_set():
-            current_time = perf_counter()
-            elapsed_time = current_time - previous_time
+            start_time = self._link.clock().micros()
             self._capture_link_info()
             try:
                 self._execute_due_functions()
             except Exception as e:
                 print(e)
-            sleep_time = self._grain - elapsed_time
-            if sleep_time > 0:
-                sleep(sleep_time)
-            previous_time = current_time
+            end_time = self._link.clock().micros()
+            elapsed_micros = end_time - start_time
+            sleep_micros = max(0, int(self._grain * 1_000_000) - elapsed_micros)
+
+            if sleep_micros > 0:
+                sleep(sleep_micros / 1_000_000)
 
     def _execute_due_functions(self) -> None:
         """Execute all functions that are due to be executed."""
-        possible_callables = sorted(self._children.values(), key=lambda event: event.priority)
-
+        possible_callables = sorted(self._children.values(), key=lambda event: event.next_time)
         for callable in possible_callables:
-            if callable.priority <= self._beat and not callable.has_played:
+            if callable.next_time <= self._beat and not callable.has_played:
                 if self._playing or callable.passthrough:
                     callable.has_played = True
                     try:
                         func, args, kwargs = callable.item
                         func(*args, **kwargs)
+
                         if callable.once:
                             del self._children[callable.name]
                     except Exception as e:
@@ -251,7 +276,6 @@ class Clock(Subscriber):
         self,
         func: Callable,
         time: Optional[int | float] = None,
-        resolution: Optional[int | float] = 0.01,
         name: Optional[str] = None,
         relative: bool = False,
         once: bool = False,
@@ -259,31 +283,24 @@ class Clock(Subscriber):
         *args,
         **kwargs,
     ):
-        """Add any Callable to the clock.
+        """Add any Callable to the clock with improved precision."""
 
-        Args:
-            func (Callable): The function to be executed.
-            time (int|float, optional): The beat at which the event
-            should be executed. Defaults to clock.beat + 1.
-            once (bool, optional): If True, the function will only be executed once.
-
-        Returns:
-            None
-        """
         if time:
+            # Time can be a Callable
             if isinstance(time, (Callable, LambdaType)):
                 while isinstance(time, (Callable | LambdaType)):
                     time = time()
+
+            # Relative time calculation
             if relative:
-                time = self.beat + (1 if time is None else time)
+                next_time = self.now + (1 if time is None else time)
+                ideal_time = 1 if time is None else time
+
+            # Absolute time calculation
             else:
-                time = time if time is not None else self.beat + 1
+                next_time = time if time is not None else self.now + 1
+                ideal_time = time
 
-        resolution = resolution if resolution else self._grain
-        if time:
-            time = round(time / resolution) * resolution
-
-        # NOTE: experimental, trying to assign a name to registered functions
         if not name:
             if isinstance(func, Callable) and func.__name__ != "<lambda>":
                 func_name = func.__name__
@@ -293,23 +310,29 @@ class Clock(Subscriber):
             func_name = name
 
         if func_name in self._children:
-            self._children[func_name].priority = time
+            if next_time and ideal_time:
+                next_ideal_time = self._children[func_name].next_ideal_time + ideal_time
+                # offset = next_time - next_ideal_time
+                self._children[func_name].next_time = next_ideal_time - self._nudge
+                self._children[func_name].next_ideal_time = next_ideal_time
             self._children[func_name].item = (func, args, kwargs)
             self._children[func_name].has_played = False
         else:
-            # Extract priority from the time argument
-            self._children[func_name] = PriorityEvent(
-                name=func_name,
-                priority=time,
-                once=once,
-                passthrough=passthrough,
-                has_played=False,
-                item=(func, args, kwargs),
-            )
+            if next_time:
+                self._children[func_name] = PriorityEvent(
+                    name=func_name,
+                    next_time=next_time,
+                    next_ideal_time=next_time,
+                    once=once,
+                    passthrough=passthrough,
+                    has_played=False,
+                    item=(func, args, kwargs),
+                )
 
     def clear(self) -> None:
         """Clear all events from the clock."""
-        self.env.dispatch(self, "all_notes_off", {})
+        if self.env:
+            self.env.dispatch(self, "all_notes_off", {})
         self._children = {}
 
     def remove(self, *args) -> None:

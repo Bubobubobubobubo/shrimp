@@ -51,6 +51,7 @@ def _create_default_configuration() -> dict:
             "default_shell": "ptpython",
             "vim_mode": False,
             "print_above": False,
+            "greeter": True,
         },
     }
     return configuration

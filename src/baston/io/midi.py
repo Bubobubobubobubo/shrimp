@@ -48,6 +48,7 @@ class MIDIOut(Subscriber):
         super().__init__()
         self.port = port
         self.clock = clock
+        self.nudge = 0.0
         try:
             self._midi_out = mido.open_output(port)
         except:
@@ -117,6 +118,8 @@ class MIDIOut(Subscriber):
             int(_clamp_midi(note)) if isinstance(note, int) else [int(_clamp_midi(n)) for n in note]
         )
         velocity = int(_clamp_midi(velocity))
+        duration = duration * self.clock.beat_duration
+        time = self.clock.now - self.nudge
 
         if isinstance(note, list):
             for n in note:
@@ -128,12 +131,12 @@ class MIDIOut(Subscriber):
             func=lambda: self._note_on(
                 note=int(note), velocity=int(velocity), channel=int(channel) - 1
             ),
-            time=self.clock.beat,
+            time=time,
             once=True,
         )
         self.clock.add(
             func=lambda: self._note_off(note=int(note), velocity=0, channel=int(channel) - 1),
-            time=self.clock.beat + (duration - epsilon),
+            time=time + (duration - epsilon),
             once=True,
         )
 
