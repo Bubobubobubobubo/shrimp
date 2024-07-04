@@ -5,7 +5,7 @@ from ..utils import info_message
 from ..environment import Subscriber, Environment
 from typing import Any, Callable, Dict, Optional
 from types import LambdaType
-from time import sleep, perf_counter
+from time import sleep
 import threading
 import math
 import link
@@ -15,8 +15,9 @@ import types
 @dataclass(order=True)
 class PriorityEvent:
     name: str
-    next_time: int | float
-    next_ideal_time: int | float
+    next_time: int | float = field(compare=True)
+    next_ideal_time: int | float = field(compare=False)
+    start_time: int | float = field(compare=False)
     item: Any = field(compare=False)
     has_played: bool = False
     passthrough: bool = False
@@ -25,7 +26,7 @@ class PriorityEvent:
 
 class Clock(Subscriber):
 
-    def __init__(self, tempo: int | float, grain: float = 0.001):
+    def __init__(self, tempo: int | float, grain: float = 0.0001):
         super().__init__()
         self._clock_thread: threading.Thread | None = None
         self._stop_event: threading.Event = threading.Event()
@@ -35,13 +36,12 @@ class Clock(Subscriber):
         self.env: Optional[Environment] = None
         self._link.enabled = True
         self._link.startStopSyncEnabled = True
-        self._nominator = 4
-        self._denominator = 4
-        self._beat = 0
-        self._bar = 0
-        self._phase = 0
+        self._internal_time = 0.0
+        self._beat, self._bar, self._phase = 0, 0, 0
+        self._nominator, self._denominator = 4, 4
         self._grain = grain
         self._nudge = 0.05
+        self._delay = 200
         self.register_handler("start", self.start)
         self.register_handler("play", self.play)
         self.register_handler("pause", self.pause)
@@ -59,6 +59,17 @@ class Clock(Subscriber):
     def sync(self, bool: bool = True):
         """Enable or disable the sync of the clock"""
         self._link.startStopSyncEnabled = bool
+
+    @property
+    def internal_time(self):
+        """Return the internal time of the clock"""
+        return self._internal_time
+
+    @internal_time.setter
+    def internal_time(self, value: int | float):
+        """Set the internal time of the clock"""
+        microsecond_delay = self._delay * 1000
+        self._internal_time = value - microsecond_delay
 
     @property
     def children(self):
@@ -86,7 +97,8 @@ class Clock(Subscriber):
     @property
     def time(self) -> int | float:
         """Return the time of the clock"""
-        return self._link.clock().micros() / 1000000
+        microsecond_delay = self._delay * 1000
+        return (self._link.clock().micros() - microsecond_delay) / 1000000
 
     @grain.setter
     def grain(self, value: int | float):
@@ -218,11 +230,11 @@ class Clock(Subscriber):
     def _capture_link_info(self) -> None:
         """Utility function to capture timing information from Link Session."""
         link_state = self._link.captureSessionState()
-        link_time = self._link.clock().micros()
+        self.internal_time = self._link.clock().micros()
         isPlaying = link_state.isPlaying()
         self._beat, self._phase, self._tempo = (
-            link_state.beatAtTime(link_time, self._denominator),
-            link_state.phaseAtTime(link_time, self._denominator),
+            link_state.beatAtTime(self.internal_time, self._denominator),
+            link_state.phaseAtTime(self.internal_time, self._denominator),
             link_state.tempo(),
         )
         self._bar = self._beat // self._denominator
@@ -235,13 +247,13 @@ class Clock(Subscriber):
     def run(self) -> None:
         """Clock Event Loop."""
         while not self._stop_event.is_set():
-            start_time = self._link.clock().micros()
+            start_time = self.internal_time
             self._capture_link_info()
             try:
                 self._execute_due_functions()
             except Exception as e:
                 print(e)
-            end_time = self._link.clock().micros()
+            end_time = self.internal_time
             elapsed_micros = end_time - start_time
             sleep_micros = max(0, int(self._grain * 1_000_000) - elapsed_micros)
 
@@ -277,13 +289,14 @@ class Clock(Subscriber):
         self,
         func: Callable,
         time: Optional[int | float] = None,
+        start_time: Optional[int | float] = None,
         name: Optional[str] = None,
         relative: bool = False,
         once: bool = False,
         passthrough: bool = False,
         *args,
         **kwargs,
-    ):
+    ) -> PriorityEvent:
         """Add any Callable to the clock with improved precision."""
         # Naming the function
         if not name:
@@ -311,23 +324,26 @@ class Clock(Subscriber):
                 ideal_time = time
 
         if func_name in self._children:
-            self._update_children(
+            children = self._update_children(
                 name=func_name,
                 item=(func, args, kwargs),
                 next_time=next_time,
                 ideal_time=ideal_time,
                 relative=relative,
             )
-        else:
-            self._children[func_name] = PriorityEvent(
-                name=func_name,
-                next_time=next_time - self._nudge,
-                next_ideal_time=next_time - self._nudge,
-                once=once,
-                passthrough=passthrough,
-                has_played=False,
-                item=(func, args, kwargs),
-            )
+            return children
+
+        children = self._children[func_name] = PriorityEvent(
+            name=func_name,
+            next_time=next_time - self._nudge,
+            next_ideal_time=next_time - self._nudge,
+            once=once,
+            passthrough=passthrough,
+            has_played=False,
+            start_time=start_time if start_time else self.now,
+            item=(func, args, kwargs),
+        )
+        return children
 
     def _update_children(
         self,
@@ -336,7 +352,7 @@ class Clock(Subscriber):
         next_time: int | float,
         ideal_time: int | float,
         relative: bool = False,
-    ) -> None:
+    ) -> PriorityEvent:
         """Update the children of the clock."""
         children = self._children[name]
         if relative:
@@ -346,13 +362,11 @@ class Clock(Subscriber):
             children.item = item
             children.has_played = False
         if not relative:
-            ancient_time = children.next_time - children.next_ideal_time
-            print(ancient_time)
-            next_ideal_time = ideal_time
             children.next_time = next_time
             children.next_ideal_time = ideal_time
             children.item = item
             children.has_played = False
+        return children
 
     def clear(self) -> None:
         """Clear all events from the clock."""

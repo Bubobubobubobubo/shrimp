@@ -48,7 +48,7 @@ class MIDIOut(Subscriber):
         super().__init__()
         self.port = port
         self.clock = clock
-        self.nudge = 0.0
+        self.nudge = -0.1
         try:
             self._midi_out = mido.open_output(port)
         except:
