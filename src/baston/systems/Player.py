@@ -186,24 +186,27 @@ class Player(Subscriber):
         if not again:
             if self._sync_quant_policy is None:
                 quant_policy = self._pattern.kwargs.get("quant", "bar")
-            else:
-                quant_policy = self._sync_quant_policy
-
-            kwargs["time"] = self._apply_quant_policy(quant_policy)
+            if quant_policy == "bar":
+                kwargs["time"] = self._clock.next_bar
+            elif quant_policy == "beat":
+                kwargs["time"] = self._clock.next_beat
+            elif quant_policy == "now":
+                kwargs["time"] = self._clock.beat
+            elif isinstance(quant_policy, (int, float)):
+                kwargs["time"] = self._clock.beat + quant_policy
 
         if self._next_pattern:
+
+            # TODO: add more sync options for faster update?
 
             def _change_pattern_at_bar():
                 self._pattern = self._next_pattern
                 self._next_pattern = None
                 self._push()
 
-            quant_policy_for_next_pattern = self._pattern.kwargs.get("quant", "bar")
-            change_time = self._apply_quant_policy(quant_policy_for_next_pattern)
-
             self._clock.add(
                 func=_change_pattern_at_bar,
-                time=change_time - 0.001,
+                time=self._clock.next_bar - 0.02,
             )
 
         self._clock.add(
@@ -211,26 +214,6 @@ class Player(Subscriber):
             name=self._name,
             **kwargs,
         )
-
-    def _apply_quant_policy(self, quant_policy: Optional[str]) -> float:
-        """Apply the quantization policy to determine the next event time.
-
-        Args:
-            quant_policy (Optional[str]): The quantization policy to apply.
-
-        Returns:
-            float: The adjusted time based on the quantization policy.
-        """
-        if quant_policy == "bar":
-            return self._clock.next_bar
-        elif quant_policy == "beat":
-            return self._clock.next_beat
-        elif quant_policy == "now":
-            return self._clock.beat
-        elif isinstance(quant_policy, (int, float)):
-            return self._clock.beat + quant_policy
-
-        return self._clock.next_bar
 
     def stop(self, _: dict = {}):
         """Stop the current pattern."""
