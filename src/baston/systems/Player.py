@@ -254,7 +254,7 @@ class Player(Subscriber):
 
         # Iterate over all two letter combinations
         player_names = [
-            "".join(tup) for tup in product(ascii_lowercase + ascii_uppercase, repeat=2)
+            "".join(tup) for tup in product(ascii_lowercase, repeat=2)
         ]
 
         for name in player_names:
