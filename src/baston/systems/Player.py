@@ -140,6 +140,8 @@ class Player(Subscriber):
                 self.stop()
         else:
             if pattern is not None:
+                if "quant" not in pattern.kwargs:
+                    pattern.kwargs["quant"] = "bar"
                 self._pattern = pattern
                 self._push()
 
@@ -174,7 +176,11 @@ class Player(Subscriber):
         if not again and not self._sync_quant_policy:
             quant_policy = self._pattern.kwargs.get("quant", "bar")
             if quant_policy == "bar":
-                kwargs["time"] = self._clock.next_bar
+                kwargs["time"] = (
+                    self._clock.next_bar
+                    if not kwargs["relative"]
+                    else self._clock.beats_until_next_bar()
+                )
             elif quant_policy == "beat":
                 kwargs["time"] = self._clock.next_beat
             elif quant_policy == "now":
@@ -183,7 +189,9 @@ class Player(Subscriber):
                 kwargs["time"] = self._clock.beat + quant_policy
 
         self._clock.add(
-            func=self._func if not schedule_silence else self._silence, name=self._name, **kwargs
+            func=self._func if not schedule_silence else self._silence,
+            name=self._name,
+            **kwargs,
         )
 
     def stop(self):

@@ -11,8 +11,6 @@ import math
 import link
 import types
 
-Number = int | float
-
 
 @dataclass(order=True)
 class PriorityEvent:
@@ -27,7 +25,7 @@ class PriorityEvent:
 
 class Clock(Subscriber):
 
-    def __init__(self, tempo: Number, grain: float = 0.001):
+    def __init__(self, tempo: int | float, grain: float = 0.001):
         super().__init__()
         self._clock_thread: threading.Thread | None = None
         self._stop_event: threading.Event = threading.Event()
@@ -43,7 +41,7 @@ class Clock(Subscriber):
         self._bar = 0
         self._phase = 0
         self._grain = grain
-        self._nudge = 0.0
+        self._nudge = 0.05
         self.register_handler("start", self.start)
         self.register_handler("play", self.play)
         self.register_handler("pause", self.pause)
@@ -70,6 +68,9 @@ class Clock(Subscriber):
     @property
     def nudge(self) -> float:
         """Return the nudge of the clock"""
+        for child in self._children.values():
+            child.next_time += self._nudge
+            child.next_ideal_time += self._nudge
         return self._nudge
 
     @nudge.setter
@@ -83,12 +84,12 @@ class Clock(Subscriber):
         return self._grain
 
     @property
-    def time(self) -> Number:
+    def time(self) -> int | float:
         """Return the time of the clock"""
         return self._link.clock().micros() / 1000000
 
     @grain.setter
-    def grain(self, value: Number):
+    def grain(self, value: int | float):
         """Set the grain of the clock"""
         self._grain = value
 
@@ -108,7 +109,7 @@ class Clock(Subscriber):
         return self._tempo
 
     @tempo.setter
-    def tempo(self, value: Number):
+    def tempo(self, value: int | float):
         """Set the tempo of the clock"""
         if self._link:
             session = self._link.captureSessionState()
@@ -116,44 +117,42 @@ class Clock(Subscriber):
             self._link.commitSessionState(session)
 
     @property
-    def bar(self) -> Number:
+    def bar(self) -> int | float:
         """Get the current bar number."""
         return math.floor(self.beat / self._denominator)
 
     @property
-    def next_bar(self) -> Number:
+    def next_bar(self) -> int | float:
         """Return the time position of the next bar"""
-        return self.beat + self.beats_until_next_bar()
+        return int(self.beat) + self.beats_until_next_bar()
 
     @property
-    def beat(self) -> Number:
+    def beat(self) -> int | float:
         """Get the current beat number from Link."""
-        return self._link.captureSessionState().beatAtTime(
-            self._link.clock().micros(), self._denominator
-        )
+        return self._beat
 
     @property
-    def next_beat(self) -> Number:
+    def next_beat(self) -> int | float:
         """Return the time position of the next beat"""
-        return self.beat + 1
+        return int(self.beat) + 1
 
     @property
-    def now(self) -> Number:
+    def now(self) -> int | float:
         """Return the time position of the current beat"""
         return self.beat
 
     @property
-    def beat_duration(self) -> Number:
+    def beat_duration(self) -> int | float:
         """Get the duration of a beat"""
         return 60 / self._tempo
 
     @property
-    def bar_duration(self) -> Number:
+    def bar_duration(self) -> int | float:
         """Get the duration of a bar"""
         return self.beat_duration * self._denominator
 
     @property
-    def phase(self) -> Number:
+    def phase(self) -> int | float:
         """Get the current phase from Link."""
         state = self._link.captureSessionState()
         time = self._link.clock().micros()
@@ -167,37 +166,41 @@ class Clock(Subscriber):
             self._clock_thread = threading.Thread(target=self.run, daemon=False)
             self._clock_thread.start()
 
+    def _shift_children_times(self, shift: int | float) -> None:
+        """Shift all children times by a given amount."""
+        for child in self._children.values():
+            child.next_time += shift
+
+    def _reset_children_times(self) -> None:
+        for child in self._children.values():
+            child_phase = math.modf(child.next_time)[0]
+            child_ideal_time = math.modf(child.next_ideal_time)[0]
+            child.next_time = child_phase
+            child.next_ideal_time = child_ideal_time
+
     def play(self, now: bool = False) -> None:
         """Play the clock"""
         if self._playing:
             return
-
-        def _on_time_callback():
-            if self.env:
-                self.env.dispatch(self, "play", {})
-            session = self._link.captureSessionState()
-            self._playing = True
-            session.setIsPlaying(True, self._link.clock().micros())
-            session.requestBeatAtTime(0, self._link.clock().micros(), self._denominator)
-            self._link.commitSessionState(session)
-            print("New beat is: ", self.beat)
-
-        if now:
-            _on_time_callback()
-            print(f"New beat is: {self.beat}")
-        else:
-            self.add(func=_on_time_callback, time=self.next_bar, once=True, passthrough=True)
+        self._reset_children_times()
+        session = self._link.captureSessionState()
+        session.setIsPlaying(True, self._link.clock().micros())
+        self._link.commitSessionState(session)
+        session.requestBeatAtTime(0, self._link.clock().micros(), self._denominator)
+        self._link.commitSessionState(session)
+        self._playing = True
 
     def pause(self) -> None:
         """Pause the clock"""
         if not self._playing:
             return
-        self._playing = False
-        if self.env:
-            self.env.dispatch(self, "pause", {})
-        session = self._link.captureSessionState()
-        session.setIsPlaying(False, self._link.clock().micros())
-        self._link.commitSessionState(session)
+        else:
+            self._playing = False
+            if self.env:
+                self.env.dispatch(self, "pause", {})
+            session = self._link.captureSessionState()
+            session.setIsPlaying(False, self._link.clock().micros())
+            self._link.commitSessionState(session)
 
     def stop(self, _: dict = {}) -> None:
         """Stop the clock and wait for the thread to finish
@@ -217,19 +220,17 @@ class Clock(Subscriber):
         link_state = self._link.captureSessionState()
         link_time = self._link.clock().micros()
         isPlaying = link_state.isPlaying()
-
-        epsilon = 1e-6
-        if isPlaying and not self._playing and abs(self._phase) < epsilon:
-            self.play(now=False)
-        elif not isPlaying and self._playing:
-            self.pause()
-
         self._beat, self._phase, self._tempo = (
             link_state.beatAtTime(link_time, self._denominator),
             link_state.phaseAtTime(link_time, self._denominator),
             link_state.tempo(),
         )
         self._bar = self._beat // self._denominator
+
+        if isPlaying and not self._playing:
+            self.play(now=True)
+        elif not isPlaying and self._playing:
+            self.pause()
 
     def run(self) -> None:
         """Clock Event Loop."""
@@ -270,7 +271,7 @@ class Clock(Subscriber):
 
     def beats_until_next_bar(self):
         """Return the number of beats until the next bar."""
-        return self._denominator - self._beat % self._denominator
+        return self._denominator - int(self._beat) % self._denominator
 
     def add(
         self,
@@ -284,6 +285,14 @@ class Clock(Subscriber):
         **kwargs,
     ):
         """Add any Callable to the clock with improved precision."""
+        # Naming the function
+        if not name:
+            if isinstance(func, Callable) and func.__name__ != "<lambda>":
+                func_name = func.__name__
+            else:
+                func_name = str(uuid.uuid4())
+        else:
+            func_name = name
 
         if time:
             # Time can be a Callable
@@ -297,37 +306,53 @@ class Clock(Subscriber):
                 ideal_time = 1 if time is None else time
 
             # Absolute time calculation
-            else:
-                next_time = time if time is not None else self.now + 1
+            if not relative:
+                next_time = time
                 ideal_time = time
 
-        if not name:
-            if isinstance(func, Callable) and func.__name__ != "<lambda>":
-                func_name = func.__name__
-            else:
-                func_name = str(uuid.uuid4())
-        else:
-            func_name = name
-
         if func_name in self._children:
-            if next_time and ideal_time:
-                next_ideal_time = self._children[func_name].next_ideal_time + ideal_time
-                # offset = next_time - next_ideal_time
-                self._children[func_name].next_time = next_ideal_time - self._nudge
-                self._children[func_name].next_ideal_time = next_ideal_time
-            self._children[func_name].item = (func, args, kwargs)
-            self._children[func_name].has_played = False
+            self._update_children(
+                name=func_name,
+                item=(func, args, kwargs),
+                next_time=next_time,
+                ideal_time=ideal_time,
+                relative=relative,
+            )
         else:
-            if next_time:
-                self._children[func_name] = PriorityEvent(
-                    name=func_name,
-                    next_time=next_time,
-                    next_ideal_time=next_time,
-                    once=once,
-                    passthrough=passthrough,
-                    has_played=False,
-                    item=(func, args, kwargs),
-                )
+            self._children[func_name] = PriorityEvent(
+                name=func_name,
+                next_time=next_time - self._nudge,
+                next_ideal_time=next_time - self._nudge,
+                once=once,
+                passthrough=passthrough,
+                has_played=False,
+                item=(func, args, kwargs),
+            )
+
+    def _update_children(
+        self,
+        name: str,
+        item: Any,
+        next_time: int | float,
+        ideal_time: int | float,
+        relative: bool = False,
+    ) -> None:
+        """Update the children of the clock."""
+        children = self._children[name]
+        if relative:
+            next_ideal_time: int | float = children.next_ideal_time + ideal_time
+            children.next_time = next_ideal_time
+            children.next_ideal_time = next_ideal_time
+            children.item = item
+            children.has_played = False
+        if not relative:
+            ancient_time = children.next_time - children.next_ideal_time
+            print(ancient_time)
+            next_ideal_time = ideal_time
+            children.next_time = next_time
+            children.next_ideal_time = ideal_time
+            children.item = item
+            children.has_played = False
 
     def clear(self) -> None:
         """Clear all events from the clock."""
