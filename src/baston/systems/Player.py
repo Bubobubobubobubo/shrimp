@@ -197,6 +197,8 @@ class Player(Subscriber):
 
         if self._next_pattern:
 
+            # TODO: add more sync options for faster update?
+
             def _change_pattern_at_bar():
                 self._pattern = self._next_pattern
                 self._next_pattern = None
