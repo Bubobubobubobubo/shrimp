@@ -56,17 +56,17 @@ class MIDIOut(Subscriber):
 
         self.register_handler("pause", self._pause_handler)
         self.register_handler("stop", self._stop_handler)
-        self.register_handler("all_notes_off", lambda _: self._all_notes_off())
+        self.register_handler("all_notes_off", lambda _: self.all_notes_off())
 
     def _pause_handler(self, data: dict) -> None:
         """Handle the pause event."""
-        self._all_notes_off()
+        self.all_notes_off()
 
     def _stop_handler(self, data: dict) -> None:
         """Handle the stop event."""
-        self._all_notes_off()
+        self.all_notes_off()
 
-    def _all_notes_off(self):
+    def all_notes_off(self):
         """Send all notes off message on all channels."""
         for channel in range(16):
             for notes in range(128):

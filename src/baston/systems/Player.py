@@ -28,6 +28,7 @@ class Player(Subscriber):
         self._iterator = 0
         self._silence_count = 0
         self._pattern: Optional[PlayerPattern] = None
+        self._next_pattern: Optional[PlayerPattern] = None
         self._sync_quant_policy: Optional[str] = None
 
         self.register_handler("all_notes_off", self.stop)
@@ -142,7 +143,9 @@ class Player(Subscriber):
             return
 
         if was_playing_a_pattern:
-            self._pattern = pattern
+            if self._next_pattern is not None:
+                return
+            self._next_pattern = pattern
             return
 
         self._pattern = pattern
@@ -154,6 +157,7 @@ class Player(Subscriber):
 
         if self._sync_quant_policy:
             # Reset sync quant policy after one use
+            print("Changement de police")
             kwargs["quant"] = self._sync_quant_policy
             self._sync_quant_policy = None
 
@@ -182,7 +186,6 @@ class Player(Subscriber):
         if not again:
             if self._sync_quant_policy is None:
                 quant_policy = self._pattern.kwargs.get("quant", "bar")
-
             if quant_policy == "bar":
                 kwargs["time"] = self._clock.next_bar
             elif quant_policy == "beat":
@@ -191,6 +194,18 @@ class Player(Subscriber):
                 kwargs["time"] = self._clock.beat
             elif isinstance(quant_policy, (int, float)):
                 kwargs["time"] = self._clock.beat + quant_policy
+
+        if self._next_pattern:
+
+            def _change_pattern_at_bar():
+                self._pattern = self._next_pattern
+                self._next_pattern = None
+                self._push()
+
+            self._clock.add(
+                func=_change_pattern_at_bar,
+                time=self._clock.next_bar - 0.02,
+            )
 
         self._clock.add(
             func=self._func if not schedule_silence else self._silence,
@@ -220,9 +235,6 @@ class Player(Subscriber):
             quant_policy, (int, float)
         ):
             raise ValueError("Invalid quantization policy.")
-        print(f"Syncing {self._name} to {quant_policy}")
-        self._iterator = 0
-        self._silence_count = 0
         self._sync_quant_policy = quant_policy
 
     @classmethod
