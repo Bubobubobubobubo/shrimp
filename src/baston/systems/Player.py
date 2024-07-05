@@ -156,8 +156,6 @@ class Player(Subscriber):
         schedule_silence = False
 
         if self._sync_quant_policy:
-            # Reset sync quant policy after one use
-            print("Changement de police")
             kwargs["quant"] = self._sync_quant_policy
             self._sync_quant_policy = None
 
@@ -196,24 +194,34 @@ class Player(Subscriber):
                 kwargs["time"] = self._clock.beat + quant_policy
 
         if self._next_pattern:
-
-            # TODO: add more sync options for faster update?
-
             def _change_pattern_at_bar():
                 self._pattern = self._next_pattern
                 self._next_pattern = None
-                self._push()
+                self._push(again=True)
 
+            # We update to the new pattern just before the next bar
             self._clock.add(
                 func=_change_pattern_at_bar,
-                time=self._clock.next_bar - 0.02,
+                time=self._clock.next_bar - 0.1,
             )
 
-        self._clock.add(
-            func=self._func if not schedule_silence else self._silence,
-            name=self._name,
-            **kwargs,
-        )
+            # NOTE: why is there a small interruption between patterns?
+            # NOTE: this is the last roadblock to get a robust pattern
+            # NOTE: player. 
+
+            self._clock.add(
+                func=self._func if not schedule_silence else self._silence,
+                name=self._name,
+                **kwargs,
+            )
+            return
+        else:
+            self._clock.add(
+                func=self._func if not schedule_silence else self._silence,
+                name=self._name,
+                **kwargs,
+            )
+
 
     def stop(self, _: dict = {}):
         """Stop the current pattern."""
