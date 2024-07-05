@@ -648,7 +648,9 @@ class Pseq(Pattern, SequencePattern):
     def __call__(self, iterator):
         return SequencePattern.__call__(self, iterator)
 
+
 P = Pseq
+
 
 class Pnote(Pseq):
     def __init__(
@@ -687,7 +689,9 @@ class Pnote(Pseq):
                 final_notes.append(root + scale[scale_position] + (octave_shift * 12))
             return final_notes
 
+
 Pn = Pnote
+
 
 class Psine(Pattern):
     """

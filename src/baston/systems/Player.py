@@ -260,17 +260,16 @@ class Player(Subscriber):
 
         args = self._args_resolver(pattern.args)
         kwargs = self._kwargs_resolver(pattern.kwargs)
-        ctime = self._clock.time_position()
-
         if pattern.kwargs.get("until", None) is not None:
             if self._iterator >= pattern.kwargs["until"]:
                 self.stop()
                 return
 
-        if ctime > self._end:
+        ctime = self._clock.time_position()
+        if self._end is not None and ctime > self._end:
             self._push(again=True)
             return
-        if ctime < self._begin:
+        if self._begin is not None and ctime < self._begin:
             self._push(again=True)
             return
 

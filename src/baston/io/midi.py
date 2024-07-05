@@ -1,6 +1,40 @@
 import mido
 from ..time.clock import Clock
 from ..environment import Subscriber
+import threading
+from time import sleep
+from typing import Dict, Optional
+
+
+class CCStorage:
+    """A class to store control change messages for a given channel and control number"""
+
+    def __init__(self):
+        self._cc_messages: Dict[int, Dict[int, int]] = {}
+
+    def add_message(self, channel: int, control_number: int, value: int) -> None:
+        """Add a control change message to the storage.
+
+        Args:
+            channel (int): The MIDI channel.
+            control_number (int): The control number.
+            value (int): The control value.
+        """
+        if channel not in self._cc_messages:
+            self._cc_messages[channel] = {}
+        self._cc_messages[channel][control_number] = value
+
+    def get_message(self, channel: int, control_number: int) -> Optional[int]:
+        """Get a control change message from the storage.
+
+        Args:
+            channel (int): The MIDI channel.
+            control_number (int): The control number.
+
+        Returns:
+            Optional[int]: The control value, or None if the message is not found.
+        """
+        return self._cc_messages.get(channel, {}).get(control_number, None)
 
 
 def _clamp_midi(value: int) -> int:
@@ -16,29 +50,55 @@ def list_midi_ports() -> list[str]:
 class MIDIIn(Subscriber):
     """MIDI class to receive MIDI messages from a MIDI port."""
 
-    # TODO: continue implementation
-
     def __init__(self, port: str, clock: Clock):
         super().__init__()
         self.port = port
         self.clock = clock
         self.wheel = 0
+        self._midi_loop_thread = None
+        self._midi_loop_shutdown = threading.Event()
+        self._received_controls = CCStorage()
+
         try:
             self._midi_in = mido.open_input(port)
         except:
             print(f"Could not open MIDI port {port}")
 
-    def _monitoring_loop(self):
-        """Monitor the MIDI port for incoming messages."""
-        for message in self._midi_in:
-            if message.type == "pitchwheel":
-                self.wheel = message.pitch
-            if message.type == "stop":
-                self.clock.stop()
-            if message.type in ["start", "continue"]:
-                self.clock.play()
+        # Initialise the background MIDI-In monitoring loop
+        self._setup_midi_loop()
 
-        self.clock.add(self.clock.beat + 0.01, self._monitoring_loop)
+        # Registering handlers
+        self.register_handler("stop", lambda _: self._midi_loop_shutdown.set())
+
+    def _setup_midi_loop(self) -> None:
+        """Setup the MIDI monitoring loop."""
+
+        def _midi_process_loop():
+            """Listen for MIDI messages and process them."""
+            while not self._midi_loop_shutdown.is_set():
+                for message in self._midi_in:
+                    if message.type == "control_change":
+                        self._received_controls.add_message(
+                            channel=message.channel + 1,
+                            control_number=message.control + 1,
+                            value=message.value,
+                        )
+                sleep(0.01)
+
+        self._midi_loop_thread = threading.Thread(target=_midi_process_loop, daemon=True)
+        self._midi_loop_thread.start()
+
+    def cc(self, channel: int, control: int) -> int:
+        """Get the value of a MIDI control change message.
+
+        Args:
+            control (int): The control number.
+            channel (int): The MIDI channel.
+
+        Returns:
+            int: The value of the control.
+        """
+        return self._received_controls.get_message(channel, control)
 
 
 class MIDIOut(Subscriber):
