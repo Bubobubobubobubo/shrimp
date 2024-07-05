@@ -88,7 +88,7 @@ class MIDIIn(Subscriber):
         self._midi_loop_thread = threading.Thread(target=_midi_process_loop, daemon=True)
         self._midi_loop_thread.start()
 
-    def cc(self, channel: int, control: int) -> int:
+    def cc(self, channel: int, control: int, default_value: int = 60) -> int:
         """Get the value of a MIDI control change message.
 
         Args:
@@ -98,7 +98,10 @@ class MIDIIn(Subscriber):
         Returns:
             int: The value of the control.
         """
-        return self._received_controls.get_message(channel, control)
+        value = self._received_controls.get_message(channel, control)
+        if value is None:
+            return default_value
+        return value
 
 
 class MIDIOut(Subscriber):
