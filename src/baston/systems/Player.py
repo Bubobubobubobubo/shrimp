@@ -1,11 +1,12 @@
 from ..environment import Subscriber
 from dataclasses import dataclass
 from typing import TypeVar, Callable, ParamSpec, Optional, Dict, Self, Any
-from ..time.clock import Clock
+from ..time.clock import Clock, TimePos
 from string import ascii_lowercase, ascii_uppercase
 from itertools import product
 from types import LambdaType
 from .Pattern import Pattern, Rest
+from dataclasses import dataclass
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -30,6 +31,9 @@ class Player(Subscriber):
         self._pattern: Optional[PlayerPattern] = None
         self._next_pattern: Optional[PlayerPattern] = None
         self._transition_scheduled = False
+        self._until: Optional[int] = None
+        self._begin: Optional[TimePos] = None
+        self._end: Optional[TimePos] = None
 
         self.register_handler("all_notes_off", self.stop)
 
@@ -38,6 +42,22 @@ class Player(Subscriber):
 
     def __str__(self):
         return f"Player {self._name}, pattern: {self._pattern}"
+
+    @property
+    def begin(self):
+        return self._begin
+
+    @property
+    def end(self):
+        return self._end
+
+    @begin.setter
+    def begin(self, value: TimePos):
+        self._begin = value
+
+    @end.setter
+    def end(self, value: TimePos):
+        self._end = value
 
     @property
     def iterator(self):
@@ -181,6 +201,7 @@ class Player(Subscriber):
             return
 
         if self._pattern is None:
+            pattern.kwargs["quant"] = "bar"
             self._pattern = pattern
             self._push()
         else:
@@ -239,12 +260,26 @@ class Player(Subscriber):
 
         args = self._args_resolver(pattern.args)
         kwargs = self._kwargs_resolver(pattern.kwargs)
+        ctime = self._clock.time_position()
+
+        if pattern.kwargs.get("until", None) is not None:
+            if self._iterator >= pattern.kwargs["until"]:
+                self.stop()
+                return
+
+        if ctime > self._end:
+            self._push(again=True)
+            return
+        if ctime < self._begin:
+            self._push(again=True)
+            return
+
         try:
             pattern.send_method(*args, **kwargs)
         except Exception as e:
             print(f"Error in _func: {e}")
-
         self._iterator += 1
+
         self._push(again=True)
 
     def _schedule_next_pattern(self):

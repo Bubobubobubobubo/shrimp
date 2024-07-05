@@ -1,6 +1,6 @@
 from .configuration import read_configuration, open_config_folder
 from .utils import info_message, greeter
-from .time.clock import Clock
+from .time.clock import Clock, TimePos
 from functools import partial
 from .io.midi import MIDIOut, MIDIIn, list_midi_ports
 from .io.osc import OSC

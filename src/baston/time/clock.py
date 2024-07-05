@@ -12,6 +12,63 @@ import link
 import types
 
 
+@dataclass
+class TimePos:
+    bar: int
+    beat: int
+    phase: float
+
+    def __eq__(self, other):
+        if not isinstance(other, TimePos):
+            return NotImplemented
+        return (self.bar, self.beat, self.phase) == (other.bar, other.beat, other.phase)
+
+    def __lt__(self, other):
+        if not isinstance(other, TimePos):
+            return NotImplemented
+        return (self.bar, self.beat, self.phase) < (other.bar, other.beat, other.phase)
+
+    def __le__(self, other):
+        if not isinstance(other, TimePos):
+            return NotImplemented
+        return (self.bar, self.beat, self.phase) <= (other.bar, other.beat, other.phase)
+
+    def __gt__(self, other):
+        if not isinstance(other, TimePos):
+            return NotImplemented
+        return (self.bar, self.beat, self.phase) > (other.bar, other.beat, other.phase)
+
+    def __ge__(self, other):
+        if not isinstance(other, TimePos):
+            return NotImplemented
+        return (self.bar, self.beat, self.phase) >= (other.bar, other.beat, other.phase)
+
+    def __eq__(self, other):
+        if not isinstance(other, TimePos):
+            return NotImplemented
+        return (self.bar, self.beat, self.phase) == (other.bar, other.beat, other.phase)
+
+    def __lt__(self, other):
+        if not isinstance(other, TimePos):
+            return NotImplemented
+        return (self.bar, self.beat, self.phase) < (other.bar, other.beat, other.phase)
+
+    def __le__(self, other):
+        if not isinstance(other, TimePos):
+            return NotImplemented
+        return (self.bar, self.beat, self.phase) <= (other.bar, other.beat, other.phase)
+
+    def __gt__(self, other):
+        if not isinstance(other, TimePos):
+            return NotImplemented
+        return (self.bar, self.beat, self.phase) > (other.bar, other.beat, other.phase)
+
+    def __ge__(self, other):
+        if not isinstance(other, TimePos):
+            return NotImplemented
+        return (self.bar, self.beat, self.phase) >= (other.bar, other.beat, other.phase)
+
+
 @dataclass(order=True)
 class PriorityEvent:
     name: str
@@ -405,3 +462,7 @@ class Clock(Subscriber):
             **kwargs: Keyword arguments to be passed to the function.
         """
         self.add(func, self.next_beat, *args, **kwargs)
+
+    def time_position(self):
+        """Return the time position of the clock."""
+        return TimePos(self.bar, self.beat, self.phase)
