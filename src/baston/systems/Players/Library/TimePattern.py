@@ -238,3 +238,117 @@ class PdurExp(_Pinterp):
 
     def __init__(self, values: List[Any], durations: List[int | float], bar: bool = False):
         super().__init__(values, durations, exponential_interp, bar)
+
+
+class Penv(Pattern):
+    """
+    Penv is a pattern that generates an envelope shape similar to ADSR (Attack, Decay, Sustain, Release).
+
+    Args:
+        attack (float): The duration of the attack phase.
+        decay (float): The duration of the decay phase.
+        sustain (float): The level of the sustain phase (0 to 1).
+        release (float): The duration of the release phase.
+        duration (float): The total duration of the envelope.
+        min (float): The minimum value of the envelope output.
+        max (float): The maximum value of the envelope output.
+
+    Returns:
+        float: The current value of the envelope (min to max).
+    """
+
+    def __init__(
+        self,
+        attack: float = 0.01,
+        decay: float = 1,
+        sustain: float = 0.5,
+        release: float = 1,
+        duration: float = 4,
+        min: float = 0,
+        max: float = 1,
+    ):
+        super().__init__()
+        self.attack = attack
+        self.decay = decay
+        self.sustain = sustain
+        self.release = release
+        self.duration = duration
+        self.min = min
+        self.max = max
+
+    def __call__(self, _):
+        current_time = self.env.clock.beat % self.duration
+        envelope_value = self._calculate_envelope_value(current_time)
+        return self._scale_output(envelope_value)
+
+    def _calculate_envelope_value(self, current_time: float) -> float:
+        if current_time < self.attack:
+            # Attack phase
+            return current_time / self.attack
+        elif current_time < self.attack + self.decay:
+            # Decay phase
+            decay_progress = (current_time - self.attack) / self.decay
+            return 1 - (1 - self.sustain) * decay_progress
+        elif current_time < self.duration - self.release:
+            # Sustain phase
+            return self.sustain
+        else:
+            # Release phase
+            release_progress = (current_time - (self.duration - self.release)) / self.release
+            return self.sustain * (1 - release_progress)
+
+    def _scale_output(self, value: float) -> float:
+        return self.min + value * (self.max - self.min)
+
+
+class Pmorph(Pattern):
+    def __init__(self, patterns: List[Pattern], durations: List[int | float]):
+        super().__init__()
+        if len(patterns) < 2:
+            raise ValueError("Pmorph requires at least two patterns")
+        if len(patterns) != len(durations):
+            raise ValueError("Number of patterns must match number of durations")
+
+        self.patterns = patterns
+        self.durations = durations
+        self.total_duration = sum(durations)
+
+    def __call__(self, iterator):
+        current_time = self.env.clock.beat % self.total_duration
+
+        accumulated_time = 0
+        for i in range(len(self.durations)):
+            if current_time < accumulated_time + self.durations[i]:
+                progress = (current_time - accumulated_time) / self.durations[i]
+                pattern1 = self.patterns[i]
+                pattern2 = self.patterns[(i + 1) % len(self.patterns)]
+
+                try:
+                    value1 = self._resolve_pattern(pattern1, iterator)
+                    value2 = self._resolve_pattern(pattern2, iterator)
+                except TypeError:
+                    # If we can't resolve the patterns, return the first one's value
+                    return self._resolve_pattern(pattern1, iterator)
+
+                return self._interpolate(progress, value1, value2)
+
+            accumulated_time += self.durations[i]
+
+        # This should not be reached, but just in case:
+        return self._resolve_pattern(self.patterns[0], iterator)
+
+    def _interpolate(self, progress: float, value1: Any, value2: Any) -> Any:
+        if isinstance(value1, (int, float)) and isinstance(value2, (int, float)):
+            return value1 + progress * (value2 - value1)
+        else:
+            # For non-numeric types, we'll just switch at the midpoint
+            return value1 if progress < 0.5 else value2
+
+    def _resolve_pattern(self, pattern: Any, iterator: int) -> Any:
+        if isinstance(pattern, Pattern):
+            try:
+                return pattern(iterator)
+            except TypeError:
+                # If the pattern call fails, return the pattern itself
+                return pattern
+        return pattern
