@@ -36,6 +36,7 @@ class Player(Subscriber):
         self._until: Optional[int] = None
         self._begin: Optional[TimePos] = None
         self._end: Optional[TimePos] = None
+        self._active: bool = True
         self.register_handler("all_notes_off", self.stop)
 
     def __repr__(self):
@@ -43,6 +44,16 @@ class Player(Subscriber):
 
     def __str__(self):
         return f"Player {self._name}, pattern: {self._pattern}"
+
+    @property
+    def active(self):
+        """Return the active state of the player."""
+        return self._active
+
+    @active.setter
+    def active(self, value: bool):
+        """Set the active state of the player."""
+        self._active = value
 
     @property
     def begin(self):
@@ -295,9 +306,13 @@ class Player(Subscriber):
             self._push(again=True)
             return
 
+        # Grab active from kwargs
+        self.active = kwargs.get("active", True)
+
         # Main function call
         try:
-            pattern.send_method(*args, **kwargs)
+            if self._active:
+                pattern.send_method(*args, **kwargs)
         except Exception as e:
             print(f"Error in _func: {e}")
 
