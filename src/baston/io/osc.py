@@ -1,12 +1,11 @@
 from osc4py3 import oscbuildparse
 from osc4py3.as_eventloop import *
 from osc4py3.oscmethod import *
-from itertools import cycle, islice
 from ..environment import Subscriber
 from ..time.clock import Clock
 from ..utils import flatten, kwargs_to_flat_list
 from typing import Optional, Any, Callable
-from ..systems.Pattern import Rest
+from ..systems.Players.Rest import Rest
 import threading
 import time
 

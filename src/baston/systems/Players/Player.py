@@ -1,11 +1,13 @@
-from ..environment import Subscriber
+from ...environment import Subscriber
 from dataclasses import dataclass
 from typing import TypeVar, Callable, ParamSpec, Optional, Dict, Self, Any
-from ..time.clock import Clock, TimePos
-from string import ascii_lowercase, ascii_uppercase
+from ...time.clock import Clock, TimePos
+from string import ascii_lowercase
 from itertools import product
 from types import LambdaType
-from .Pattern import Pattern, Rest
+from .Pattern import Pattern
+from .Rest import Rest
+from .Library.TimePattern import TimePattern
 from dataclasses import dataclass
 
 P = ParamSpec("P")
@@ -34,7 +36,6 @@ class Player(Subscriber):
         self._until: Optional[int] = None
         self._begin: Optional[TimePos] = None
         self._end: Optional[TimePos] = None
-
         self.register_handler("all_notes_off", self.stop)
 
     def __repr__(self):
@@ -45,10 +46,12 @@ class Player(Subscriber):
 
     @property
     def begin(self):
+        """Return the begin time of the player."""
         return self._begin
 
     @property
     def end(self):
+        """Return the end time of the player."""
         return self._end
 
     @begin.setter
@@ -85,7 +88,15 @@ class Player(Subscriber):
         return self._name
 
     def _args_resolver(self, args: tuple[Any]) -> tuple[Any]:
-        """Resolve the arguments of the pattern."""
+        """Resolve the arguments of the pattern.
+        This method is recursive and can handle nested patterns.
+
+        Args:
+            args (tuple): The arguments
+
+        Returns:
+            tuple: The resolved arguments
+        """
         new_args = ()
 
         for arg in args:
@@ -93,11 +104,21 @@ class Player(Subscriber):
                 new_args += (arg(self.iterator - self._silence_count),)
             elif isinstance(arg, Callable | LambdaType):
                 new_args += (arg(),)
+            elif isinstance(arg, TimePattern):
+                new_args += (arg(self._clock.now),)
 
         return new_args  # type: ignore
 
     def _kwargs_resolver(self, kwargs: dict[str, Any]) -> dict[str, Any]:
-        """Resolve the keyword arguments of the pattern."""
+        """Resolve the keyword arguments of the pattern.
+        This method is recursive and can handle nested patterns.
+
+        Args:
+            kwargs (dict): The keyword arguments of the pattern.
+
+        Returns:
+            dict: The resolved keyword
+        """
 
         def resolve_value(value: Any) -> Any:
             if isinstance(value, Pattern):
@@ -115,62 +136,33 @@ class Player(Subscriber):
         return new_kwargs
 
     def _silence(self, *args, _: Optional[PlayerPattern] = None, **kwargs) -> None:
-        """Internal recursive function implementing a silence."""
+        """Internal recursive function implementing a silence. This is the "mirror" version
+        of the _func method but this one doesn't do anything! It is used to schedule a silence
+        in the clock and count it for other sequences.
+
+        TODO: There might be a bug to fix here! We are not counting for until or self._begin
+        and self._end conditions. This might be a problem if we have a rest in a sequence.
+
+        Args:
+            args (tuple): The arguments
+            kwargs (dict): The keyword arguments
+        """
         self.iterator += 1
         self._push(again=True)
 
-    def _push(self, again: bool = False, **kwargs) -> None:
-        """Managing the lifetime of the pattern"""
-        if self._pattern is None:
-            return
-
-        schedule_silence = False
-
-        kwargs = {
-            "pattern": self._pattern,
-            "passthrough": self._pattern.kwargs.get("passthrough", False),
-            "once": self._pattern.kwargs.get("once", False),
-            "relative": True if again else False,
-            "time": lambda: self._pattern.kwargs.get("dur", 1),
-        }
-
-        # Resolve time if it is a pattern, a callable or any complex thing
-        while isinstance(kwargs["time"], Callable | LambdaType | Pattern):
-            if isinstance(kwargs["time"], Pattern):
-                kwargs["time"] = kwargs["time"](self.iterator)
-            elif isinstance(kwargs["time"], Callable | LambdaType):
-                kwargs["time"] = kwargs["time"]()
-
-        # If time is a rest, schedule a silence and count it for other seqs
-        if isinstance(kwargs["time"], Rest):
-            kwargs["time"] = kwargs["time"].duration
-            self._silence_count += 1
-            schedule_silence = True
-
-        # Handling pattern rescheduling!
-        if not again:
-            quant_policy = self._pattern.kwargs.get("quant", "bar")
-            if quant_policy == "bar":
-                kwargs["time"] = self._clock.next_bar
-            elif quant_policy == "beat":
-                kwargs["time"] = self._clock.next_beat
-            elif quant_policy == "now":
-                kwargs["time"] = self._clock.beat
-            elif isinstance(quant_policy, (int, float)):
-                kwargs["time"] = self._clock.beat + quant_policy
-
-        self._clock.add(
-            func=self._func if not schedule_silence else self._silence, name=self._name, **kwargs
-        )
-
     def stop(self, _: dict = {}):
-        """Stop the current pattern."""
+        """Stop the current pattern.
+
+        Args:
+            _: A dictionary to match the signature of the handler method.
+        """
+        self * None
+        self._clock.remove_by_name(self._name)
         self._pattern = None
         self._next_pattern = None
         self._iterator = 0
         self._silence_count = 0
         self._transition_scheduled = False
-        self._clock.remove_by_name(self._name)
 
     def play(self) -> None:
         """Play the current pattern."""
@@ -178,10 +170,12 @@ class Player(Subscriber):
 
     @classmethod
     def initialize_patterns(cls, clock: Clock) -> Dict[str, Self]:
-        """Initialize a vast amount of patterns for every two letter combination of letter."""
-        patterns = {}
+        """Initialize a vast amount of patterns for every two letter combination of letter.
 
-        # Iterate over all two letter combinations
+        Args:
+            clock (Clock): The clock object.
+        """
+        patterns = {}
         player_names = ["".join(tup) for tup in product(ascii_lowercase, repeat=2)]
 
         for name in player_names:
@@ -191,25 +185,42 @@ class Player(Subscriber):
 
     @staticmethod
     def _play_factory(send_method: Callable[P, T], *args, **kwargs) -> PlayerPattern:
-        """Factory method to create a PlayerPattern object."""
+        """Factory method to create a PlayerPattern object.
+
+        Args:
+            send_method (Callable): The method to call.
+            args (tuple): The arguments.
+            kwargs (dict): The keyword arguments.
+
+        Returns:
+            PlayerPattern: The PlayerPattern object.
+        """
         return PlayerPattern(send_method=send_method, args=args, kwargs=kwargs)
 
     def __mul__(self, pattern: Optional[PlayerPattern] = None) -> None:
-        """Push new pattern to the player."""
+        """Push new pattern to the player.
+
+        Args:
+            pattern (Optional[PlayerPattern]): The pattern to push to the player.
+        """
         if pattern is None:
-            self.stop()
             return
 
         if self._pattern is None:
-            pattern.kwargs["quant"] = "bar"
             self._pattern = pattern
+            pattern.kwargs["quant"] = "bar"
             self._push()
         else:
             self._next_pattern = pattern
             self._schedule_next_pattern()
 
     def _push(self, again: bool = False, **kwargs) -> None:
-        """Managing the lifetime of the pattern"""
+        """Managing the lifetime of the pattern.
+
+        Args:
+            again (bool): If True, the pattern will be rescheduled.
+
+        """
         if self._pattern is None and self._next_pattern is None:
             return
 
@@ -254,37 +265,48 @@ class Player(Subscriber):
         )
 
     def _func(self, pattern: PlayerPattern, *args, **kwargs) -> None:
-        """Internal recursive function (central piece of the mechanism)."""
+        """Internal function to play the pattern. This function is called by the clock. It plays
+        the pattern using the send_method + args and kwargs arguments.
+
+        Args:
+            pattern (PlayerPattern): The pattern to play.
+            args (tuple): The arguments.
+            kwargs (dict): The keyword arguments.
+        """
         if pattern is None:
             return
 
         args = self._args_resolver(pattern.args)
         kwargs = self._kwargs_resolver(pattern.kwargs)
+
+        # Until condition: stop the pattern after n iterations
         if pattern.kwargs.get("until", None) is not None:
             if self._iterator >= pattern.kwargs["until"]:
                 self.stop()
                 return
 
         ctime = self._clock.time_position()
+        # End condition: stop the pattern at time t
         if self._end is not None and ctime > self._end:
             self._push(again=True)
             return
+        # Begin condition: start the pattern at time t
         if self._begin is not None and ctime < self._begin:
             self._push(again=True)
             return
 
+        # Main function call
         try:
             pattern.send_method(*args, **kwargs)
         except Exception as e:
             print(f"Error in _func: {e}")
-        self._iterator += 1
 
+        self._iterator += 1
         self._push(again=True)
 
     def _schedule_next_pattern(self):
-        """Schedule the next pattern to start at the next bar."""
-        next_beat = self._clock.next_beat
-
+        """Schedule the transition to the next pattern."""
+        next_beat = self._clock.next_bar
         self._clock.add(
             func=self._transition_to_next_pattern,
             time=next_beat,

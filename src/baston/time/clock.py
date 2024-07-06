@@ -118,6 +118,16 @@ class Clock(Subscriber):
         self._link.startStopSyncEnabled = bool
 
     @property
+    def delay(self):
+        """Return the delay of the clock"""
+        return self._delay
+
+    @delay.setter
+    def delay(self, value: int | float):
+        """Set the delay of the clock"""
+        self._delay = value
+
+    @property
     def internal_time(self):
         """Return the internal time of the clock"""
         return self._internal_time

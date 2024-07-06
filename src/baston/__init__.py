@@ -6,9 +6,10 @@ from .io.midi import MIDIOut, MIDIIn, list_midi_ports
 from .io.osc import OSC
 from rich import print
 from .environment import get_global_environment
-from .systems.Player import Player, pattern_printer
-from .systems.Pattern import *
-from .systems.Pattern import global_config as PlayerConfig
+from .systems.Players.Player import Player, pattern_printer
+from .systems.Players.Pattern import *
+from .systems.Players.Library import *
+from .systems.Players.GlobalConfig import global_config as PlayerConfig
 import functools
 
 CONFIGURATION = read_configuration()
@@ -169,4 +170,3 @@ def silence():
     env.dispatch("main", "silence", {})
     for key in pattern.keys():
         globals()[key].stop()
-    clock.clear()
