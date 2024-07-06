@@ -83,7 +83,7 @@ class PriorityEvent:
 
 class Clock(Subscriber):
 
-    def __init__(self, tempo: int | float, grain: float = 0.0001):
+    def __init__(self, tempo: int | float, grain: float = 0.0001, delay: int = 0.0):
         super().__init__()
         self._clock_thread: threading.Thread | None = None
         self._stop_event: threading.Event = threading.Event()
@@ -98,7 +98,7 @@ class Clock(Subscriber):
         self._nominator, self._denominator = 4, 4
         self._grain = grain
         self._nudge = 0.00
-        self._delay = 0
+        self._delay = delay
         self.register_handler("start", self.start)
         self.register_handler("play", self.play)
         self.register_handler("pause", self.pause)
@@ -341,11 +341,11 @@ class Clock(Subscriber):
                         if callable.once:
                             del self._children[callable.name]
                     except Exception as e:
-                        print(traceback.format_exc())
                         info_message(
                             f"Error in function [red]{func.__name__}[/red]: [yellow]{e}[/yellow]",
                             should_print=True,
                         )
+                        print(traceback.format_exc())
                         pass
 
     def beats_until_next_bar(self):

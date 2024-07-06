@@ -178,9 +178,9 @@ class MIDIOut(Subscriber):
         at the appropriate times using the clock.
         """
         note = (
-            int(_clamp_midi(note)) if isinstance(note, int) else [int(_clamp_midi(n)) for n in note]
+            _clamp_midi(int(note)) if isinstance(note, int) else [_clamp_midi(int(n)) for n in note]
         )
-        velocity = int(_clamp_midi(velocity))
+        velocity = _clamp_midi(int(velocity))
         duration = duration * self.clock.beat_duration
         time = self.clock.now - self.nudge
 

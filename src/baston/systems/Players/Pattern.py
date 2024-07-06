@@ -4,7 +4,6 @@ from typing import Any
 from ...environment import get_global_environment
 from .Scales import SCALES
 from .GlobalConfig import global_config
-import itertools
 from abc import ABC, abstractmethod
 
 Number: int | float
@@ -13,25 +12,35 @@ Number: int | float
 class Pattern(ABC):
     """Base class for all patterns. Patterns are used to generate sequences of values."""
 
+    env = get_global_environment()
+    _config = global_config
+
     def __init__(self):
-        self.env = get_global_environment()
-        self.global_config = global_config
+        pass
+
+    @property
+    def variables(self):
+        return self._config._register
+
+    @variables.setter
+    def variables(self, value):
+        self._config._register = value
 
     @property
     def root(self) -> int:
-        return self.global_config.root
+        return self._config.root
 
     @root.setter
     def root(self, value: int):
-        self.global_config.root = value
+        self._config.root = value
 
     @property
     def scale(self) -> list[int]:
-        return self.global_config.scale
+        return self._config.scale
 
     @scale.setter
     def scale(self, value: list[int]):
-        self.global_config.scale = value
+        self._config.scale = value
 
     @abstractmethod
     def __call__(self, iterator: int) -> Any:
@@ -50,6 +59,12 @@ class Pattern(ABC):
             return value
         else:
             raise ValueError(f"Unsupported value type for pattern operations: {type(value)}")
+
+    def int(self) -> "IntegerPattern":
+        """
+        Returns a new pattern that always outputs integers.
+        """
+        return IntegerPattern(self)
 
     def __add__(self, other: Any) -> "ArithmeticPattern":
         return AddPattern(self, self._convert(other))
@@ -194,3 +209,15 @@ class ConstantPattern(Pattern):
 
     def __call__(self, iterator: int) -> Any:
         return self.value
+
+
+class IntegerPattern(Pattern):
+    """A pattern that wraps another pattern and always returns integer values."""
+
+    def __init__(self, source_pattern: Pattern):
+        super().__init__()
+        self.source_pattern = source_pattern
+
+    def __call__(self, iterator: int) -> int:
+        result = self.source_pattern(iterator)
+        return int(round(result))

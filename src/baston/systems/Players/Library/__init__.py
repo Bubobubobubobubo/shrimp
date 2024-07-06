@@ -8,3 +8,4 @@ from .UtilPattern import *
 from .SequencePattern import *
 from .ConcatPattern import *
 from .CombiPattern import *
+from .VariablePattern import *

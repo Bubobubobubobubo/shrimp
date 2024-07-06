@@ -31,6 +31,7 @@ def _create_default_configuration() -> dict:
         "clock": {
             "default_tempo": 135,
             "time_grain": 0.01,
+            "delay": 0,
         },
         "midi": {
             "out_ports": [{"midi": False, "instruments": [], "controllers": []}],

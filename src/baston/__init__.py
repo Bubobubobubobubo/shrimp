@@ -18,7 +18,11 @@ if CONFIGURATION["editor"]["greeter"]:
     greeter()
 
 env = get_global_environment()
-clock = Clock(CONFIGURATION["clock"]["default_tempo"], CONFIGURATION["clock"]["time_grain"])
+clock = Clock(
+    tempo=CONFIGURATION["clock"]["default_tempo"],
+    grain=CONFIGURATION["clock"]["time_grain"],
+    delay=int(CONFIGURATION["clock"]["delay"]),
+)
 env.add_clock(clock)
 pattern = Player.initialize_patterns(clock)
 
