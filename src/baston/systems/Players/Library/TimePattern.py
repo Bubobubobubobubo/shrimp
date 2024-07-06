@@ -3,6 +3,7 @@ from ..Pattern import Pattern
 from itertools import zip_longest
 from typing import Callable
 import math
+import random
 
 
 class TimePattern:
@@ -352,3 +353,47 @@ class Pmorph(Pattern):
                 # If the pattern call fails, return the pattern itself
                 return pattern
         return pattern
+
+
+class Pbrown(Pattern):
+    """
+    Pbrown (or Pwalk) generates a random walk pattern between specified minimum and maximum values.
+    This implementation is stateless and relies only on the current time.
+
+    Args:
+        min (float): The minimum value of the walk.
+        max (float): The maximum value of the walk.
+        step (float): The maximum step size for each movement.
+        seed (int, optional): Seed for the random number generator. Defaults to 0.
+
+    Returns:
+        float: The current value of the random walk.
+    """
+
+    def __init__(self, min: float, max: float, step: float, seed: int = 0):
+        super().__init__()
+        if min >= max:
+            raise ValueError("min must be less than max")
+        if step <= 0:
+            raise ValueError("step must be positive")
+
+        self.min = min
+        self.max = max
+        self.step = step
+        self.seed = seed
+
+    def __call__(self, _):
+        current_time = self.env.clock.beat
+        return self._get_value_at_time(current_time)
+
+    def _get_value_at_time(self, time: float) -> float:
+        random.seed(self.seed)
+        current = (self.min + self.max) / 2  # Start at the middle
+
+        # Use floor of time to get consistent steps
+        for _ in range(math.floor(time)):
+            delta = random.uniform(-self.step, self.step)
+            current += delta
+            current = max(self.min, min(self.max, current))
+
+        return current
