@@ -57,6 +57,26 @@ class Rest:
     def __rrshift__(self, other):
         return Rest(other >> self.duration)
 
+    def __lt__(self, other):
+        if isinstance(other, Rest):
+            return self.duration < other.duration
+        return self.duration < other
+
+    def __le__(self, other):
+        if isinstance(other, Rest):
+            return self.duration <= other.duration
+        return self.duration <= other
+
+    def __gt__(self, other):
+        if isinstance(other, Rest):
+            return self.duration > other.duration
+        return self.duration > other
+
+    def __ge__(self, other):
+        if isinstance(other, Rest):
+            return self.duration >= other.duration
+        return self.duration >= other
+
     def to_number(self):
         """
         Converts the duration of the rest to a number.

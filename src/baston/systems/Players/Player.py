@@ -244,6 +244,7 @@ class Player(Subscriber):
             "once": current_pattern.kwargs.get("once", False),
             "relative": True if again else False,
             "time": lambda: current_pattern.kwargs.get("dur", 1),
+            "swing": current_pattern.kwargs.get("swing", 0),
         }
 
         # Resolve time if it is a pattern, a callable or any complex thing
@@ -258,6 +259,19 @@ class Player(Subscriber):
             kwargs["time"] = kwargs["time"].duration
             self._silence_count += 1
             schedule_silence = True
+
+        # Apply swing
+        swing = kwargs.get("swing", 0.0)
+        if swing > 0:
+            if self._iterator % 2 == 0:
+                adjusted_duration = kwargs["time"] * (1 - swing)
+            else:
+                adjusted_duration = kwargs["time"] * (1 + swing)
+
+            if schedule_silence:
+                kwargs["time"] = Rest(adjusted_duration)
+            else:
+                kwargs["time"] = adjusted_duration
 
         # Handling pattern rescheduling!
         if not again:
