@@ -374,6 +374,9 @@ class Clock(Subscriber):
         else:
             func_name = name
 
+        if time is None:
+            next_time = self.now
+            ideal_time = self.now
         if time:
             # Time can be a Callable
             if isinstance(time, (Callable, LambdaType)):

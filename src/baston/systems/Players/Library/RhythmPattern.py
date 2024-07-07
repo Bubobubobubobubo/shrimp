@@ -1,6 +1,7 @@
 from ..Pattern import Pattern
 from ..Rest import Rest
 from ....utils import euclidian_rhythm
+from .SequencePattern import Pseq
 
 
 class Peuclid(Pattern):
@@ -72,3 +73,41 @@ class Pbin(Pattern):
         index = iterator % len(rhythm)
         value = base if rhythm[index] == 1 else Rest(base)
         return value
+
+
+class Pxo(Pattern):
+    """A pattern class that generates values based on a string of 'x' and 'o' characters.
+
+    Args:
+        pattern (str | Pattern): A string composed of 'x' (event) and 'o' (rest) characters.
+        default_duration (int | Pattern, optional): The default duration for events and rests. Defaults to 1.
+
+    Returns:
+        int | Rest: The generated value based on the 'x' and 'o' pattern.
+    """
+
+    def __init__(self, pattern: str | Pattern, default_duration: int | Pattern = 1):
+        super().__init__()
+        self._pattern = pattern
+        self._default_duration = default_duration
+
+    def _parse_char(self, char, default_duration):
+        """Parse a single character of the pattern."""
+        if char == "x":
+            return default_duration
+        elif char == "o":
+            return Rest(default_duration)
+        else:
+            raise ValueError(
+                f"Invalid character '{char}' in pattern. Only 'x' and 'o' are allowed."
+            )
+
+    def __call__(self, iterator):
+        pattern = self._resolve_pattern(self._pattern, iterator)
+        default_duration = self._resolve_pattern(self._default_duration, iterator)
+
+        if not isinstance(pattern, str):
+            raise ValueError("Resolved pattern must be a string.")
+
+        index = iterator % len(pattern)
+        return self._parse_char(pattern[index], default_duration)
