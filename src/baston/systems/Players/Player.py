@@ -164,35 +164,6 @@ class Player(Subscriber):
         """Play the current pattern."""
         self._push()
 
-    @classmethod
-    def initialize_patterns(cls, clock: Clock) -> Dict[str, Self]:
-        """Initialize a vast amount of patterns for every two letter combination of letter.
-
-        Args:
-            clock (Clock): The clock object.
-        """
-        patterns = {}
-        player_names = ["".join(tup) for tup in product(ascii_lowercase, repeat=2)]
-
-        for name in player_names:
-            patterns[name] = Player(name=name, clock=clock)
-
-        return patterns
-
-    @staticmethod
-    def _play_factory(send_method: Callable[P, T], *args, **kwargs) -> PlayerPattern:
-        """Factory method to create a PlayerPattern object.
-
-        Args:
-            send_method (Callable): The method to call.
-            args (tuple): The arguments.
-            kwargs (dict): The keyword arguments.
-
-        Returns:
-            PlayerPattern: The PlayerPattern object.
-        """
-        return PlayerPattern(send_method=send_method, args=args, kwargs=kwargs)
-
     def __mul__(self, pattern: Optional[PlayerPattern] = None) -> None:
         """Push new pattern to the player.
 
@@ -233,11 +204,6 @@ class Player(Subscriber):
             elif isinstance(kwargs["dur"], Callable | LambdaType):
                 kwargs["dur"] = kwargs["dur"]()
 
-        printed_dur = (
-            kwargs["dur"] if not isinstance(kwargs["dur"], Rest) else kwargs["dur"].duration
-        )
-        printed_val = current_pattern.kwargs["midinote"](self.iterator)
-        print(f"Player {self._name} - {printed_val} - {printed_dur/2} - {self._iterator}")
         # If duration is a rest, schedule a silence and count it for other seqs
         if isinstance(kwargs["dur"], Rest):
             kwargs["dur"] = kwargs["dur"].duration
@@ -351,7 +317,31 @@ class Player(Subscriber):
             self._silence_count = 0
             self._push()
 
+    @classmethod
+    def initialize_patterns(cls, clock: Clock) -> Dict[str, Self]:
+        """Initialize a vast amount of patterns for every two letter combination of letter.
 
-def pattern_printer(*args, **kwargs):
-    """Utility function to debug patterns"""
-    print(f"{args}{kwargs}")
+        Args:
+            clock (Clock): The clock object.
+        """
+        patterns = {}
+        player_names = ["".join(tup) for tup in product(ascii_lowercase, repeat=2)]
+
+        for name in player_names:
+            patterns[name] = Player(name=name, clock=clock)
+
+        return patterns
+
+    @staticmethod
+    def _play_factory(send_method: Callable[P, T], *args, **kwargs) -> PlayerPattern:
+        """Factory method to create a PlayerPattern object.
+
+        Args:
+            send_method (Callable): The method to call.
+            args (tuple): The arguments.
+            kwargs (dict): The keyword arguments.
+
+        Returns:
+            PlayerPattern: The PlayerPattern object.
+        """
+        return PlayerPattern(send_method=send_method, args=args, kwargs=kwargs)

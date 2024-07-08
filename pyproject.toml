@@ -24,7 +24,8 @@ dependencies = [
   "rich >= 13.7.1",
   "ptpython >= 3.0.0",
   "osc4py3 >= 1.0.8",
-  "python-rtmidi >= 1.5.8"
+  "python-rtmidi >= 1.5.8",
+  'signalflow >= 0.4.8 ; platform_system != "Windows"'
 ]
 
 [tool.black]

@@ -6,14 +6,15 @@ from .io.midi import MIDIOut, MIDIIn, list_midi_ports
 from .io.osc import OSC
 from rich import print
 from .environment import get_global_environment
-from .systems.Players.Player import Player, pattern_printer
 from .systems.Players.Pattern import *
 from .systems.Players.Library import *
+from .systems.Players.Player import Player
 from .systems.Players.GlobalConfig import global_config as PlayerConfig
 import functools
-from signalflow import Patch, SquareOscillator, SVFilter, Line, AudioGraph, ASREnvelope
+import os
 
-graph = AudioGraph()
+if not os.name == "nt":
+    from .Synths import *
 
 CONFIGURATION = read_configuration()
 
@@ -27,7 +28,7 @@ clock = Clock(
     delay=int(CONFIGURATION["clock"]["delay"]),
 )
 env.add_clock(clock)
-pattern = Player.initialize_patterns(clock)
+pattern = Player.Player.initialize_patterns(clock)
 
 # Opening MIDI output ports based on user configuration
 for out_port_info in CONFIGURATION["midi"]["out_ports"]:
@@ -177,34 +178,3 @@ def silence():
     env.dispatch("main", "silence", {})
     for key in pattern.keys():
         globals()[key].stop()
-
-
-class Ping(Patch):
-    def __init__(self, frequency=440, attack=0.0, release=0.25, *args, **kwargs):
-        super().__init__()
-        attack = self.add_input("attack", attack)
-        release = self.add_input("release", release)
-        frequency = self.add_input("frequency", frequency)
-        square = SquareOscillator([frequency, frequency * 1.01])
-        lowpass = SVFilter(square, "low_pass", Line(frequency, frequency / 4, release))
-        envelope = ASREnvelope(attack, 0.0, release)
-        output = lowpass * envelope * 0.1
-        self.auto_free = True
-        self.set_output(output)
-
-
-def no_kwargs_allowed(func):
-    def wrapper(*args, **kwargs):
-        return func(*args)
-
-    return wrapper
-
-
-# def ping(*args, **kwargs):
-#     test = lambda: graph.play(Ping(*args, **kwargs))
-#     return Player._play_factory(test, *args, **kwargs)
-
-
-def ping(*args, **kwargs):
-    test = lambda *a, **k: graph.play(Ping(*a, **k))
-    return Player._play_factory(test, *args, **kwargs)
