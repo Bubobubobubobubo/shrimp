@@ -28,7 +28,7 @@ class Player(Subscriber):
         super().__init__()
         self._name = name
         self._clock = clock
-        self._iterator = 0
+        self._iterator = -1
         self._silence_count = 0
         self._pattern: Optional[PlayerPattern] = None
         self._next_pattern: Optional[PlayerPattern] = None
@@ -146,21 +146,6 @@ class Player(Subscriber):
 
         return new_kwargs
 
-    def _silence(self, *args, _: Optional[PlayerPattern] = None, **kwargs) -> None:
-        """Internal recursive function implementing a silence. This is the "mirror" version
-        of the _func method but this one doesn't do anything! It is used to schedule a silence
-        in the clock and count it for other sequences.
-
-        TODO: There might be a bug to fix here! We are not counting for until or self._begin
-        and self._end conditions. This might be a problem if we have a rest in a sequence.
-
-        Args:
-            args (tuple): The arguments
-            kwargs (dict): The keyword arguments
-        """
-        self.iterator += 1
-        self._push(again=True)
-
     def stop(self, _: dict = {}):
         """Stop the current pattern.
 
@@ -171,7 +156,7 @@ class Player(Subscriber):
         self._clock.remove_by_name(self._name)
         self._pattern = None
         self._next_pattern = None
-        self._iterator = 0
+        self._iterator = -1
         self._silence_count = 0
         self._transition_scheduled = False
 
@@ -226,12 +211,6 @@ class Player(Subscriber):
             self._schedule_next_pattern()
 
     def _push(self, again: bool = False, **kwargs) -> None:
-        """Managing the lifetime of the pattern.
-
-        Args:
-            again (bool): If True, the pattern will be rescheduled.
-
-        """
         if self._pattern is None and self._next_pattern is None:
             return
 
@@ -243,20 +222,25 @@ class Player(Subscriber):
             "passthrough": current_pattern.kwargs.get("passthrough", False),
             "once": current_pattern.kwargs.get("once", False),
             "relative": True if again else False,
-            "time": lambda: current_pattern.kwargs.get("dur", 1),
+            "dur": lambda: current_pattern.kwargs.get("dur", 1),
             "swing": current_pattern.kwargs.get("swing", 0),
         }
 
-        # Resolve time if it is a pattern, a callable or any complex thing
-        while isinstance(kwargs["time"], Callable | LambdaType | Pattern):
-            if isinstance(kwargs["time"], Pattern):
-                kwargs["time"] = kwargs["time"](self.iterator)
-            elif isinstance(kwargs["time"], Callable | LambdaType):
-                kwargs["time"] = kwargs["time"]()
+        # Resolve duration if it is a pattern, a callable or any complex thing
+        while isinstance(kwargs["dur"], Callable | LambdaType | Pattern):
+            if isinstance(kwargs["dur"], Pattern):
+                kwargs["dur"] = kwargs["dur"](self.iterator)
+            elif isinstance(kwargs["dur"], Callable | LambdaType):
+                kwargs["dur"] = kwargs["dur"]()
 
-        # If time is a rest, schedule a silence and count it for other seqs
-        if isinstance(kwargs["time"], Rest):
-            kwargs["time"] = kwargs["time"].duration
+        printed_dur = (
+            kwargs["dur"] if not isinstance(kwargs["dur"], Rest) else kwargs["dur"].duration
+        )
+        printed_val = current_pattern.kwargs["midinote"](self.iterator)
+        print(f"Player {self._name} - {printed_val} - {printed_dur/2} - {self._iterator}")
+        # If duration is a rest, schedule a silence and count it for other seqs
+        if isinstance(kwargs["dur"], Rest):
+            kwargs["dur"] = kwargs["dur"].duration
             self._silence_count += 1
             schedule_silence = True
 
@@ -264,16 +248,16 @@ class Player(Subscriber):
         swing = kwargs.get("swing", 0.0)
         if swing > 0:
             if self._iterator % 2 == 0:
-                adjusted_duration = kwargs["time"] * (1 - swing)
+                adjusted_duration = kwargs["dur"] * (1 - swing)
             else:
-                adjusted_duration = kwargs["time"] * (1 + swing)
+                adjusted_duration = kwargs["dur"] * (1 + swing)
 
             if schedule_silence:
-                kwargs["time"] = Rest(adjusted_duration)
+                kwargs["dur"] = Rest(adjusted_duration)
             else:
-                kwargs["time"] = adjusted_duration
+                kwargs["dur"] = adjusted_duration
 
-        # Handling pattern rescheduling!
+        # Handling pattern scheduling
         if not again:
             quant_policy = current_pattern.kwargs.get("quant", "now")
             if quant_policy == "bar":
@@ -284,7 +268,10 @@ class Player(Subscriber):
                 kwargs["time"] = self._clock.beat
             elif isinstance(quant_policy, (int, float)):
                 kwargs["time"] = self._clock.beat + quant_policy
+        else:
+            kwargs["time"] = kwargs["dur"]
 
+        self._iterator += 1
         self._clock.add(
             func=self._func if not schedule_silence else self._silence, name=self._name, **kwargs
         )
@@ -330,7 +317,20 @@ class Player(Subscriber):
         except Exception as e:
             print(f"Error in _func: {e}")
 
-        self._iterator += 1
+        self._push(again=True)
+
+    def _silence(self, *args, _: Optional[PlayerPattern] = None, **kwargs) -> None:
+        """Internal recursive function implementing a silence. This is the "mirror" version
+        of the _func method but this one doesn't do anything! It is used to schedule a silence
+        in the clock and count it for other sequences.
+
+        TODO: There might be a bug to fix here! We are not counting for until or self._begin
+        and self._end conditions. This might be a problem if we have a rest in a sequence.
+
+        Args:
+            args (tuple): The arguments
+            kwargs (dict): The keyword arguments
+        """
         self._push(again=True)
 
     def _schedule_next_pattern(self):
@@ -347,7 +347,7 @@ class Player(Subscriber):
         if self._next_pattern:
             self._pattern = self._next_pattern
             self._next_pattern = None
-            self._iterator = 0
+            self._iterator = -1
             self._silence_count = 0
             self._push()
 

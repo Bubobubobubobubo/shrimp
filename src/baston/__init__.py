@@ -11,6 +11,9 @@ from .systems.Players.Pattern import *
 from .systems.Players.Library import *
 from .systems.Players.GlobalConfig import global_config as PlayerConfig
 import functools
+from signalflow import Patch, SquareOscillator, SVFilter, Line, AudioGraph, ASREnvelope
+
+graph = AudioGraph()
 
 CONFIGURATION = read_configuration()
 
@@ -174,3 +177,34 @@ def silence():
     env.dispatch("main", "silence", {})
     for key in pattern.keys():
         globals()[key].stop()
+
+
+class Ping(Patch):
+    def __init__(self, frequency=440, attack=0.0, release=0.25, *args, **kwargs):
+        super().__init__()
+        attack = self.add_input("attack", attack)
+        release = self.add_input("release", release)
+        frequency = self.add_input("frequency", frequency)
+        square = SquareOscillator([frequency, frequency * 1.01])
+        lowpass = SVFilter(square, "low_pass", Line(frequency, frequency / 4, release))
+        envelope = ASREnvelope(attack, 0.0, release)
+        output = lowpass * envelope * 0.1
+        self.auto_free = True
+        self.set_output(output)
+
+
+def no_kwargs_allowed(func):
+    def wrapper(*args, **kwargs):
+        return func(*args)
+
+    return wrapper
+
+
+# def ping(*args, **kwargs):
+#     test = lambda: graph.play(Ping(*args, **kwargs))
+#     return Player._play_factory(test, *args, **kwargs)
+
+
+def ping(*args, **kwargs):
+    test = lambda *a, **k: graph.play(Ping(*a, **k))
+    return Player._play_factory(test, *args, **kwargs)
