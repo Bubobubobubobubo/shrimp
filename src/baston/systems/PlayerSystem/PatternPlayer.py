@@ -12,6 +12,8 @@ import traceback
 P = ParamSpec("P")
 T = TypeVar("T")
 
+__ALL__ = ["PlayerPattern", "Player"]
+
 
 @dataclass
 class PlayerPattern:

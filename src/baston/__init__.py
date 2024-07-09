@@ -33,8 +33,8 @@ env.add_clock(clock)
 pattern = Player.initialize_patterns(clock)
 
 # Opening MIDI output ports based on user configuration
-for out_port_info in CONFIGURATION["midi"]["out_ports"]:
-    for midi_out_port_name, port in out_port_info.items():
+for all_output_midi_ports in CONFIGURATION["midi"]["out_ports"]:
+    for midi_out_port_name, port in all_output_midi_ports.items():
         if midi_out_port_name != "instruments" and port:
             if CONFIGURATION["editor"]["greeter"]:
                 print(
@@ -44,7 +44,7 @@ for out_port_info in CONFIGURATION["midi"]["out_ports"]:
             env.subscribe(globals()[midi_out_port_name])
 
             # Declaring new MIDI instruments
-            instruments = out_port_info.get("instruments", [])
+            instruments = all_output_midi_ports.get("instruments", [])
             for instrument in instruments:
                 name = instrument["name"]
                 channel = instrument["channel"]
@@ -56,7 +56,7 @@ for out_port_info in CONFIGURATION["midi"]["out_ports"]:
                     print(f"[bold yellow]> MIDI Instrument added: [red]{name}[/red] [/bold yellow]")
 
             # Declaring new MIDI controllers
-            controllers = out_port_info.get("controllers", [])
+            controllers = all_output_midi_ports.get("controllers", [])
             for controller in controllers:
                 name = controller["name"]
                 new_controller = globals()[midi_out_port_name].make_controller(
