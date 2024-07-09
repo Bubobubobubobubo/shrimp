@@ -4,6 +4,7 @@ import os
 import appdirs
 import pathlib
 import mido
+import sys
 
 APPNAME = "Baston"
 APPAUTHOR = "Raphaël Forment"
@@ -12,20 +13,26 @@ USER_DIRECTORY = appdirs.user_data_dir(APPNAME, APPAUTHOR)
 
 def _find_default_output_midi_port() -> str:
     """Find the default MIDI port to use by default when config is created."""
-    port_list = mido.get_output_names()
-    if port_list:
-        return port_list[0]
+    if sys.platform in "win32":
+        port_list = mido.get_output_names()
+        if port_list:
+            return port_list[0]
+        else:
+            return False
     else:
-        return False
+        return "baston"
 
 
 def _find_default_input_midi_port() -> str:
     """Find the default MIDI port to use by default when config is created."""
-    port_list = mido.get_input_names()
-    if port_list:
-        return port_list[0]
+    if sys.platform in "win32":
+        port_list = mido.get_input_names()
+        if port_list:
+            return port_list[0]
+        else:
+            return False
     else:
-        return False
+        return "baston"
 
 
 def open_config_folder():

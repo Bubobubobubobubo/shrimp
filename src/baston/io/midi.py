@@ -60,7 +60,10 @@ class MIDIIn(Subscriber):
         self._received_controls = CCStorage()
 
         try:
-            self._midi_in = mido.open_input(port)
+            if self.port == "baston":
+                self._midi_in = mido.open_input(port, virtual=True)
+            else:
+                self._midi_in = mido.open_input(port)
         except:
             print(f"Could not open MIDI port {port}")
 
@@ -113,7 +116,10 @@ class MIDIOut(Subscriber):
         self.clock = clock
         self.nudge = -0.1
         try:
-            self._midi_out = mido.open_output(port)
+            if self.port == "baston":
+                self._midi_out = mido.open_output(port, virtual=True)
+            else:
+                self._midi_out = mido.open_output(port)
         except:
             print(f"Could not open MIDI port {port}")
 
