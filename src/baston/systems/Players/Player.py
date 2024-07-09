@@ -19,6 +19,7 @@ class PlayerPattern:
     send_method: Callable[P, T]  # type: ignore
     args: tuple[Any]
     kwargs: dict[str, Any]
+    manual_polyphony: bool = False
 
 
 class Player(Subscriber):
@@ -156,9 +157,9 @@ class Player(Subscriber):
         self._clock.remove_by_name(self._name)
         self._pattern = None
         self._next_pattern = None
+        self._transition_scheduled = False
         self._iterator = -1
         self._silence_count = 0
-        self._transition_scheduled = False
 
     def play(self) -> None:
         """Play the current pattern."""
@@ -242,6 +243,20 @@ class Player(Subscriber):
             func=self._func if not schedule_silence else self._silence, name=self._name, **kwargs
         )
 
+    def _handle_manual_polyphony(self, pattern: PlayerPattern, args: tuple, kwargs: dict) -> None:
+        all_lists = [arg for arg in args if isinstance(arg, list)] + [
+            value for value in kwargs.values() if isinstance(value, list)
+        ]
+        max_length = max(len(lst) for lst in all_lists) if all_lists else 1
+
+        for i in range(max_length):
+            current_args = [arg[i % len(arg)] if isinstance(arg, list) else arg for arg in args]
+            current_kwargs = {
+                key: value[i % len(value)] if isinstance(value, list) else value
+                for key, value in kwargs.items()
+            }
+            pattern.send_method(*current_args, **current_kwargs)
+
     def _func(self, pattern: PlayerPattern, *args, **kwargs) -> None:
         """Internal function to play the pattern. This function is called by the clock. It plays
         the pattern using the send_method + args and kwargs arguments.
@@ -279,7 +294,10 @@ class Player(Subscriber):
         # Main function call
         try:
             if self._active:
-                pattern.send_method(*args, **kwargs)
+                if pattern.manual_polyphony:
+                    self._handle_manual_polyphony(pattern, args, kwargs)
+                else:
+                    pattern.send_method(*args, **kwargs)
         except Exception as e:
             print(f"Error in _func: {e}")
 
@@ -325,12 +343,18 @@ class Player(Subscriber):
             clock (Clock): The clock object.
         """
         patterns = {}
-        player_names = ["".join(tup) for tup in product(ascii_lowercase, repeat=2)]
-
-        for name in player_names:
+        for i in range(20):
+            name = f"p{i}"
             patterns[name] = Player(name=name, clock=clock)
-
         return patterns
+
+        # patterns = {}
+        # player_names = ["".join(tup) for tup in product(ascii_lowercase, repeat=2)]
+
+        # for name in player_names:
+        #     patterns[name] = Player(name=name, clock=clock)
+
+        # return patterns
 
     @staticmethod
     def _play_factory(send_method: Callable[P, T], *args, **kwargs) -> PlayerPattern:
@@ -344,4 +368,9 @@ class Player(Subscriber):
         Returns:
             PlayerPattern: The PlayerPattern object.
         """
-        return PlayerPattern(send_method=send_method, args=args, kwargs=kwargs)
+        return PlayerPattern(
+            send_method=send_method,
+            manual_polyphony=kwargs.get("manual_polyphony", False),
+            args=args,
+            kwargs=kwargs,
+        )

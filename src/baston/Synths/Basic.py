@@ -3,8 +3,10 @@ from signalflow import (
     SineOscillator,
     Patch,
     SquareOscillator,
+    ChannelMixer,
     TriangleOscillator,
     SawOscillator,
+    Sum,
     ASREnvelope,
     StereoPanner,
 )
@@ -58,7 +60,6 @@ class FM(Patch):
         amp=0.5,
         depth=1.0,
         ratio=1.0,
-        fmamp=0.1,
         *args,
         **kwargs,
     ):
@@ -69,15 +70,50 @@ class FM(Patch):
         frequency = self.add_input("frequency", frequency)
         mod_ratio = self.add_input("mod_ratio", ratio)
         mod_depth = self.add_input("mod_depth", depth)
-        mod_amp = self.add_input("mod_depth", fmamp)
         pan = self.add_input("pan", pan)
         amp = self.add_input("amp", amp)
         if note is not None:
             frequency = _note_to_freq(note)
         modulator = SineOscillator(frequency * mod_ratio) * mod_depth
-        carrier = SineOscillator(frequency * (modulator * fmamp))
+        carrier = SineOscillator(frequency * modulator)
         envelope = ASREnvelope(attack, sustain, release)
         output = carrier * envelope * amp
+        output = StereoPanner(output, pan)
+        self.auto_free = True
+        self.set_output(output)
+
+
+class Additive(Patch):
+    """A simple additive synthesizer with an ASR envelope."""
+
+    def __init__(
+        self,
+        note=None,
+        attack=0.0,
+        sustain=0,
+        release=0.1,
+        frequency=440,
+        pan=0.0,
+        amp=0.5,
+        harmonics=4,
+        ratio=1.5,
+        *args,
+        **kwargs,
+    ):
+        super().__init__()
+        attack = self.add_input("attack", attack)
+        sustain = self.add_input("sustain", sustain)
+        release = self.add_input("release", release)
+        frequency = self.add_input("frequency", frequency)
+        pan = self.add_input("pan", pan)
+        amp = self.add_input("amp", amp)
+        if note is not None:
+            frequency = _note_to_freq(note)
+        harmonics = [ratio**i for i in range(harmonics)]
+        oscillator = SineOscillator(harmonics)
+        envelope = ASREnvelope(attack, sustain, release)
+        output = oscillator * envelope * amp
+        output = ChannelMixer(num_channels=1, input=output, amplitude_compensation=True)
         output = StereoPanner(output, pan)
         self.auto_free = True
         self.set_output(output)
@@ -183,24 +219,49 @@ class Saw(Patch):
 
 def sine(*args, **kwargs):
     test = lambda *a, **k: graph.play(Sine(*a, **k))
-    return Player.Player._play_factory(test, *args, **kwargs)
+    return Player.Player._play_factory(test, *args, manual_polyphony=True, **kwargs)
 
 
 def square(*args, **kwargs):
     test = lambda *a, **k: graph.play(Square(*a, **k))
-    return Player.Player._play_factory(test, *args, **kwargs)
+    return Player.Player._play_factory(
+        test,
+        *args,
+        manual_polyphony=True,
+        **kwargs,
+    )
 
 
 def triangle(*args, **kwargs):
     test = lambda *a, **k: graph.play(Triangle(*a, **k))
-    return Player.Player._play_factory(test, *args, **kwargs)
+    return Player.Player._play_factory(test, *args, manual_polyphony=True, **kwargs)
 
 
 def saw(*args, **kwargs):
     test = lambda *a, **k: graph.play(Saw(*a, **k))
-    return Player.Player._play_factory(test, *args, **kwargs)
+    return Player.Player._play_factory(
+        test,
+        *args,
+        manual_polyphony=True,
+        **kwargs,
+    )
 
 
 def fm2(*args, **kwargs):
     test = lambda *a, **k: graph.play(FM(*a, **k))
-    return Player.Player._play_factory(test, *args, **kwargs)
+    return Player.Player._play_factory(
+        test,
+        *args,
+        manual_polyphony=True,
+        **kwargs,
+    )
+
+
+def add(*args, **kwargs):
+    test = lambda *a, **k: graph.play(Additive(*a, **k))
+    return Player.Player._play_factory(
+        test,
+        *args,
+        manual_polyphony=True,
+        **kwargs,
+    )

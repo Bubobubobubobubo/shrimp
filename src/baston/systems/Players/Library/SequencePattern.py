@@ -133,7 +133,7 @@ class Pnote(Pseq):
             *values, length=length, reverse=reverse, shuffle=shuffle, invert=invert, repeat=repeat
         )
         self._local_root = root if root is not None else global_config.root
-        self._scale = SCALES[scale] if scale is not None else global_config.scale
+        self._scale = scale if scale is not None else global_config.scale
 
     def __call__(self, iterator):
         note = super().__call__(iterator)

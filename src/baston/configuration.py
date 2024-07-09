@@ -75,6 +75,13 @@ def _create_default_configuration() -> dict:
             "print_above": False,
             "greeter": True,
         },
+        "audio_engine": {
+            "sample_rate": 44100,
+            "cpu_limit": 50,
+            "output_buffer_size": 256,
+            "input_buffer_size": 256,
+            "output_backend_name": "auto",
+        },
     }
     return configuration
 
