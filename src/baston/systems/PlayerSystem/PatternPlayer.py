@@ -195,20 +195,20 @@ class Player(Subscriber):
             "passthrough": current_pattern.kwargs.get("passthrough", False),
             "once": current_pattern.kwargs.get("once", False),
             "relative": True if again else False,
-            "dur": lambda: current_pattern.kwargs.get("dur", 1),
+            "p": lambda: current_pattern.kwargs.get("p", 1),
             "swing": current_pattern.kwargs.get("swing", 0),
         }
 
         # Resolve duration if it is a pattern, a callable or any complex thing
-        while isinstance(kwargs["dur"], Callable | LambdaType | Pattern):
-            if isinstance(kwargs["dur"], Pattern):
-                kwargs["dur"] = kwargs["dur"](self.iterator)
-            elif isinstance(kwargs["dur"], Callable | LambdaType):
-                kwargs["dur"] = kwargs["dur"]()
+        while isinstance(kwargs["p"], Callable | LambdaType | Pattern):
+            if isinstance(kwargs["p"], Pattern):
+                kwargs["p"] = kwargs["p"](self.iterator)
+            elif isinstance(kwargs["p"], Callable | LambdaType):
+                kwargs["p"] = kwargs["p"]()
 
         # If duration is a rest, schedule a silence and count it for other seqs
-        if isinstance(kwargs["dur"], Rest):
-            kwargs["dur"] = kwargs["dur"].duration
+        if isinstance(kwargs["p"], Rest):
+            kwargs["p"] = kwargs["p"].duration
             self._silence_count += 1
             schedule_silence = True
 
@@ -216,14 +216,14 @@ class Player(Subscriber):
         swing = kwargs.get("swing", 0.0)
         if swing > 0:
             if self._iterator % 2 == 0:
-                adjusted_duration = kwargs["dur"] * (1 - swing)
+                adjusted_duration = kwargs["p"] * (1 - swing)
             else:
-                adjusted_duration = kwargs["dur"] * (1 + swing)
+                adjusted_duration = kwargs["p"] * (1 + swing)
 
             if schedule_silence:
-                kwargs["dur"] = Rest(adjusted_duration)
+                kwargs["p"] = Rest(adjusted_duration)
             else:
-                kwargs["dur"] = adjusted_duration
+                kwargs["p"] = adjusted_duration
 
         # Handling pattern scheduling
         if not again:
@@ -237,7 +237,7 @@ class Player(Subscriber):
             elif isinstance(quant_policy, (int, float)):
                 kwargs["time"] = self._clock.beat + quant_policy
         else:
-            kwargs["time"] = kwargs["dur"]
+            kwargs["time"] = kwargs["p"]
 
         self._iterator += 1
         self._clock.add(
