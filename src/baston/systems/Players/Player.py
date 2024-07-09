@@ -9,6 +9,7 @@ from .Pattern import Pattern
 from .Rest import Rest
 from .Library.TimePattern import TimePattern
 from dataclasses import dataclass
+import traceback
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -299,7 +300,8 @@ class Player(Subscriber):
                 else:
                     pattern.send_method(*args, **kwargs)
         except Exception as e:
-            print(f"Error in _func: {e}")
+            print(f"Error with {pattern.send_method}: {e}, {args}, {kwargs}")
+            traceback.print_exc()
 
         self._push(again=True)
 

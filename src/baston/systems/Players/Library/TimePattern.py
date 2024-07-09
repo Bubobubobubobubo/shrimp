@@ -6,9 +6,12 @@ import math
 import random
 
 
-class TimePattern:
+class TimePattern(Pattern):
     def __init__(self):
-        pass
+        super().__init__()
+
+    def __len__(self):
+        return 1
 
 
 class Pdur(Pattern):
@@ -43,7 +46,7 @@ class Pdur(Pattern):
         return None
 
 
-class Psine(Pattern):
+class Psine(TimePattern):
     """
     Psine is a pattern that generates values based on a sine wave.
 

@@ -37,6 +37,9 @@ class Peuclid(Pattern):
         self.rhythm = euclidian_rhythm(pulses, length, rotate)
         return base if self.rhythm[iterator % len(self.rhythm)] == 1 else Rest(base)
 
+    def __len__(self):
+        return self.length
+
 
 class Pbin(Pattern):
     """A pattern class that generates values based on a binary rhythm.

@@ -1,6 +1,4 @@
-import random
-from typing import Optional
-from typing import Any
+from typing import Any, List
 from ...environment import get_global_environment
 from .Scales import SCALES
 from .GlobalConfig import global_config
@@ -120,6 +118,18 @@ class Pattern(ABC):
     def __rrshift__(self, other: Any) -> "ArithmeticPattern":
         return RightShiftPattern(self._convert(other), self)
 
+    def __and__(self, other: "Pattern") -> "ConcatenatePattern":
+        return ConcatenatePattern(self, other)
+
+    def __rand__(self, other: "Pattern") -> "ConcatenatePattern":
+        return ConcatenatePattern(other, self)
+
+    def __or__(self, other: "Pattern") -> "SuperpositionPattern":
+        return SuperpositionPattern(self, other)
+
+    def __ror__(self, other: "Pattern") -> "SuperpositionPattern":
+        return SuperpositionPattern(other, self)
+
 
 class ArithmeticPattern(Pattern):
     """Base class for patterns that perform arithmetic operations on other patterns."""
@@ -135,6 +145,9 @@ class ArithmeticPattern(Pattern):
 
     def __call__(self, iterator: int) -> Any:
         return self.operation(self.pattern1(iterator), self.pattern2(iterator))
+
+    def __len__(self) -> int:
+        return len(self.pattern1)
 
 
 class AddPattern(ArithmeticPattern):
@@ -221,3 +234,34 @@ class IntegerPattern(Pattern):
     def __call__(self, iterator: int) -> int:
         result = self.source_pattern(iterator)
         return int(round(result))
+
+    def __len__(self) -> int:
+        return len(self.source_pattern)
+
+
+class ConcatenatePattern(Pattern):
+    def __init__(self, *patterns: Pattern):
+        self.patterns = patterns
+        self.lengths = [len(p) for p in patterns]
+        self.total_length = sum(self.lengths)
+
+    def __call__(self, iterator: int) -> Any:
+        index = iterator % self.total_length
+        for pattern, length in zip(self.patterns, self.lengths):
+            if index < length:
+                return pattern(index)
+            index -= length
+
+    def __len__(self) -> int:
+        return self.total_length
+
+
+class SuperpositionPattern(Pattern):
+    def __init__(self, *patterns: Pattern):
+        self.patterns = patterns
+
+    def __call__(self, iterator: int) -> list:
+        return [pattern(iterator % len(pattern)) for pattern in self.patterns]
+
+    def __len__(self) -> int:
+        return max(len(p) for p in self.patterns)

@@ -337,7 +337,6 @@ class Clock(Subscriber):
                     try:
                         func, args, kwargs = callable.item
                         func(*args, **kwargs)
-
                         if callable.once:
                             del self._children[callable.name]
                     except Exception as e:

@@ -1,3 +1,5 @@
+from itertools import cycle, islice
+from random import random
 from ..systems.Players import Player
 from signalflow import (
     SineOscillator,
@@ -6,7 +8,6 @@ from signalflow import (
     ChannelMixer,
     TriangleOscillator,
     SawOscillator,
-    Sum,
     ASREnvelope,
     StereoPanner,
 )
@@ -88,19 +89,22 @@ class Additive(Patch):
 
     def __init__(
         self,
-        note=None,
-        attack=0.0,
-        sustain=0,
-        release=0.1,
-        frequency=440,
-        pan=0.0,
-        amp=0.5,
-        harmonics=4,
-        ratio=1.5,
+        note: int = None,
+        attack: float = 0.0,
+        sustain: float = 0,
+        release: float = 0.5,
+        frequency: float = 440,
+        pan: float = 0.0,
+        amp: float = 0.5,
+        harmonics: int = 4,
+        amplitudes: list = [1],
+        deviation: float = 0.0,
         *args,
         **kwargs,
     ):
         super().__init__()
+        if not isinstance(amplitudes, list):
+            amplitudes = [amplitudes]
         attack = self.add_input("attack", attack)
         sustain = self.add_input("sustain", sustain)
         release = self.add_input("release", release)
@@ -109,8 +113,10 @@ class Additive(Patch):
         amp = self.add_input("amp", amp)
         if note is not None:
             frequency = _note_to_freq(note)
-        harmonics = [ratio**i for i in range(harmonics)]
-        oscillator = SineOscillator(harmonics)
+        note_harmonics = [
+            frequency * _ + ((random() * deviation) * frequency) for _ in range(harmonics)
+        ]
+        oscillator = SineOscillator(note_harmonics) * list(islice(cycle(amplitudes), harmonics))
         envelope = ASREnvelope(attack, sustain, release)
         output = oscillator * envelope * amp
         output = ChannelMixer(num_channels=1, input=output, amplitude_compensation=True)

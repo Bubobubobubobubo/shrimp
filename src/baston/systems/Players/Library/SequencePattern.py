@@ -113,6 +113,9 @@ class Pseq(Pattern, SequencePattern):
     def __call__(self, iterator):
         return SequencePattern.__call__(self, iterator)
 
+    def __len__(self) -> int:
+        return len(self.values)
+
 
 P = Pseq
 
