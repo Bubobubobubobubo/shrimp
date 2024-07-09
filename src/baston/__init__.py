@@ -143,32 +143,32 @@ if globals().get("superdirt", None) is not None:
         >> aa * None
         >> aa.stop()
         """
-        return PatternPlayer.Player._play_factory(superdirt.player_dirt, *args, **kwargs)
+        return Player._play_factory(superdirt.player_dirt, *args, **kwargs)
 
 
 if globals().get("midi", None) is not None:
     midi = globals()["midi"]
 
     def debug(*args, **kwargs):
-        return PatternPlayer.Player._play_factory(pattern_printer, *args, **kwargs)
+        return Player._play_factory(pattern_printer, *args, **kwargs)
 
     def n(*args, **kwargs):
-        return PatternPlayer.Player._play_factory(midi.note, *args, **kwargs)
+        return Player._play_factory(midi.note, *args, **kwargs)
 
     def control(*args, **kwargs):
-        return PatternPlayer.Player._play_factory(midi.control_change, *args, **kwargs)
+        return Player._play_factory(midi.control_change, *args, **kwargs)
 
     def program(*args, **kwargs):
-        return PatternPlayer.Player._play_factory(midi.program_change, *args, **kwargs)
+        return Player._play_factory(midi.program_change, *args, **kwargs)
 
     def bend(*args, **kwargs):
-        return PatternPlayer.Player._play_factory(midi.pitch_bend, *args, **kwargs)
+        return Player._play_factory(midi.pitch_bend, *args, **kwargs)
 
     if globals().get("kabelsalat_instrument", None) is not None:
         kabel = globals()["kabelsalat_instrument"]
 
         def kabelsalat(*args, **kwargs):
-            return PatternPlayer.Player._play_factory(kabel, *args, **kwargs)
+            return Player._play_factory(kabel, *args, **kwargs)
 
 
 # Adding all patterns to the global scope
