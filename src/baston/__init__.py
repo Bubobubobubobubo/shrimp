@@ -13,7 +13,9 @@ from .systems.Players.GlobalConfig import global_config as PlayerConfig
 import functools
 import os
 
-if not os.name == "nt":
+# Do not import signalflow if on Linux or Windows!
+current_os = os.uname().sysname
+if current_os == "Darwin":
     from .Synths import *
 
 CONFIGURATION = read_configuration()
