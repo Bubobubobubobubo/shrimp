@@ -5,7 +5,7 @@ from ..environment import Subscriber
 from ..time.clock import Clock
 from ..utils import flatten, kwargs_to_flat_list
 from typing import Optional, Any, Callable
-from ..systems.Players.Rest import Rest
+from ..systems.PlayerSystem.Rest import Rest
 import threading
 import time
 

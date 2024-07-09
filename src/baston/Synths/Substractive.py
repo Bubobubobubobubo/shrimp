@@ -7,7 +7,7 @@ from signalflow import (
     ChannelMixer,
 )
 from .Utils import _note_to_freq, graph
-from ..systems.Players import Player
+from ..systems.PlayerSystem import Player
 from random import random
 
 

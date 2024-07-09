@@ -1,6 +1,6 @@
 from itertools import cycle, islice
 from random import random
-from ..systems.Players import Player
+from ..systems.PlayerSystem import Player
 from signalflow import (
     SineOscillator,
     Patch,

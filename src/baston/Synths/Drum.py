@@ -8,7 +8,7 @@ from signalflow import (
     StereoPanner,
     SVFilter,
 )
-from ..systems.Players import Player
+from ..systems.PlayerSystem import Player
 from .Utils import graph
 
 

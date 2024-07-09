@@ -6,10 +6,10 @@ from .io.midi import MIDIOut, MIDIIn, list_midi_ports
 from .io.osc import OSC
 from rich import print
 from .environment import get_global_environment
-from .systems.Players.Pattern import *
-from .systems.Players.Library import *
-from .systems.Players.Player import Player
-from .systems.Players.GlobalConfig import global_config as PlayerConfig
+from .systems.PlayerSystem.Pattern import *
+from .systems.PlayerSystem.Library import *
+from .systems.PlayerSystem.Player import Player
+from .systems.PlayerSystem.GlobalConfig import global_config as PlayerConfig
 import functools
 import os
 
