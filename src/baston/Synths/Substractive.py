@@ -7,7 +7,7 @@ from signalflow import (
     ChannelMixer,
 )
 from .Utils import _note_to_freq, graph
-from ..systems.PlayerSystem import Player
+from ..systems.PlayerSystem import PatternPlayer
 from random import random
 
 
@@ -55,7 +55,7 @@ class MultiSaw(Patch):
 
 def multisaw(*args, **kwargs):
     test = lambda *a, **k: graph.play(MultiSaw(*a, **k))
-    return Player.Player._play_factory(
+    return PatternPlayer.Player._play_factory(
         test,
         *args,
         manual_polyphony=True,

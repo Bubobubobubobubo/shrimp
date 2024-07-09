@@ -8,7 +8,7 @@ from rich import print
 from .environment import get_global_environment
 from .systems.PlayerSystem.Pattern import *
 from .systems.PlayerSystem.Library import *
-from .systems.PlayerSystem.Player import Player
+from .systems.PlayerSystem.PatternPlayer import Player
 from .systems.PlayerSystem.GlobalConfig import global_config as PlayerConfig
 import functools
 import os
@@ -30,7 +30,7 @@ clock = Clock(
     delay=int(CONFIGURATION["clock"]["delay"]),
 )
 env.add_clock(clock)
-pattern = Player.Player.initialize_patterns(clock)
+pattern = Player.initialize_patterns(clock)
 
 # Opening MIDI output ports based on user configuration
 for out_port_info in CONFIGURATION["midi"]["out_ports"]:
@@ -143,32 +143,32 @@ if globals().get("superdirt", None) is not None:
         >> aa * None
         >> aa.stop()
         """
-        return Player.Player._play_factory(superdirt.player_dirt, *args, **kwargs)
+        return PatternPlayer.Player._play_factory(superdirt.player_dirt, *args, **kwargs)
 
 
 if globals().get("midi", None) is not None:
     midi = globals()["midi"]
 
     def debug(*args, **kwargs):
-        return Player.Player._play_factory(pattern_printer, *args, **kwargs)
+        return PatternPlayer.Player._play_factory(pattern_printer, *args, **kwargs)
 
     def n(*args, **kwargs):
-        return Player.Player._play_factory(midi.note, *args, **kwargs)
+        return PatternPlayer.Player._play_factory(midi.note, *args, **kwargs)
 
     def control(*args, **kwargs):
-        return Player.Player._play_factory(midi.control_change, *args, **kwargs)
+        return PatternPlayer.Player._play_factory(midi.control_change, *args, **kwargs)
 
     def program(*args, **kwargs):
-        return Player.Player._play_factory(midi.program_change, *args, **kwargs)
+        return PatternPlayer.Player._play_factory(midi.program_change, *args, **kwargs)
 
     def bend(*args, **kwargs):
-        return Player.Player._play_factory(midi.pitch_bend, *args, **kwargs)
+        return PatternPlayer.Player._play_factory(midi.pitch_bend, *args, **kwargs)
 
     if globals().get("kabelsalat_instrument", None) is not None:
         kabel = globals()["kabelsalat_instrument"]
 
         def kabelsalat(*args, **kwargs):
-            return Player.Player._play_factory(kabel, *args, **kwargs)
+            return PatternPlayer.Player._play_factory(kabel, *args, **kwargs)
 
 
 # Adding all patterns to the global scope

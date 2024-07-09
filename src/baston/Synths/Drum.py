@@ -8,7 +8,7 @@ from signalflow import (
     StereoPanner,
     SVFilter,
 )
-from ..systems.PlayerSystem import Player
+from ..systems.PlayerSystem import PatternPlayer
 from .Utils import graph
 
 
@@ -69,14 +69,14 @@ class Noise(Patch):
 
 def kick(*args, **kwargs):
     test = lambda *a, **k: graph.play(Kick(*a, **k))
-    return Player.Player._play_factory(test, *args, **kwargs)
+    return PatternPlayer.Player._play_factory(test, *args, **kwargs)
 
 
 def noise(*args, **kwargs):
     test = lambda *a, **k: graph.play(Noise(*a, **k))
-    return Player.Player._play_factory(test, *args, **kwargs)
+    return PatternPlayer.Player._play_factory(test, *args, **kwargs)
 
 
 def hat(*args, **kwargs):
     test = lambda *a, **k: graph.play(HiHat(*a, **k))
-    return Player.Player._play_factory(test, *args, **kwargs)
+    return PatternPlayer.Player._play_factory(test, *args, **kwargs)

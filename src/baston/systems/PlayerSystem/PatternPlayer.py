@@ -2,8 +2,6 @@ from ...environment import Subscriber
 from dataclasses import dataclass
 from typing import TypeVar, Callable, ParamSpec, Optional, Dict, Self, Any
 from ...time.clock import Clock, TimePos
-from string import ascii_lowercase
-from itertools import product
 from types import LambdaType
 from .Pattern import Pattern
 from .Rest import Rest
@@ -349,14 +347,6 @@ class Player(Subscriber):
             name = f"p{i}"
             patterns[name] = Player(name=name, clock=clock)
         return patterns
-
-        # patterns = {}
-        # player_names = ["".join(tup) for tup in product(ascii_lowercase, repeat=2)]
-
-        # for name in player_names:
-        #     patterns[name] = Player(name=name, clock=clock)
-
-        # return patterns
 
     @staticmethod
     def _play_factory(send_method: Callable[P, T], *args, **kwargs) -> PlayerPattern:
