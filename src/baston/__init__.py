@@ -155,14 +155,17 @@ if globals().get("midi", None) is not None:
     def n(*args, **kwargs):
         return Player._play_factory(midi.note, *args, **kwargs)
 
-    def control(*args, **kwargs):
+    def cc(*args, **kwargs):
         return Player._play_factory(midi.control_change, *args, **kwargs)
 
-    def program(*args, **kwargs):
+    def pc(*args, **kwargs):
         return Player._play_factory(midi.program_change, *args, **kwargs)
 
-    def bend(*args, **kwargs):
+    def bd(*args, **kwargs):
         return Player._play_factory(midi.pitch_bend, *args, **kwargs)
+
+    def sy(*args, **kwargs):
+        return Player._play_factory(midi.sysex, *args, **kwargs)
 
     if globals().get("kabelsalat_instrument", None) is not None:
         kabel = globals()["kabelsalat_instrument"]

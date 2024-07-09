@@ -42,15 +42,15 @@ class Prand(Pattern):
         super().__init__()
         self.min = min
         self.max = max
-        self.return_integer = as_float
+        self._as_float = as_float
 
     def __call__(self, _):
         min_value = self._resolve_pattern(self.min, _)
         max_value = self._resolve_pattern(self.max, _)
-        if self.return_integer:
-            return random.randint(int(min_value), int(max_value))
-        else:
+        if self._as_float:
             return random.uniform(min_value, max_value)
+        else:
+            return random.randint(int(min_value), int(max_value))
 
 
 class Pchoose(Pattern):
