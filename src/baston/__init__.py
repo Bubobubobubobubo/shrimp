@@ -38,7 +38,7 @@ for all_output_midi_ports in CONFIGURATION["midi"]["out_ports"]:
         if midi_out_port_name != "instruments" and port:
             if CONFIGURATION["editor"]["greeter"]:
                 print(
-                    f"[bold yellow]> MIDI Output added: [red]{midi_out_port_name}[/red] [/bold yellow]"
+                    f"[bold yellow]> MIDI Output [red]{midi_out_port_name}[/red] added for port: [red]{port}[/red] [/bold yellow]"
                 )
             globals()[midi_out_port_name] = MIDIOut(port, clock)
             env.subscribe(globals()[midi_out_port_name])
@@ -71,7 +71,9 @@ for all_output_midi_ports in CONFIGURATION["midi"]["out_ports"]:
 for midi_in_port_name, port in CONFIGURATION["midi"]["in_ports"].items():
     if port is not False:
         if CONFIGURATION["editor"]["greeter"]:
-            print(f"[bold yellow]> MIDI Input added: [red]{midi_in_port_name}[/red] [/bold yellow]")
+            print(
+                f"[bold yellow]> MIDI Output [red]{midi_in_port_name}[/red] added for port: [red]{port}[/red] [/bold yellow]"
+            )
         globals()[midi_in_port_name] = MIDIIn(port, clock)
         env.subscribe(globals()[midi_in_port_name])
 

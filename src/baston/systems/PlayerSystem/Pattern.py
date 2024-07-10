@@ -1,4 +1,4 @@
-from typing import Any, List
+from typing import Any
 from ...environment import get_global_environment
 from .Scales import SCALES
 from .GlobalConfig import global_config
@@ -256,12 +256,60 @@ class ConcatenatePattern(Pattern):
         return self.total_length
 
 
+# class SuperpositionPattern(Pattern):
+#     def __init__(self, *patterns: Pattern):
+#         self.patterns = self._flatten_patterns(patterns)
+
+#     def _flatten_patterns(self, patterns):
+#         flattened = []
+#         for pattern in patterns:
+#             if isinstance(pattern, SuperpositionPattern):
+#                 flattened.extend(pattern.patterns)
+#             else:
+#                 flattened.append(pattern)
+#         return flattened
+
+#     def __call__(self, iterator: int) -> list:
+#         return [pattern(iterator % len(pattern)) for pattern in self.patterns]
+
+#     def __len__(self) -> int:
+#         return max(len(p) for p in self.patterns)
+
+#     def __or__(self, other: "Pattern") -> "SuperpositionPattern":
+#         if isinstance(other, SuperpositionPattern):
+#             return SuperpositionPattern(*self.patterns, *other.patterns)
+#         else:
+#             return SuperpositionPattern(*self.patterns, other)
+
+
 class SuperpositionPattern(Pattern):
     def __init__(self, *patterns: Pattern):
-        self.patterns = patterns
+        self.patterns = self._flatten_patterns(patterns)
+
+    def _flatten_patterns(self, patterns):
+        flattened = []
+        for pattern in patterns:
+            if isinstance(pattern, SuperpositionPattern):
+                flattened.extend(pattern.patterns)
+            else:
+                flattened.append(pattern)
+        return flattened
 
     def __call__(self, iterator: int) -> list:
-        return [pattern(iterator % len(pattern)) for pattern in self.patterns]
+        result = []
+        for pattern in self.patterns:
+            value = pattern(iterator % len(pattern))
+            if isinstance(value, list):
+                result.extend(value)
+            else:
+                result.append(value)
+        return result
 
     def __len__(self) -> int:
         return max(len(p) for p in self.patterns)
+
+    def __or__(self, other: "Pattern") -> "SuperpositionPattern":
+        if isinstance(other, SuperpositionPattern):
+            return SuperpositionPattern(*self.patterns, *other.patterns)
+        else:
+            return SuperpositionPattern(*self.patterns, other)

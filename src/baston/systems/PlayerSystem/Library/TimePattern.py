@@ -230,23 +230,23 @@ def exponential_interp(progress: float, start: float, end: float) -> float:
     return start * (end / start) ** progress
 
 
-class PdurLin(_Pinterp):
+class Plindur(_Pinterp):
     """Linear interpolation pattern"""
 
     def __init__(self, values: List[Any], durations: List[int | float], bar: bool = False):
         super().__init__(values, durations, linear_interp, bar)
 
 
-class PdurExp(_Pinterp):
+class Pexpdur(_Pinterp):
     """Exponential interpolation pattern"""
 
     def __init__(self, values: List[Any], durations: List[int | float], bar: bool = False):
         super().__init__(values, durations, exponential_interp, bar)
 
 
-class Penv(Pattern):
+class Padsr(Pattern):
     """
-    Penv is a pattern that generates an envelope shape similar to ADSR (Attack, Decay, Sustain, Release).
+    Penv is a pattern that generates an ADSR envelope shape similar to ADSR (Attack, Decay, Sustain, Release).
 
     Args:
         attack (float): The duration of the attack phase.
