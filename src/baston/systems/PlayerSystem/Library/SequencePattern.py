@@ -146,7 +146,10 @@ class Pnote(Pseq):
         if isinstance(note_value, int):
             return self._calculate_note(note_value, self._scale, root)
         elif isinstance(note_value, list):
-            return [self._calculate_note(n, self._scale, root) for n in note_value]
+            return [
+                self._calculate_note(self._resolve_pattern(n, iterator), self._scale, root)
+                for n in note_value
+            ]
 
     @staticmethod
     def _calculate_note(note, scale, root):

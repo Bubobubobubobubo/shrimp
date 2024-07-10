@@ -240,6 +240,7 @@ class Player(Subscriber):
             kwargs["time"] = kwargs["p"]
 
         self._iterator += 1
+
         self._clock.add(
             func=self._func if not schedule_silence else self._silence, name=self._name, **kwargs
         )
