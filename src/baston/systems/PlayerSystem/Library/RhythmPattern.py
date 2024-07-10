@@ -2,6 +2,8 @@ from ..Pattern import Pattern
 from ..Rest import Rest
 from ....utils import euclidian_rhythm
 from .SequencePattern import Pseq
+import random
+import math
 
 
 class Peuclid(Pattern):
@@ -114,3 +116,30 @@ class Pxo(Pattern):
 
         index = iterator % len(pattern)
         return self._parse_char(pattern[index], default_duration)
+
+
+class Pgolomb(Pattern):
+    def __init__(self, gen: int, multiplication: float, rotation: int):
+        self._pattern = self._golomb(gen, multiplication, rotation)
+
+    def _golomb(self, gen: int, multiplication: float, rotation: int):
+        root = math.sqrt(1 + (8 * gen)) - 1 / 2
+        rootInt = math.trunc(root)
+        deltas = list(range(1, rootInt + 1))
+        if root > rootInt:
+            residual = ((rootInt**2 + (3 * rootInt) + 2) / 2) - gen
+            try:
+                deltas.remove(residual)
+            except ValueError:
+                pass
+        else:
+            deltas = deltas[:gen]
+
+        deltas = [sum(deltas[:i]) for i in range(1, len(deltas) + 1)]
+        deltas = deltas[rotation:] + deltas[:rotation]
+        random.Random(rotation).shuffle(deltas)
+        total = sum(deltas)
+        return list(map(lambda x: x * multiplication, [x / total for x in deltas]))
+
+    def __call__(self, iterator: int):
+        return self._pattern[iterator % len(self._pattern)]
