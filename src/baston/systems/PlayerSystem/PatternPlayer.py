@@ -138,7 +138,10 @@ class Player(Subscriber):
                 resolved = value(self.iterator - self._silence_count)
                 return resolve_value(resolved)
             elif isinstance(value, Callable | LambdaType):
-                return value()
+                try:
+                    return resolve_value(value())
+                except TypeError:
+                    return resolve_value(self.iterator - self._silence_count)
             else:
                 return value
 

@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Callable
 from ...environment import get_global_environment
 from .Scales import SCALES
 from .GlobalConfig import global_config
@@ -317,6 +317,15 @@ class ConcatenatePattern(Pattern):
 
     def __len__(self) -> int:
         return self.total_length
+
+
+class ConditionalApplicationPattern(Pattern):
+    def __init__(self, wrapped_pattern: Callable):
+        super().__init__()
+        self.condition_pattern = wrapped_pattern
+
+    def __call__(self, iterator: int) -> Any:
+        return self._resolve_pattern(self.condition_pattern(), iterator)
 
 
 class SuperpositionPattern(Pattern):

@@ -1,5 +1,5 @@
-from ..Pattern import Pattern
-from typing import Optional
+from ..Pattern import Pattern, ConditionalApplicationPattern
+from typing import Optional, Callable
 import random
 from ..GlobalConfig import global_config
 from ..Scales import SCALES
@@ -20,6 +20,21 @@ class SequencePattern:
         """
         self._length = length
         self.values = values
+
+    def every(self, n: int, method: Callable, *args, **kwargs):
+
+        def _wrapped_behavior():
+            current_beat = self.env.clock.beat
+            if int(current_beat) % n == 0:
+                # Copy of itself to avoid modifying the original pattern
+                new_instance = type(self)(*self.values, length=self._length)
+                result = method(new_instance, *args, **kwargs)
+                print(result.values)
+                return result
+            else:
+                return self
+
+        return ConditionalApplicationPattern(_wrapped_behavior)
 
     def shuffle(self):
         """
