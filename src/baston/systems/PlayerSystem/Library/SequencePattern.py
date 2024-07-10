@@ -1,6 +1,5 @@
 from ..Pattern import Pattern
 from typing import Optional
-import itertools
 import random
 from ..GlobalConfig import global_config
 from ..Scales import SCALES
@@ -11,10 +10,6 @@ class SequencePattern:
         self,
         *values,
         length: Optional[int | Pattern] = None,
-        reverse: bool | Pattern = False,
-        shuffle: bool | Pattern = False,
-        repeat: Optional[int | Pattern] = None,
-        invert: Optional[int | Pattern] = None,
     ):
         """
         A base class for sequence patterns.
@@ -22,31 +17,202 @@ class SequencePattern:
         Args:
             *values: Variable number of values to be used in the pattern.
             length (int | Pattern, optional): The length of the pattern. Defaults to None.
-            reverse (bool | Pattern, optional): Whether to reverse the pattern. Defaults to False.
-            shuffle (bool | Pattern, optional): Whether to shuffle the pattern. Defaults to False.
-            repeat (int | Pattern, optional): The number of times to repeat the pattern. Defaults to False.
-            invert (int | Pattern, optional): The value to subtract from each pattern value. Defaults to False.
         """
         self._length = length
-        self._reverse = reverse
-        self._shuffle = shuffle
-        self._invert = invert
-        self._repeat = repeat
-        self._original_values = values
-        self.values = list(values)
+        self.values = values
 
-    def _repeat_values(self, values, repeat, iterator):
-        expanded_values = []
-        if not isinstance(repeat, Pattern):
-            expanded_values = list(
-                itertools.chain.from_iterable(itertools.repeat(x, repeat) for x in values)
-            )
+    def shuffle(self):
+        """
+        Shuffles the values in the sequence pattern.
+
+        Returns:
+            SequencePattern: The shuffled sequence pattern.
+        """
+        random.shuffle(self.values)
+        return self
+
+    def reverse(self):
+        """
+        Reverses the values in the sequence pattern.
+
+        Returns:
+            SequencePattern: The reversed sequence pattern.
+        """
+        self.values = self.values[::-1]
+        return self
+
+    def mirror(self):
+        """
+        Mirrors the values in the sequence pattern.
+
+        Returns:
+            SequencePattern: The mirrored sequence pattern.
+        """
+        self.values = self.values + self.values[-2::-1]
+        return self
+
+    def sort(self, reverse=False):
+        """
+        Sorts the values in the sequence pattern.
+
+        Args:
+            reverse (bool, optional): Whether to sort in reverse order. Defaults to False.
+
+        Returns:
+            SequencePattern: The sorted sequence pattern.
+        """
+        self.values = sorted(self.values, reverse=reverse)
+        return self
+
+    def arp(self, seq):
+        """
+        Applies an arpeggio pattern to the values in the sequence.
+
+        Args:
+            seq (list): The arpeggio pattern to apply.
+
+        Returns:
+            Pattern: A new Pattern object with the arpeggiated values.
+        """
+        new_values = []
+        for value in self.values:
+            for increment in seq:
+                new_values.append(value + increment)
+        self.values = new_values
+        return self
+
+    def lace(self, *seqs):
+        """
+        Laces the values of the current sequence with the values from the provided sequences.
+
+        Args:
+            *seqs: Variable number of sequences to be laced with the current sequence.
+
+        Returns:
+            self: Returns the modified SequencePattern object.
+
+        """
+        new_values = []
+        max_len = max(len(self.values), *(len(seq) for seq in seqs))
+
+        for i in range(max_len):
+            if i < len(self.values):
+                new_values.append(self.values[i])
+            for seq in seqs:
+                if i < len(seq):
+                    new_values.append(seq[i])
+
+        self.values = new_values
+        return self
+
+    def rotate(self, positions):
+        """
+        Rotates the values in the SequencePattern by the specified number of positions.
+
+        Args:
+            positions (int): The number of positions to rotate the values. Positive
+            values rotate to the right, while negative values rotate to the left.
+
+        Returns:
+            SequencePattern: The SequencePattern object after the rotation.
+
+        """
+        if not self.values:
+            return self  # No values to rotate
+        n = len(self.values)
+        positions = positions % n  # Normalize the positions
+        self.values = self.values[-positions:] + self.values[:-positions]
+        return self
+
+    def stretch(self, size):
+        """
+        Stretch the sequence pattern by repeating its values to match the specified size.
+
+        Args:
+            size (int): The desired size of the stretched sequence pattern.
+
+        Returns:
+            SequencePattern: The stretched sequence pattern.
+
+        """
+        new_values = []
+        original_len = len(self.values)
+        if original_len == 0:
+            return self
+        for i in range(size):
+            new_values.append(self.values[i % original_len])
+        self.values = new_values
+        return self
+
+    def filter_repeats(self):
+        """
+        Filters out repeated values in the sequence pattern.
+
+        Returns:
+            SequencePattern: The filtered sequence pattern.
+        """
+        self.values = [self.values[0]] + [
+            value for i, value in enumerate(self.values[1:]) if value != self.values[i]
+        ]
+        return self
+
+    def trim(self, size):
+        """
+        Trims the sequence pattern to the specified size.
+
+        Args:
+            size (int): The desired size of the sequence pattern.
+
+        Returns:
+            SequencePattern: The trimmed sequence pattern.
+
+        """
+        self.values = self.values[:size]
+        return self
+
+    def ltrim(self, size):
+        """
+        Trims the left side of the sequence pattern by removing elements from the beginning.
+
+        Args:
+            size (int): The number of elements to remove from the beginning of the sequence pattern.
+
+        Returns:
+            SequencePattern: The modified sequence pattern object.
+
+        """
+        self.values = self.values[-size:]
+        return self
+
+    def repeat(self, n):
+        """
+        Repeats the values in the sequence pattern.
+
+        Args:
+            n (int or list): The number of times to repeat each value. If `n` is an integer,
+            all values in the sequence pattern will be repeated `n` times. If `n` is a list,
+            each value in the sequence pattern will be repeated a different number of times
+            based on the corresponding element in the list.
+
+        Returns:
+            self: The updated sequence pattern object.
+
+        Example usage:
+            pattern = SequencePattern([1, 2, 3])
+            pattern.repeat(2)  # Repeats each value twice: [1, 1, 2, 2, 3, 3]
+            pattern.repeat([1, 2, 3])  # Repeats each value a different number of times: [1, 2, 2, 3, 3, 3]
+        """
+        if isinstance(n, list):
+            new_values = []
+            for i, value in enumerate(self.values):
+                if i < len(n):
+                    new_values.extend([value] * n[i])
+                else:
+                    new_values.append(value)
+            self.values = new_values
         else:
-            repeat_value = repeat(iterator)
-            expanded_values = list(
-                itertools.chain.from_iterable(itertools.repeat(x, repeat_value) for x in values)
-            )
-        return expanded_values
+            self.values = [ele for ele in self.values for _ in range(n)]
+        return self
 
     def _resolve_pattern(self, pattern, iterator):
         if isinstance(pattern, Pattern):
@@ -54,39 +220,7 @@ class SequencePattern:
         return pattern
 
     def __call__(self, iterator):
-        # Use the original values for computation
-        self.values = list(self._original_values)
-
-        if self._repeat is not None:
-            self.values = self._repeat_values(self.values, self._repeat, iterator)
-
-        if isinstance(self._shuffle, Pattern):
-            shuffle = self._resolve_pattern(self._shuffle, iterator)
-        else:
-            shuffle = self._shuffle
-
-        if shuffle:
-            random.shuffle(self.values)
-
-        if isinstance(self._reverse, Pattern):
-            reverse = self._resolve_pattern(self._reverse, iterator)
-        else:
-            reverse = self._reverse
-
-        if reverse:
-            index = len(self.values) - 1 - iterator % len(self.values)
-        else:
-            index = iterator % len(self.values) if self._length is None else iterator % self._length
-
-        value = self.values[index]
-
-        if self._invert is not None:
-            if isinstance(self._invert, Pattern):
-                invert = self._resolve_pattern(self._invert, iterator)
-            else:
-                invert = self._invert
-            value -= invert
-        return value
+        return self._resolve_pattern(self.values[iterator % len(self.values)], iterator)
 
 
 class Pseq(Pattern, SequencePattern):
@@ -94,20 +228,12 @@ class Pseq(Pattern, SequencePattern):
         self,
         *values,
         length: Optional[int] = None,
-        reverse: bool = False,
-        shuffle: bool = False,
-        repeat: Optional[int] = None,
-        invert: Optional[int] = None,
     ):
         Pattern.__init__(self)  # Initialize the base Pattern class
         SequencePattern.__init__(
             self,
             *values,
             length=length,
-            reverse=reverse,
-            shuffle=shuffle,
-            invert=invert,
-            repeat=repeat,
         )
 
     def __call__(self, iterator):
@@ -125,16 +251,10 @@ class Pnote(Pseq):
         self,
         *values,
         length: Optional[int] = None,
-        reverse: bool = False,
-        shuffle: bool = False,
-        invert: Optional[int] = None,
-        repeat: Optional[int] = None,
         root: Optional[int] = None,
         scale: Optional[str] = None,
     ):
-        super().__init__(
-            *values, length=length, reverse=reverse, shuffle=shuffle, invert=invert, repeat=repeat
-        )
+        super().__init__(*values, length=length)
         self._local_root = root if root is not None else global_config.root
         self._scale = scale if scale is not None else global_config.scale
 

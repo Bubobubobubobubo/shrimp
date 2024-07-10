@@ -19,7 +19,7 @@ class GlobalConfig:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(GlobalConfig, cls).__new__(cls)
-            cls._instance.scale = SCALES.major
+            cls._instance.scale = SCALES.minor
             cls._register = {}
             cls._root_note = 60
         return cls._instance

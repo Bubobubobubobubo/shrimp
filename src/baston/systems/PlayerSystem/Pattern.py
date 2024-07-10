@@ -154,63 +154,126 @@ class AddPattern(ArithmeticPattern):
     """Pattern that performs addition operation."""
 
     def operation(self, value1: Any, value2: Any) -> Any:
-        return value1 + value2
+        if isinstance(value1, (list, tuple)) and isinstance(value2, (int, float)):
+            return [v + value2 for v in value1]
+        elif isinstance(value2, (list, tuple)) and isinstance(value1, (int, float)):
+            return [value1 + v for v in value2]
+        elif isinstance(value1, (list, tuple)) and isinstance(value2, (list, tuple)):
+            return [v1 + v2 for v1, v2 in zip(value1, value2)]
+        else:
+            return value1 + value2
 
 
 class SubtractPattern(ArithmeticPattern):
     """Pattern that performs subtraction operation."""
 
     def operation(self, value1: Any, value2: Any) -> Any:
-        return value1 - value2
+        if isinstance(value1, (list, tuple)) and isinstance(value2, (int, float)):
+            return [v - value2 for v in value1]
+        elif isinstance(value2, (list, tuple)) and isinstance(value1, (int, float)):
+            return [value1 - v for v in value2]
+        elif isinstance(value1, (list, tuple)) and isinstance(value2, (list, tuple)):
+            return [v1 - v2 for v1, v2 in zip(value1, value2)]
+        else:
+            return value1 - value2
 
 
 class MultiplyPattern(ArithmeticPattern):
     """Pattern that performs multiplication operation."""
 
     def operation(self, value1: Any, value2: Any) -> Any:
-        return value1 * value2
+        if isinstance(value1, (list, tuple)) and isinstance(value2, (int, float)):
+            return [v * value2 for v in value1]
+        elif isinstance(value2, (list, tuple)) and isinstance(value1, (int, float)):
+            return [value1 * v for v in value2]
+        elif isinstance(value1, (list, tuple)) and isinstance(value2, (list, tuple)):
+            return [v1 * v2 for v1, v2 in zip(value1, value2)]
+        else:
+            return value1 * value2
 
 
 class DividePattern(ArithmeticPattern):
     """Pattern that performs division operation."""
 
     def operation(self, value1: Any, value2: Any) -> Any:
-        return value1 / value2
+        if isinstance(value1, (list, tuple)) and isinstance(value2, (int, float)):
+            return [v / value2 for v in value1]
+        elif isinstance(value2, (list, tuple)) and isinstance(value1, (int, float)):
+            return [value1 / v for v in value2]
+        elif isinstance(value1, (list, tuple)) and isinstance(value2, (list, tuple)):
+            return [v1 / v2 for v1, v2 in zip(value1, value2)]
+        else:
+            return value1 / value2
 
 
 class FloorDividePattern(ArithmeticPattern):
     """Pattern that performs floor division operation."""
 
     def operation(self, value1: Any, value2: Any) -> Any:
-        return value1 // value2
+        if isinstance(value1, (list, tuple)) and isinstance(value2, (int, float)):
+            return [v // value2 for v in value1]
+        elif isinstance(value2, (list, tuple)) and isinstance(value1, (int, float)):
+            return [value1 // v for v in value2]
+        elif isinstance(value1, (list, tuple)) and isinstance(value2, (list, tuple)):
+            return [v1 // v2 for v1, v2 in zip(value1, value2)]
+        else:
+            return value1 // value2
 
 
 class ModuloPattern(ArithmeticPattern):
     """Pattern that performs modulo operation."""
 
     def operation(self, value1: Any, value2: Any) -> Any:
-        return value1 % value2
+        if isinstance(value1, (list, tuple)) and isinstance(value2, (int, float)):
+            return [v % value2 for v in value1]
+        elif isinstance(value2, (list, tuple)) and isinstance(value1, (int, float)):
+            return [value1 % v for v in value2]
+        elif isinstance(value1, (list, tuple)) and isinstance(value2, (list, tuple)):
+            return [v1 % v2 for v1, v2 in zip(value1, value2)]
+        else:
+            return value1 % value2
 
 
 class PowerPattern(ArithmeticPattern):
     """Pattern that performs exponentiation operation."""
 
     def operation(self, value1: Any, value2: Any) -> Any:
-        return value1**value2
+        if isinstance(value1, (list, tuple)) and isinstance(value2, (int, float)):
+            return [v**value2 for v in value1]
+        elif isinstance(value2, (list, tuple)) and isinstance(value1, (int, float)):
+            return [value1**v for v in value2]
+        elif isinstance(value1, (list, tuple)) and isinstance(value2, (list, tuple)):
+            return [v1**v2 for v1, v2 in zip(value1, value2)]
+        else:
+            return value1**value2
 
 
 class LeftShiftPattern(ArithmeticPattern):
     """Pattern that performs left shift operation."""
 
     def operation(self, value1: Any, value2: Any) -> Any:
-        return value1 << value2
+        if isinstance(value1, (list, tuple)) and isinstance(value2, (int, float)):
+            return [v << value2 for v in value1]
+        elif isinstance(value2, (list, tuple)) and isinstance(value1, (int, float)):
+            return [value1 << v for v in value2]
+        elif isinstance(value1, (list, tuple)) and isinstance(value2, (list, tuple)):
+            return [v1 << v2 for v1, v2 in zip(value1, value2)]
+        else:
+            return value1 << value2
 
 
 class RightShiftPattern(ArithmeticPattern):
     """Pattern that performs right shift operation."""
 
     def operation(self, value1: Any, value2: Any) -> Any:
-        return value1 >> value2
+        if isinstance(value1, (list, tuple)) and isinstance(value2, (int, float)):
+            return [v >> value2 for v in value1]
+        elif isinstance(value2, (list, tuple)) and isinstance(value1, (int, float)):
+            return [value1 >> v for v in value2]
+        elif isinstance(value1, (list, tuple)) and isinstance(value2, (list, tuple)):
+            return [v1 >> v2 for v1, v2 in zip(value1, value2)]
+        else:
+            return value1 >> value2
 
 
 class ConstantPattern(Pattern):
@@ -254,32 +317,6 @@ class ConcatenatePattern(Pattern):
 
     def __len__(self) -> int:
         return self.total_length
-
-
-# class SuperpositionPattern(Pattern):
-#     def __init__(self, *patterns: Pattern):
-#         self.patterns = self._flatten_patterns(patterns)
-
-#     def _flatten_patterns(self, patterns):
-#         flattened = []
-#         for pattern in patterns:
-#             if isinstance(pattern, SuperpositionPattern):
-#                 flattened.extend(pattern.patterns)
-#             else:
-#                 flattened.append(pattern)
-#         return flattened
-
-#     def __call__(self, iterator: int) -> list:
-#         return [pattern(iterator % len(pattern)) for pattern in self.patterns]
-
-#     def __len__(self) -> int:
-#         return max(len(p) for p in self.patterns)
-
-#     def __or__(self, other: "Pattern") -> "SuperpositionPattern":
-#         if isinstance(other, SuperpositionPattern):
-#             return SuperpositionPattern(*self.patterns, *other.patterns)
-#         else:
-#             return SuperpositionPattern(*self.patterns, other)
 
 
 class SuperpositionPattern(Pattern):
