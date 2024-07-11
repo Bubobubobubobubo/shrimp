@@ -43,6 +43,31 @@ class Peuclid(Pattern):
         return self.length
 
 
+class Neuclid:
+    """
+    The negative version of the Euclidean rhythm generator.
+    """
+
+    def __init__(self, pulses, length, rotate=0, base=1):
+        super().__init__()
+        self.pulses = pulses
+        self.length = length
+        self.rotate = rotate
+        self.base = base
+
+    def __call__(self, iterator):
+        pulses = self._resolve_pattern(self.pulses, iterator)
+        length = self._resolve_pattern(self.length, iterator)
+        rotate = self._resolve_pattern(self.rotate, iterator)
+        base = self._resolve_pattern(self.base, iterator)
+
+        self.rhythm = euclidian_rhythm(pulses, length, rotate)
+        return Rest(base) if self.rhythm[iterator % len(self.rhythm)] == 1 else base
+
+    def __len__(self):
+        return self.length
+
+
 class Pbin(Pattern):
     """A pattern class that generates values based on a binary rhythm.
 
