@@ -3,12 +3,118 @@ from typing import Optional, Callable, Any
 import random
 from ..GlobalConfig import global_config
 from ..Scales import SCALES
+from dataclasses import dataclass
 
 
-class SequencePattern:
+# Pure version of the transformations
+
+
+def arp(seq, pattern):
+    new_values = []
+    for value in seq:
+        for increment in pattern:
+            new_values.append(value + increment)
+    return new_values
+
+
+def stack(seq, sequence):
+    for idx, element in enumerate(seq):
+        seq[idx] = [element, sequence[idx]] if idx < len(sequence) else [element]
+
+    return seq
+
+
+def stack_loop(seq, sequence):
+    for idx, element in enumerate(seq):
+        seq[idx] = [element, sequence[idx % len(sequence)]]
+
+    return seq
+
+
+def repeat(seq: list, n: int):
+    if isinstance(n, list):
+        new_values = []
+        for i, value in enumerate(seq):
+            if i < len(n):
+                new_values.extend([value] * n[i])
+            else:
+                new_values.append(value)
+        seq = new_values
+    else:
+        seq = [ele for ele in seq for _ in range(n)]
+
+    return seq
+
+
+def shuffle(seq):
+    random.shuffle(seq)
+    return seq
+
+
+def reverse(seq):
+    return seq[::-1]
+
+
+def mirror(seq):
+    return seq + seq[-2::-1]
+
+
+def sort(seq, reverse=False):
+    return sorted(seq, reverse=reverse)
+
+
+def lace(seq, *seqs):
+    new_values = []
+    max_len = max(len(seq), *(len(seq) for seq in seqs))
+
+    for i in range(max_len):
+        if i < len(seq):
+            new_values.append(seq[i])
+        for seq in seqs:
+            if i < len(seq):
+                new_values.append(seq[i])
+
+    return new_values
+
+
+def rotate(seq, positions):
+    n = len(seq)
+    positions = positions % n
+    return seq[-positions:] + seq[:-positions]
+
+
+def stretch(seq, size):
+    return [seq[i % len(seq)] for i in range(size)]
+
+
+def filter_repeats(seq):
+    return [seq[0]] + [value for i, value in enumerate(seq[1:]) if value != seq[i]]
+
+
+def trim(seq, size):
+    return seq[:size]
+
+
+def ltrim(seq, size):
+    return seq[size:]
+
+
+@dataclass
+class SequenceTransformation:
+    condition: Callable
+    transformer: Callable
+
+    def __repr__(self):
+        return f"Condition: {self.condition}, Transformer: {self.transformer}"
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
+
+class SequencePattern(Pattern):
     def __init__(
         self,
-        *values,
+        *sequence,
         length: Optional[int | Pattern] = None,
     ):
         """
@@ -18,106 +124,241 @@ class SequencePattern:
             *values: Variable number of values to be used in the pattern.
             length (int | Pattern, optional): The length of the pattern. Defaults to None.
         """
+        super().__init__()
         self._length = length
-        self.values = values
+        self.sequence = sequence
+        self._stack = []
 
     def every(self, n: int, method: Callable, *args, **kwargs):
-
-        def _wrapped_behavior():
-            current_beat = self.env.clock.beat
-            if int(current_beat) % n == 0:
-                # Copy of itself to avoid modifying the original pattern
-                new_instance = type(self)(*self.values, length=self._length)
-                result = method(new_instance, *args, **kwargs)
-                print(result.values)
-                return result
-            else:
-                return self
-
-        return ConditionalApplicationPattern(_wrapped_behavior)
-
-    def shuffle(self):
         """
-        Shuffles the values in the sequence pattern.
-
-        Returns:
-            SequencePattern: The shuffled sequence pattern.
-        """
-        random.shuffle(self.values)
-        return self
-
-    def reverse(self):
-        """
-        Reverses the values in the sequence pattern.
-
-        Returns:
-            SequencePattern: The reversed sequence pattern.
-        """
-        self.values = self.values[::-1]
-        return self
-
-    def mirror(self):
-        """
-        Mirrors the values in the sequence pattern.
-
-        Returns:
-            SequencePattern: The mirrored sequence pattern.
-        """
-        self.values = self.values + self.values[-2::-1]
-        return self
-
-    def sort(self, reverse=False):
-        """
-        Sorts the values in the sequence pattern.
+        Adds a sequence transformation that applies the given method to the target
+        on every nth beat of the clock.
 
         Args:
-            reverse (bool, optional): Whether to sort in reverse order. Defaults to False.
+            n (int): The beat interval at which the method should be applied.
+            method (Callable): The method to be applied to the target.
+            *args: Variable length argument list to be passed to the method.
+            **kwargs: Arbitrary keyword arguments to be passed to the method.
 
         Returns:
-            SequencePattern: The sorted sequence pattern.
+            self: Returns the instance of the class to allow method chaining.
         """
-        self.values = sorted(self.values, reverse=reverse)
+
+        self._stack.append(
+            SequenceTransformation(
+                condition=lambda: int(self.env.clock.beat) % n == 0,
+                transformer=lambda target: method(target, *args, **kwargs),
+            )
+        )
+
         return self
 
-    def arp(self, seq):
+    def on_beat(self, beat: int, method: Callable, *args, **kwargs):
         """
-        Applies an arpeggio pattern to the values in the sequence.
+        Adds a sequence transformation that applies the given method to the target
+        on the specified beat of the clock.
 
         Args:
-            seq (list): The arpeggio pattern to apply.
+            beat (int): The beat at which the method should be applied.
+            method (Callable): The method to be applied to the target.
+            *args: Variable length argument list to be passed to the method.
+            **kwargs: Arbitrary keyword arguments to be passed to the method.
 
         Returns:
-            Pattern: A new Pattern object with the arpeggiated values.
+            self: Returns the instance of the class to allow method chaining.
         """
-        new_values = []
-        for value in self.values:
-            for increment in seq:
-                new_values.append(value + increment)
-        self.values = new_values
+
+        self._stack.append(
+            SequenceTransformation(
+                condition=lambda: int(self.env.clock.beat) % self.env._clock._denominator == beat,
+                transformer=lambda target: method(target, *args, **kwargs),
+            )
+        )
+
         return self
 
-    def lace(self, *seqs):
+    def on_bar(self, bar: int, cycle: int, method: Callable, *args, **kwargs):
         """
-        Laces the values of the current sequence with the values from the provided sequences.
+        Adds a sequence transformation that applies the given method to the target
+        on the specified beat of the clock.
 
         Args:
-            *seqs: Variable number of sequences to be laced with the current sequence.
+            beat (int): The beat at which the method should be applied.
+            method (Callable): The method to be applied to the target.
+            *args: Variable length argument list to be passed to the method.
+            **kwargs: Arbitrary keyword arguments to be passed to the method.
 
         Returns:
-            self: Returns the modified SequencePattern object.
+            self: Returns the instance of the class to allow method chaining.
+        """
+
+        self._stack.append(
+            SequenceTransformation(
+                condition=lambda: self.env.clock.bar % cycle == bar,
+                transformer=lambda target: method(target, *args, **kwargs),
+            )
+        )
+
+        return self
+
+    def stack(self, sequence):
+        """
+        Stacks the values of the current sequence with the values from the provided sequences.
+
+        Args:
+            *seqs: Variable number of sequences to stack with the current sequence.
+
+        Returns:
+            self: The current instance of the SequencePattern
+        """
+        self._stack.append(
+            SequenceTransformation(
+                condition=lambda: True,
+                transformer=lambda target: stack(target, sequence),
+            )
+        )
+
+        return self
+
+    def stack_loop(self, sequence):
+        """
+        Stacks the values of the current sequence with the values from the provided sequences.
+        If the provided sequence is shorter than the current sequence, it will loop.
+
+        Args:
+            *seqs: Variable number of sequences to stack with the current sequence.
+
+        Returns:
+            self: The current instance of the SequencePattern
+        """
+        self._stack.append(
+            SequenceTransformation(
+                condition=lambda: True,
+                transformer=lambda target: stack_loop(target, sequence),
+            )
+        )
+
+        return self
+
+    def shuffle(self, condition=lambda: True):
+        """
+        Shuffles the sequence of the target.
+
+        Args:
+            condition: A callable that determines whether the shuffle should be applied.
+                       If the condition returns True, the shuffle will be applied.
+                       If the condition returns False, the shuffle will be skipped.
+                       Defaults to lambda: True.
+
+        Returns:
+            self: The current instance of the SequencePattern object.
 
         """
-        new_values = []
-        max_len = max(len(self.values), *(len(seq) for seq in seqs))
 
-        for i in range(max_len):
-            if i < len(self.values):
-                new_values.append(self.values[i])
-            for seq in seqs:
-                if i < len(seq):
-                    new_values.append(seq[i])
+        def _shuffle_sequence(target):
+            random.shuffle(target)
+            return target
 
-        self.values = new_values
+        self._stack.append(
+            SequenceTransformation(
+                condition=condition,
+                transformer=lambda target: _shuffle_sequence(target),
+            )
+        )
+
+        return self
+
+    def reverse(self, condition=lambda: True):
+        """
+        Reverses the sequence of the target.
+
+        Args:
+            condition: A callable that determines whether the reverse should be applied.
+                       If the condition returns True, the reverse will be applied.
+                       If the condition returns False, the reverse will be skipped.
+                       Defaults to lambda: True.
+
+        Returns:
+            self: The current instance of the SequencePattern object.
+        """
+
+        self._stack.append(
+            SequenceTransformation(
+                condition=condition,
+                transformer=lambda target: target[::-1],
+            )
+        )
+
+        return self
+
+    def mirror(self, condition: lambda: True):
+        """
+        Mirrors the sequence of the target.
+
+        Args:
+            condition: A callable that determines whether the mirror should be applied.
+                       If the condition returns True, the mirror will be applied.
+                       If the condition returns False, the mirror will be skipped.
+                       Defaults to lambda: True.
+
+        Returns:
+            self: The current instance of the SequencePattern
+        """
+
+        self._stack.append(
+            SequenceTransformation(
+                condition=condition,
+                transformer=lambda target: target + target[-2::-1],
+            )
+        )
+
+        return self
+
+    def sort(self, reverse=False, condition=lambda: True):
+        """
+        Sorts the values of the current sequence.
+
+        Args:
+            reverse (bool, optional): If True, sorts the values in reverse order. Defaults to False.
+            condition: A callable that determines whether the sort should be applied.
+                       If the condition returns True, the sort will be applied.
+                       If the condition returns False, the sort will be skipped.
+                       Defaults to lambda: True.
+
+        Returns:
+            self: The current instance of the SequencePattern
+        """
+
+        self._stack.append(
+            SequenceTransformation(
+                condition=condition,
+                transformer=lambda target: sorted(target, reverse=reverse),
+            )
+        )
+
+        return self
+
+    def arp(self, seq, condition=lambda: True):
+        """
+        Applies an arpeggiator to the values of the current sequence.
+
+        Args:
+            seq (list): The sequence of intervals to be applied to the values.
+            condition: A callable that determines whether the arpeggiator should be applied.
+                       If the condition returns True, the arpeggiator will be applied.
+                       If the condition returns False, the arpeggiator will be skipped.
+                       Defaults to lambda: True.
+
+        Returns:
+            self: The current instance of the SequencePattern
+        """
+        self._stack.append(
+            SequenceTransformation(
+                condition=condition,
+                transformer=lambda target: arp(target, seq),
+            )
+        )
+
         return self
 
     def rotate(self, positions):
@@ -132,11 +373,12 @@ class SequencePattern:
             SequencePattern: The SequencePattern object after the rotation.
 
         """
-        if not self.values:
-            return self  # No values to rotate
-        n = len(self.values)
-        positions = positions % n  # Normalize the positions
-        self.values = self.values[-positions:] + self.values[:-positions]
+        self._stack.append(
+            SequenceTransformation(
+                condition=lambda: True,
+                transformer=lambda target: rotate(target, positions),
+            )
+        )
         return self
 
     def stretch(self, size):
@@ -150,13 +392,12 @@ class SequencePattern:
             SequencePattern: The stretched sequence pattern.
 
         """
-        new_values = []
-        original_len = len(self.values)
-        if original_len == 0:
-            return self
-        for i in range(size):
-            new_values.append(self.values[i % original_len])
-        self.values = new_values
+        self._stack.append(
+            SequenceTransformation(
+                condition=lambda: True,
+                transformer=lambda target: stretch(target, size),
+            )
+        )
         return self
 
     def filter_repeats(self):
@@ -166,9 +407,12 @@ class SequencePattern:
         Returns:
             SequencePattern: The filtered sequence pattern.
         """
-        self.values = [self.values[0]] + [
-            value for i, value in enumerate(self.values[1:]) if value != self.values[i]
-        ]
+        self._stack.append(
+            SequenceTransformation(
+                condition=lambda: True,
+                transformer=lambda target: filter_repeats(target),
+            )
+        )
         return self
 
     def trim(self, size):
@@ -182,7 +426,11 @@ class SequencePattern:
             SequencePattern: The trimmed sequence pattern.
 
         """
-        self.values = self.values[:size]
+        self._stack.append(
+            SequenceTransformation(
+                condition=lambda: True, transformer=lambda target: trim(target, size)
+            )
+        )
         return self
 
     def ltrim(self, size):
@@ -196,7 +444,12 @@ class SequencePattern:
             SequencePattern: The modified sequence pattern object.
 
         """
-        self.values = self.values[-size:]
+        self._stack.append(
+            SequenceTransformation(
+                condition=lambda: True,
+                transformer=lambda target: ltrim(target, size),
+            )
+        )
         return self
 
     def repeat(self, n):
@@ -217,16 +470,12 @@ class SequencePattern:
             pattern.repeat(2)  # Repeats each value twice: [1, 1, 2, 2, 3, 3]
             pattern.repeat([1, 2, 3])  # Repeats each value a different number of times: [1, 2, 2, 3, 3, 3]
         """
-        if isinstance(n, list):
-            new_values = []
-            for i, value in enumerate(self.values):
-                if i < len(n):
-                    new_values.extend([value] * n[i])
-                else:
-                    new_values.append(value)
-            self.values = new_values
-        else:
-            self.values = [ele for ele in self.values for _ in range(n)]
+        self._stack.append(
+            SequenceTransformation(
+                condition=lambda: True,
+                transformer=lambda target: repeat(target, n),
+            )
+        )
         return self
 
     def _resolve_pattern(self, pattern, iterator):
@@ -235,10 +484,27 @@ class SequencePattern:
         return pattern
 
     def __call__(self, iterator):
-        return self._resolve_pattern(self.values[iterator % len(self.values)], iterator)
+        """Resolving the stack and returning the good index in the final sequence"""
+        solved_pattern = list(self.sequence)
+
+        # No transformations, we just proceed to return the sequence as is
+        if len(self._stack) == 0:
+            return self._resolve_pattern(self.sequence[iterator % len(self.sequence)], iterator)
+
+        for pattern_transformation in self._stack:
+
+            # Each pattern transformation is a condition and a transformer
+            # When the condition is true, we apply the transformation to the
+            # pattern. We re-assign the sequence after each transformation
+            # until the stack is depleted.
+
+            if pattern_transformation.condition():
+                solved_pattern = pattern_transformation.transformer(solved_pattern)
+
+        return solved_pattern[iterator % len(solved_pattern)]
 
 
-class Pseq(Pattern, SequencePattern):
+class Pseq(SequencePattern):
     def __init__(
         self,
         *values,
@@ -255,7 +521,7 @@ class Pseq(Pattern, SequencePattern):
         return SequencePattern.__call__(self, iterator)
 
     def __len__(self) -> int:
-        return len(self.values)
+        return len(self.sequence)
 
 
 class Pnote(Pseq):
