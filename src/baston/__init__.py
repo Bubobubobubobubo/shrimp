@@ -1,5 +1,5 @@
 from .configuration import read_configuration, open_config_folder
-from .utils import info_message, greeter
+from .utils import info_message, greeter, alias_param
 from .time.clock import Clock, TimePos
 from functools import partial
 from .io.midi import MIDIOut, MIDIIn, list_midi_ports
@@ -154,18 +154,23 @@ if globals().get("midi", None) is not None:
     def debug(*args, **kwargs):
         return Player._play_factory(pattern_printer, *args, **kwargs)
 
-    def n(*args, **kwargs):
+    @alias_param("duration", "dur")
+    def note(*args, **kwargs):
         return Player._play_factory(midi.note, *args, **kwargs)
 
+    @alias_param("duration", "dur")
     def cc(*args, **kwargs):
         return Player._play_factory(midi.control_change, *args, **kwargs)
 
+    @alias_param("duration", "dur")
     def pc(*args, **kwargs):
         return Player._play_factory(midi.program_change, *args, **kwargs)
 
+    @alias_param("duration", "dur")
     def bd(*args, **kwargs):
         return Player._play_factory(midi.pitch_bend, *args, **kwargs)
 
+    @alias_param("duration", "dur")
     def sy(*args, **kwargs):
         return Player._play_factory(midi.sysex, *args, **kwargs)
 
