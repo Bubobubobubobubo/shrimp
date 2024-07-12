@@ -319,15 +319,6 @@ class ConcatenatePattern(Pattern):
         return self.total_length
 
 
-class ConditionalApplicationPattern(Pattern):
-    def __init__(self, wrapped_pattern: Callable):
-        super().__init__()
-        self.condition_pattern = wrapped_pattern
-
-    def __call__(self, iterator: int) -> Any:
-        return self._resolve_pattern(self.condition_pattern(), iterator)
-
-
 class SuperpositionPattern(Pattern):
     def __init__(self, *patterns: Pattern):
         self.patterns = self._flatten_patterns(patterns)

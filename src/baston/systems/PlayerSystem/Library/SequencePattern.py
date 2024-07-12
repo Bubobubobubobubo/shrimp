@@ -1,5 +1,5 @@
-from ..Pattern import Pattern, ConditionalApplicationPattern
-from typing import Optional, Callable
+from ..Pattern import Pattern
+from typing import Optional, Callable, Any
 import random
 from ..GlobalConfig import global_config
 from ..Scales import SCALES
@@ -258,9 +258,6 @@ class Pseq(Pattern, SequencePattern):
         return len(self.values)
 
 
-P = Pseq
-
-
 class Pnote(Pseq):
     def __init__(
         self,
@@ -293,4 +290,14 @@ class Pnote(Pseq):
         return root + scale[scale_position] + (octave_shift * 12)
 
 
+class ConditionalApplicationPattern(Pattern):
+    def __init__(self, wrapped_pattern: Callable):
+        super().__init__()
+        self.condition_pattern = wrapped_pattern
+
+    def __call__(self, iterator: int) -> Any:
+        return self._resolve_pattern(self.condition_pattern(), iterator)
+
+
 Pn = Pnote
+P = Pseq
