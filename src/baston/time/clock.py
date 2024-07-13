@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, Optional
 from types import LambdaType
 from time import sleep
 import threading
+import time as time_module
 import math
 import link
 import types
@@ -281,6 +282,20 @@ class Clock(Subscriber):
             session.setIsPlaying(False, self._link.clock().micros())
             self._link.commitSessionState(session)
 
+    def precise_wait(self, duration):
+        """
+        Wait for a specified duration using a combination of sleep and busy-waiting.
+
+        Args:
+            duration (float): The duration to wait in seconds.
+        """
+        end_time = time_module.perf_counter() + duration
+        sleep_duration = duration - 0.001  # Sleep until 1000 microseconds before target
+        if sleep_duration > 0:
+            time_module.sleep(sleep_duration)
+        while time_module.perf_counter() < end_time:
+            pass  # Busy-wait for the remaining time
+
     def stop(self, _: dict = {}) -> None:
         """Stop the clock and wait for the thread to finish
 
@@ -314,18 +329,26 @@ class Clock(Subscriber):
     def run(self) -> None:
         """Clock Event Loop."""
         while not self._stop_event.is_set():
-            start_time = self.internal_time
+            start_time = time_module.perf_counter()
             self._capture_link_info()
             try:
                 self._execute_due_functions()
             except Exception as e:
                 print(e)
-            end_time = self.internal_time
-            elapsed_micros = end_time - start_time
-            sleep_micros = max(0, int(self._grain * 1_000_000) - elapsed_micros)
 
-            if sleep_micros > 0:
-                sleep(sleep_micros / 1_000_000)
+            end_time = time_module.perf_counter()
+            elapsed_time = end_time - start_time
+            wait_time = max(0, self._grain - elapsed_time)
+
+            if wait_time > 0:
+                self.precise_wait(wait_time)
+
+            # end_time = self.internal_time
+            # elapsed_micros = end_time - start_time
+            # sleep_micros = max(0, int(self._grain * 1_000_000) - elapsed_micros)
+
+            # if sleep_micros > 0:
+            #     sleep(sleep_micros / 1_000_000)
 
     def _execute_due_functions(self) -> None:
         """Execute all functions that are due to be executed."""

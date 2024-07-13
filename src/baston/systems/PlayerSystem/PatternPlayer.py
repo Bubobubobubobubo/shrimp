@@ -366,7 +366,7 @@ class Player(Subscriber):
             self._transition_to_next_pattern()
             return
 
-        kwargs["time"] = round(kwargs["time"], 1)
+        # kwargs["time"] = round(kwargs["time"], 2)
         self._clock.add(
             func=self._func if not schedule_silence else self._silence, name=self._name, **kwargs
         )

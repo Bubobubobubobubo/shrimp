@@ -155,14 +155,21 @@ if globals().get("midi", None) is not None:
         return Player._play_factory(pattern_printer, *args, **kwargs)
 
     @alias_param("duration", "dur")
+    @alias_param("channel", "chan")
+    @alias_param("velocity", "vel")
     def note(*args, **kwargs):
         return Player._play_factory(midi.note, *args, **kwargs)
 
     @alias_param("duration", "dur")
+    @alias_param("channel", "chan")
+    @alias_param("control", "ctrl")
+    @alias_param("value", "val")
     def cc(*args, **kwargs):
         return Player._play_factory(midi.control_change, *args, **kwargs)
 
     @alias_param("duration", "dur")
+    @alias_param("channel", "chan")
+    @alias_param("program", "prg")
     def pc(*args, **kwargs):
         return Player._play_factory(midi.program_change, *args, **kwargs)
 
