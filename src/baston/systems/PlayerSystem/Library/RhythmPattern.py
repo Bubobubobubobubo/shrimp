@@ -105,6 +105,36 @@ class Pbin(Pattern):
         return value
 
 
+class Pex(Pattern):
+    """A pattern class that generates values based on hexadecimal values."""
+
+    def __init__(self, hex_string: str | Pattern, base: int | Pattern = 1):
+        super().__init__()
+        self._hex_string = hex_string
+        self._base = base
+
+    def _parse_hex(self, hex_string: str, base: int):
+        """Parse a hexadecimal string into a list of 1s and 0s.
+
+        Args:
+            hex_string (str): The hexadecimal string to parse.
+            base (int): The base value for the pattern.
+
+        Returns:
+            list: A list of 1s and 0s representing the hexadecimal string.
+        """
+        binary_string = format(int(hex_string, 16), "08b")
+        return [int(bit) for bit in binary_string]
+
+    def __call__(self, iterator):
+        hex_string = self._resolve_pattern(self._hex_string, iterator)
+        base = self._resolve_pattern(self._base, iterator)
+        rhythm = self._parse_hex(hex_string, base)
+        index = iterator % len(rhythm)
+        value = base if rhythm[index] == 1 else Rest(base)
+        return value
+
+
 class Pxo(Pattern):
     """A pattern class that generates values based on a string of 'x' and 'o' characters.
 

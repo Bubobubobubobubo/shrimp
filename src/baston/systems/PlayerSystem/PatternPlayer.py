@@ -172,40 +172,27 @@ class Player(Subscriber):
         self._push()
 
     def __mul__(self, patterns: Optional[PlayerPattern | List[PlayerPattern]] = None) -> None:
+
         def _callback(patterns):
             if patterns is None:
                 self.stop()
                 return
 
+            # TODO: do something about iterations
             if isinstance(patterns, PlayerPattern):
                 patterns = [patterns]
-
-            self._patterns = patterns
-            self._current_pattern_index = 0
-            # self._patterns[0].kwargs["quant"] = "bar"
+                self._patterns = patterns
+            elif isinstance(patterns, list):
+                self._patterns = patterns
             self._push()
 
-        next_bar = self._clock.next_bar
         self._clock.add(
             func=lambda: _callback(patterns),
             name=f"{self._name}_pattern_start",
-            time=next_bar - 0.02,
+            relative=True,
+            time=self._clock.beats_until_next_bar(as_int=False),
+            once=True,
         )
-
-    # def __mul__(self, patterns: Optional[PlayerPattern | List[PlayerPattern]] = None) -> None:
-    #     if patterns is None:
-    #         self.stop()
-    #         return
-
-    #     if isinstance(patterns, PlayerPattern):
-    #         patterns = [patterns]
-
-    #     self._patterns = patterns
-    #     self._current_pattern_index = 0
-
-    #     # Schedule the pattern change at the start of the next bar
-    #     next_bar = self._clock.next_bar
-    #     self._clock.add(func=self._push, name=f"{self._name}_pattern_start", time=next_bar)
 
     def _handle_manual_polyphony(self, pattern: PlayerPattern, args: tuple, kwargs: dict) -> None:
         all_lists = [arg for arg in args if isinstance(arg, list)] + [
@@ -286,15 +273,6 @@ class Player(Subscriber):
             kwargs (dict): The keyword arguments
         """
         self._push(again=True)
-
-    def _schedule_next_pattern(self):
-        """Schedule the transition to the next pattern."""
-        next_beat = self._clock.next_bar
-        self._clock.add(
-            func=self._transition_to_next_pattern,
-            time=next_beat,
-            name=f"{self._name}_pattern_transition",
-        )
 
     @classmethod
     def initialize_patterns(cls, clock: Clock) -> Dict[str, Self]:
@@ -388,6 +366,7 @@ class Player(Subscriber):
             self._transition_to_next_pattern()
             return
 
+        kwargs["time"] = round(kwargs["time"], 1)
         self._clock.add(
             func=self._func if not schedule_silence else self._silence, name=self._name, **kwargs
         )
@@ -410,4 +389,9 @@ class Player(Subscriber):
                 next_pattern_delay = next_pattern_delay()
 
         # Adding the next pattern start immediately after the current one
-        self._clock.add(func=self._push, name=self._name, relative=True, time=next_pattern_delay)
+        self._clock.add(
+            func=self._push,
+            name=self._name,
+            relative=False,
+            time=round(self._clock.now, 1) + next_pattern_delay,
+        )

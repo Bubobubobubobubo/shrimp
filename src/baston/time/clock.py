@@ -135,7 +135,7 @@ class Clock(Subscriber):
     @internal_time.setter
     def internal_time(self, value: int | float):
         """Set the internal time of the clock"""
-        microsecond_delay = self._delay * 1000
+        microsecond_delay = self._delay * 10000
         self._internal_time = value - microsecond_delay
 
     @property
@@ -203,7 +203,7 @@ class Clock(Subscriber):
     @property
     def next_bar(self) -> int | float:
         """Return the time position of the next bar"""
-        return int(self.beat) + self.beats_until_next_bar()
+        return self.now + self.beats_until_next_bar(as_int=False)
 
     @property
     def beat(self) -> int | float:
@@ -347,9 +347,12 @@ class Clock(Subscriber):
                         print(traceback.format_exc())
                         pass
 
-    def beats_until_next_bar(self):
+    def beats_until_next_bar(self, as_int: bool = True) -> int | float:
         """Return the number of beats until the next bar."""
-        return self._denominator - int(self._beat) % self._denominator
+        if as_int:
+            return self._denominator - int(self._beat) % self._denominator
+        else:
+            return self._denominator - self._beat % self._denominator
 
     def add(
         self,
@@ -391,6 +394,9 @@ class Clock(Subscriber):
             if not relative:
                 next_time = time
                 ideal_time = time
+        else:
+            next_time = self.now
+            ideal_time = self.now
 
         if func_name in self._children:
             children = self._update_children(
