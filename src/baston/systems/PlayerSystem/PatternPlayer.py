@@ -1,6 +1,6 @@
 from ...environment import Subscriber
 from dataclasses import dataclass
-from typing import TypeVar, Callable, ParamSpec, Optional, Dict, Self, Any
+from typing import TypeVar, Callable, ParamSpec, Optional, Dict, Self, Any, List
 from ...time.clock import Clock, TimePos
 from types import LambdaType
 from .Pattern import Pattern
@@ -21,6 +21,8 @@ class PlayerPattern:
     args: tuple[Any]
     kwargs: dict[str, Any]
     manual_polyphony: bool = False
+    iterations: int = 0
+    limit: Optional[int] = None
 
 
 class Player(Subscriber):
@@ -32,7 +34,8 @@ class Player(Subscriber):
         self._clock = clock
         self._iterator = -1
         self._silence_count = 0
-        self._pattern: Optional[PlayerPattern] = None
+        self._patterns = []
+        self._current_pattern_index = 0
         self._next_pattern: Optional[PlayerPattern] = None
         self._transition_scheduled = False
         self._until: Optional[int] = None
@@ -88,12 +91,16 @@ class Player(Subscriber):
     @property
     def pattern(self):
         """Return the current pattern"""
-        return self._pattern
+        return self._patterns[self._current_pattern_index] if self._patterns else None
 
     @pattern.setter
     def pattern(self, pattern: Optional[PlayerPattern]):
         """Set the current pattern"""
-        self._pattern = pattern
+        if pattern is None:
+            self._patterns = []
+        else:
+            self._patterns = [pattern]
+        self._current_pattern_index = 0
 
     @property
     def name(self):
@@ -152,16 +159,11 @@ class Player(Subscriber):
         return new_kwargs
 
     def stop(self, _: dict = {}):
-        """Stop the current pattern.
-
-        Args:
-            _: A dictionary to match the signature of the handler method.
-        """
-        self * None
         self._clock.remove_by_name(self._name)
-        self._pattern = None
-        self._next_pattern = None
-        self._transition_scheduled = False
+        for pattern in self._patterns:
+            pattern.iterations = 0
+        self._patterns = []
+        self._current_pattern_index = 0
         self._iterator = -1
         self._silence_count = 0
 
@@ -169,28 +171,24 @@ class Player(Subscriber):
         """Play the current pattern."""
         self._push()
 
-    def __mul__(self, pattern: Optional[PlayerPattern] = None) -> None:
-        """Push new pattern to the player.
-
-        Args:
-            pattern (Optional[PlayerPattern]): The pattern to push to the player.
-        """
-        if pattern is None:
+    def __mul__(self, patterns: Optional[PlayerPattern | List[PlayerPattern]] = None) -> None:
+        if patterns is None:
+            self.stop()
             return
 
-        if self._pattern is None:
-            self._pattern = pattern
-            pattern.kwargs["quant"] = "bar"
-            self._push()
-        else:
-            self._next_pattern = pattern
-            self._schedule_next_pattern()
+        if isinstance(patterns, PlayerPattern):
+            patterns = [patterns]
+
+        self._patterns = patterns
+        self._current_pattern_index = 0
+        self._patterns[0].kwargs["quant"] = "bar"
+        self._push()
 
     def _push(self, again: bool = False, **kwargs) -> None:
-        if self._pattern is None and self._next_pattern is None:
+        if not self._patterns:
             return
 
-        current_pattern = self._pattern or self._next_pattern
+        current_pattern = self._patterns[self._current_pattern_index]
         schedule_silence = False
 
         kwargs = {
@@ -243,6 +241,13 @@ class Player(Subscriber):
             kwargs["time"] = kwargs["p"]
 
         self._iterator += 1
+
+        # Handling pattern limit
+        current_pattern.iterations += 1
+        limit = current_pattern.kwargs.get("limit", None)
+        if limit is not None and current_pattern.iterations > limit:
+            self._transition_to_next_pattern()
+            return
 
         self._clock.add(
             func=self._func if not schedule_silence else self._silence, name=self._name, **kwargs
@@ -307,7 +312,12 @@ class Player(Subscriber):
             print(f"Error with {pattern.send_method}: {e}, {args}, {kwargs}")
             traceback.print_exc()
 
-        self._push(again=True)
+        if pattern.limit is not None and pattern.iterations >= pattern.limit:
+            self._transition_to_next_pattern()
+        else:
+            self._push(again=True)
+
+        # self._push(again=True)
 
     def _silence(self, *args, _: Optional[PlayerPattern] = None, **kwargs) -> None:
         """Internal recursive function implementing a silence. This is the "mirror" version
@@ -333,13 +343,18 @@ class Player(Subscriber):
         )
 
     def _transition_to_next_pattern(self):
-        """Perform the transition to the next pattern."""
-        if self._next_pattern:
-            self._pattern = self._next_pattern
-            self._next_pattern = None
-            self._iterator = -1
-            self._silence_count = 0
-            self._push()
+        # Reset iterations for the current pattern
+        self._patterns[self._current_pattern_index].iterations = 0
+
+        # Move to the next pattern or cycle back to the first
+        self._current_pattern_index = (self._current_pattern_index + 1) % len(self._patterns)
+
+        # Reset iterator and silence count
+        self._iterator = -1
+        self._silence_count = 0
+
+        # Push the new pattern
+        self._push()
 
     @classmethod
     def initialize_patterns(cls, clock: Clock) -> Dict[str, Self]:
