@@ -172,86 +172,38 @@ class Player(Subscriber):
         self._push()
 
     def __mul__(self, patterns: Optional[PlayerPattern | List[PlayerPattern]] = None) -> None:
-        if patterns is None:
-            self.stop()
-            return
+        def _callback(patterns):
+            if patterns is None:
+                self.stop()
+                return
 
-        if isinstance(patterns, PlayerPattern):
-            patterns = [patterns]
+            if isinstance(patterns, PlayerPattern):
+                patterns = [patterns]
 
-        self._patterns = patterns
-        self._current_pattern_index = 0
-        self._patterns[0].kwargs["quant"] = "bar"
-        self._push()
+            self._patterns = patterns
+            self._current_pattern_index = 0
+            # self._patterns[0].kwargs["quant"] = "bar"
+            self._push()
 
-    def _push(self, again: bool = False, **kwargs) -> None:
-        if not self._patterns:
-            return
-
-        current_pattern = self._patterns[self._current_pattern_index]
-        schedule_silence = False
-
-        kwargs = {
-            "pattern": current_pattern,
-            "passthrough": current_pattern.kwargs.get("passthrough", False),
-            "once": current_pattern.kwargs.get("once", False),
-            "relative": True if again else False,
-            "p": lambda: current_pattern.kwargs.get("p", 1),
-            "swing": current_pattern.kwargs.get("swing", 0),
-        }
-
-        # Resolve duration if it is a pattern, a callable or any complex thing
-        while isinstance(kwargs["p"], Callable | LambdaType | Pattern):
-            if isinstance(kwargs["p"], Pattern):
-                kwargs["p"] = kwargs["p"](self.iterator)
-            elif isinstance(kwargs["p"], Callable | LambdaType):
-                kwargs["p"] = kwargs["p"]()
-
-        # If duration is a rest, schedule a silence and count it for other seqs
-        if isinstance(kwargs["p"], Rest):
-            kwargs["p"] = kwargs["p"].duration
-            self._silence_count += 1
-            schedule_silence = True
-
-        # Apply swing
-        swing = kwargs.get("swing", 0.0)
-        if swing > 0:
-            if self._iterator % 2 == 0:
-                adjusted_duration = kwargs["p"] * (1 - swing)
-            else:
-                adjusted_duration = kwargs["p"] * (1 + swing)
-
-            if schedule_silence:
-                kwargs["p"] = Rest(adjusted_duration)
-            else:
-                kwargs["p"] = adjusted_duration
-
-        # Handling pattern scheduling
-        if not again:
-            quant_policy = current_pattern.kwargs.get("quant", "now")
-            if quant_policy == "bar":
-                kwargs["time"] = self._clock.next_bar
-            elif quant_policy == "beat":
-                kwargs["time"] = self._clock.next_beat
-            elif quant_policy == "now":
-                kwargs["time"] = self._clock.beat
-            elif isinstance(quant_policy, (int, float)):
-                kwargs["time"] = self._clock.beat + quant_policy
-        else:
-            kwargs["time"] = kwargs["p"]
-
-        self._iterator += 1
-
-        # Handling pattern limit
-        current_pattern.iterations += 1
-        limit = current_pattern.kwargs.get("limit", None)
-        if limit is not None and current_pattern.iterations > limit:
-            self._transition_to_next_pattern()
-            return
-
+        next_bar = self._clock.next_bar
         self._clock.add(
-            func=self._func if not schedule_silence else self._silence, name=self._name, **kwargs
+            func=lambda: _callback(patterns), name=f"{self._name}_pattern_start", time=next_bar
         )
+
+    # def __mul__(self, patterns: Optional[PlayerPattern | List[PlayerPattern]] = None) -> None:
+    #     if patterns is None:
+    #         self.stop()
+    #         return
+
+    #     if isinstance(patterns, PlayerPattern):
+    #         patterns = [patterns]
+
+    #     self._patterns = patterns
+    #     self._current_pattern_index = 0
+
+    #     # Schedule the pattern change at the start of the next bar
+    #     next_bar = self._clock.next_bar
+    #     self._clock.add(func=self._push, name=f"{self._name}_pattern_start", time=next_bar)
 
     def _handle_manual_polyphony(self, pattern: PlayerPattern, args: tuple, kwargs: dict) -> None:
         all_lists = [arg for arg in args if isinstance(arg, list)] + [
@@ -342,20 +294,6 @@ class Player(Subscriber):
             name=f"{self._name}_pattern_transition",
         )
 
-    def _transition_to_next_pattern(self):
-        # Reset iterations for the current pattern
-        self._patterns[self._current_pattern_index].iterations = 0
-
-        # Move to the next pattern or cycle back to the first
-        self._current_pattern_index = (self._current_pattern_index + 1) % len(self._patterns)
-
-        # Reset iterator and silence count
-        self._iterator = -1
-        self._silence_count = 0
-
-        # Push the new pattern
-        self._push()
-
     @classmethod
     def initialize_patterns(cls, clock: Clock) -> Dict[str, Self]:
         """Initialize a vast amount of patterns for every two letter combination of letter.
@@ -386,4 +324,90 @@ class Player(Subscriber):
             manual_polyphony=kwargs.get("manual_polyphony", False),
             args=args,
             kwargs=kwargs,
+        )
+
+    def _push(self, again: bool = False, **kwargs) -> None:
+        if not self._patterns:
+            return
+
+        current_pattern = self._patterns[self._current_pattern_index]
+        schedule_silence = False
+
+        kwargs = {
+            "pattern": current_pattern,
+            "passthrough": current_pattern.kwargs.get("passthrough", False),
+            "once": current_pattern.kwargs.get("once", False),
+            "relative": True if again else False,
+            "p": lambda: current_pattern.kwargs.get("p", 1),
+            "swing": current_pattern.kwargs.get("swing", 0),
+        }
+
+        while isinstance(kwargs["p"], Callable | LambdaType | Pattern):
+            if isinstance(kwargs["p"], Pattern):
+                kwargs["p"] = kwargs["p"](self.iterator)
+            elif isinstance(kwargs["p"], Callable | LambdaType):
+                kwargs["p"] = kwargs["p"]()
+
+        if isinstance(kwargs["p"], Rest):
+            kwargs["p"] = kwargs["p"].duration
+            self._silence_count += 1
+            schedule_silence = True
+
+        swing = kwargs.get("swing", 0.0)
+        if swing > 0:
+            if self._iterator % 2 == 0:
+                adjusted_duration = kwargs["p"] * (1 - swing)
+            else:
+                adjusted_duration = kwargs["p"] * (1 + swing)
+
+            if schedule_silence:
+                kwargs["p"] = Rest(adjusted_duration)
+            else:
+                kwargs["p"] = adjusted_duration
+
+        if not again:
+            quant_policy = current_pattern.kwargs.get("quant", "now")
+            if quant_policy == "bar":
+                kwargs["time"] = self._clock.next_bar
+            elif quant_policy == "beat":
+                kwargs["time"] = self._clock.next_beat
+            elif quant_policy == "now":
+                kwargs["time"] = self._clock.beat
+            elif isinstance(quant_policy, (int, float)):
+                kwargs["time"] = self._clock.beat + quant_policy
+        else:
+            kwargs["time"] = kwargs["p"]
+
+        self._iterator += 1
+
+        current_pattern.iterations += 1
+        limit = current_pattern.kwargs.get("limit", None)
+        if limit is not None and current_pattern.iterations > limit:
+            self._transition_to_next_pattern()
+            return
+
+        self._clock.add(
+            func=self._func if not schedule_silence else self._silence, name=self._name, **kwargs
+        )
+
+    def _transition_to_next_pattern(self):
+        current_pattern = self._patterns[self._current_pattern_index]
+        self._patterns[self._current_pattern_index].iterations = 0
+
+        self._current_pattern_index = (self._current_pattern_index + 1) % len(self._patterns)
+
+        self._iterator = -1
+        self._silence_count = 0
+
+        # Ensure the next pattern starts immediately after the current pattern's duration
+        next_pattern_delay = current_pattern.kwargs.get("p", 1)
+        if isinstance(next_pattern_delay, Callable | LambdaType | Pattern):
+            if isinstance(next_pattern_delay, Pattern):
+                next_pattern_delay = next_pattern_delay(self.iterator)
+            elif isinstance(next_pattern_delay, Callable | LambdaType):
+                next_pattern_delay = next_pattern_delay()
+
+        # Adding the next pattern start immediately after the current one
+        self._clock.add(
+            func=self._push, name=self._name, time=self._clock.beat + next_pattern_delay
         )
