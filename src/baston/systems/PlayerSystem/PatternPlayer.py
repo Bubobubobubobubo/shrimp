@@ -187,7 +187,9 @@ class Player(Subscriber):
 
         next_bar = self._clock.next_bar
         self._clock.add(
-            func=lambda: _callback(patterns), name=f"{self._name}_pattern_start", time=next_bar
+            func=lambda: _callback(patterns),
+            name=f"{self._name}_pattern_start",
+            time=next_bar - 0.02,
         )
 
     # def __mul__(self, patterns: Optional[PlayerPattern | List[PlayerPattern]] = None) -> None:
@@ -408,6 +410,4 @@ class Player(Subscriber):
                 next_pattern_delay = next_pattern_delay()
 
         # Adding the next pattern start immediately after the current one
-        self._clock.add(
-            func=self._push, name=self._name, time=self._clock.beat + next_pattern_delay
-        )
+        self._clock.add(func=self._push, name=self._name, relative=True, time=next_pattern_delay)
