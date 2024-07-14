@@ -17,6 +17,10 @@ __ALL__ = ["PlayerPattern", "Player"]
 
 @dataclass
 class PlayerPattern:
+    """
+    PlayerPattern class to store the pattern information. Every pattern is a PlayerPattern object.
+    """
+
     send_method: Callable[P, T]  # type: ignore
     args: tuple[Any]
     kwargs: dict[str, Any]
@@ -50,15 +54,12 @@ class Player(Subscriber):
     def __str__(self):
         return f"Player {self._name}, pattern: {self._patterns}"
 
+    # Properties
+
     @property
     def active(self):
         """Return the active state of the player."""
         return self._active
-
-    @active.setter
-    def active(self, value: bool):
-        """Set the active state of the player."""
-        self._active = value
 
     @property
     def begin(self):
@@ -70,6 +71,28 @@ class Player(Subscriber):
         """Return the end time of the player."""
         return self._end
 
+    @property
+    def iterator(self):
+        """Return the current iterator"""
+        return self._iterator
+
+    @property
+    def pattern(self):
+        """Return the current pattern"""
+        return self._patterns[self._current_pattern_index] if self._patterns else None
+
+    @property
+    def name(self):
+        """Return the name of the player"""
+        return self._name
+
+    # Setters
+
+    @active.setter
+    def active(self, value: bool):
+        """Set the active state of the player."""
+        self._active = value
+
     @begin.setter
     def begin(self, value: TimePos):
         self._begin = value
@@ -78,20 +101,10 @@ class Player(Subscriber):
     def end(self, value: TimePos):
         self._end = value
 
-    @property
-    def iterator(self):
-        """Return the current iterator"""
-        return self._iterator
-
     @iterator.setter
     def iterator(self, value: int):
         """Set the current iterator"""
         self._iterator = value
-
-    @property
-    def pattern(self):
-        """Return the current pattern"""
-        return self._patterns[self._current_pattern_index] if self._patterns else None
 
     @pattern.setter
     def pattern(self, pattern: Optional[PlayerPattern]):
@@ -102,14 +115,16 @@ class Player(Subscriber):
             self._patterns = [pattern]
         self._current_pattern_index = 0
 
-    @property
-    def name(self):
-        """Return the name of the player"""
-        return self._name
+    def key(self, key):
+        return self.pattern.kwargs.get(key, None)
+
+    # Argument and keyword argument resolvers
 
     def _args_resolver(self, args: tuple[Any]) -> tuple[Any]:
-        """Resolve the arguments of the pattern.
-        This method is recursive and can handle nested patterns.
+        """Resolve pattern arguments. Each pattern is submitted along with *args and **kwargs.
+        These arguments can be of many different types, including Patterns, Callables, and plain
+        values. This method resolves the arguments recursively in order to feed a valid argument
+        to the PlayerPattern send_method.
 
         Args:
             args (tuple): The arguments
@@ -130,8 +145,10 @@ class Player(Subscriber):
         return new_args  # type: ignore
 
     def _kwargs_resolver(self, kwargs: dict[str, Any]) -> dict[str, Any]:
-        """Resolve the keyword arguments of the pattern.
-        This method is recursive and can handle nested patterns.
+        """Resolve pattern keyword arguments. This method is recursive and can handle nested patterns.
+        Each pattern is submitted along with *args and **kwargs. These arguments can be of many different
+        types, including Patterns, Callables, and plain values. This method resolves the keyword arguments
+        recursively in order to feed a valid argument to the PlayerPattern send_method.
 
         Args:
             kwargs (dict): The keyword arguments of the pattern.
@@ -141,6 +158,7 @@ class Player(Subscriber):
         """
 
         def resolve_value(value: Any) -> Any:
+            """Resolve a keyword argument recursively."""
             if isinstance(value, Pattern):
                 resolved = value(self.iterator - self._silence_count)
                 return resolve_value(resolved)
@@ -159,6 +177,18 @@ class Player(Subscriber):
         return new_kwargs
 
     def stop(self, _: dict = {}):
+        """Method to stop a player.
+
+        Args:
+            _: dict: The dictionary of arguments.
+
+        Returns:
+            None
+
+        Note: This method is also used as a callback for the "all_notes_off" event.
+        This is why the _ argument is present and needed, even though we do not use
+        it here.
+        """
         self._clock.remove_by_name(self._name)
         for pattern in self._patterns:
             pattern.iterations = 0
@@ -172,6 +202,21 @@ class Player(Subscriber):
         self._push()
 
     def __mul__(self, patterns: Optional[PlayerPattern | List[PlayerPattern]] = None) -> None:
+        """
+        Central method to submit and play a pattern. This method is overriding the * operator.
+        Patterns can be submitted as a single PlayerPattern object or as a list of PlayerPattern
+        objects. If a list is submitted, patterns will be played in sequence, each of them lasting
+        for "limit" iterations.
+
+        You can also submit a None value to stop the player. This is equivalent to calling the stop()
+        method.
+
+        Args:
+            patterns (PlayerPattern | List[PlayerPattern]): The pattern(s) to play.
+
+        Returns:
+            None
+        """
 
         def _callback(patterns):
             if patterns is None:
@@ -195,6 +240,18 @@ class Player(Subscriber):
         )
 
     def _handle_manual_polyphony(self, pattern: PlayerPattern, args: tuple, kwargs: dict) -> None:
+        """Internal function to handle polyphony manually. This method is required for scheduling
+        synthesizers written with SignalFlow (Synths/ folder). In other cases, polyphony is natively
+        handled by the implementation of whatever send_method is used.
+
+        Args:
+            pattern (PlayerPattern): The pattern to play.
+            args (tuple): The arguments.
+            kwargs (dict): The keyword arguments.
+
+        Returns:
+            None
+        """
         all_lists = [arg for arg in args if isinstance(arg, list)] + [
             value for value in kwargs.values() if isinstance(value, list)
         ]
@@ -209,13 +266,35 @@ class Player(Subscriber):
             pattern.send_method(*current_args, **current_kwargs)
 
     def _func(self, pattern: PlayerPattern, *args, **kwargs) -> None:
-        """Internal function to play the pattern. This function is called by the clock. It plays
-        the pattern using the send_method + args and kwargs arguments.
+        """Internal temporal recurisve function used to play patterns. This is the central piece
+        of this class. This method serves to "programatically" compose a function that will then
+        be scheduled on the clock for each iteration of the player. This method is recursive and
+        will call itself (through _push) until the pattern is stopped.
+
+        There is quite a large amount of logic in this method. It handles the following:
+
+        - Iteration limits: check if the pattern has reached its limit, if so, transition
+          to the next pattern.
+
+        - Manual polyphony: handle polyphony manually if the pattern is set to manual_polyphony.
+          This is required by some synthesizers written with SignalFlow.
+
+        - Until conditions: stop the pattern after n iterations. This is useful for one shot events
+          that are not meant to loop around forever.
+
+        - Begin conditions: start the pattern at time t.
+        - End conditions: stop the pattern at time t.
+
+        - Active state: check if the player is active or not. If not, do not play the pattern.
+
 
         Args:
             pattern (PlayerPattern): The pattern to play.
             args (tuple): The arguments.
             kwargs (dict): The keyword arguments.
+
+        Returns:
+            None
         """
         if pattern is None:
             return
@@ -258,15 +337,9 @@ class Player(Subscriber):
         else:
             self._push(again=True)
 
-        # self._push(again=True)
-
     def _silence(self, *args, _: Optional[PlayerPattern] = None, **kwargs) -> None:
-        """Internal recursive function implementing a silence. This is the "mirror" version
-        of the _func method but this one doesn't do anything! It is used to schedule a silence
-        in the clock and count it for other sequences.
-
-        TODO: There might be a bug to fix here! We are not counting for until or self._begin
-        and self._end conditions. This might be a problem if we have a rest in a sequence.
+        """Internal recursive function implementing a silence, aka a function that do nothing.
+        This is the "mirror" version of the _func method but this one doesn't do anything!
 
         Args:
             args (tuple): The arguments
@@ -276,10 +349,15 @@ class Player(Subscriber):
 
     @classmethod
     def initialize_patterns(cls, clock: Clock) -> Dict[str, Self]:
-        """Initialize a vast amount of patterns for every two letter combination of letter.
+        """Initialize Player objects in bulk for the user to use. This function is called
+        during the initialization of the PlayerSystem. The player objects are then distributed
+        to the globals() dictionary so that they can be accessed directly by the user.
 
         Args:
             clock (Clock): The clock object.
+
+        Returns:
+            Dict[str, Self]: A dictionary of Player objects.
         """
         patterns = {}
         for i in range(20):
@@ -292,7 +370,10 @@ class Player(Subscriber):
 
     @staticmethod
     def _play_factory(send_method: Callable[P, T], *args, **kwargs) -> PlayerPattern:
-        """Factory method to create a PlayerPattern object.
+        """Factory method to create a PlayerPattern object. Used to declare various instruments
+        for the user. The send_method is the method that will be called when the pattern is played.
+        This class is basically in charge of gracefully handling the *args and **kwargs provided to
+        it!
 
         Args:
             send_method (Callable): The method to call.
@@ -310,6 +391,18 @@ class Player(Subscriber):
         )
 
     def _push(self, again: bool = False, **kwargs) -> None:
+        """
+        Internal method to push the pattern to the clock. This method is called recursively by the
+        _func method. It schedules the next iteration of the pattern on the clock. This method is
+        very complex and handles a lot of different cases.
+
+        Args:
+            again (bool): Whether the pattern is playing _again_ or not.
+            kwargs (dict): The keyword arguments.
+
+        Returns:
+            None
+        """
         if not self._patterns:
             return
 
@@ -369,12 +462,18 @@ class Player(Subscriber):
             self._transition_to_next_pattern()
             return
 
-        # kwargs["time"] = round(kwargs["time"], 2)
         self._clock.add(
             func=self._func if not schedule_silence else self._silence, name=self._name, **kwargs
         )
 
     def _transition_to_next_pattern(self):
+        """
+        Internal method to transition to the next pattern. This method is called when the current
+        pattern has reached its limit. It schedules the next pattern on the clock.
+
+        Returns:
+            None
+        """
         current_pattern = self._patterns[self._current_pattern_index]
         self._patterns[self._current_pattern_index].iterations = 0
 
