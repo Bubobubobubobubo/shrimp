@@ -3,6 +3,7 @@ from random import random
 from ..systems.PlayerSystem import PatternPlayer
 from signalflow import (
     SineOscillator,
+    SVFilter,
     Patch,
     SquareOscillator,
     ChannelMixer,
@@ -21,12 +22,18 @@ class Sine(Patch):
     def __init__(
         self,
         note=None,
-        attack=0.0,
-        sustain=0,
-        release=0.1,
-        frequency=440,
-        pan=0.0,
-        amp=0.5,
+        attack: float = 0.0,
+        sustain: float = 0,
+        release: float = 0.1,
+        curve: float = 1,
+        freq: float = 440,
+        pan: float = 0.0,
+        amp: float = 0.25,
+        cutoff: float = 18000,
+        filter_type: str = "low_pass",
+        vib: float = 6.0,
+        vib_depth: float = 0.0,
+        resonance: float = 0.5,
         *args,
         **kwargs,
     ):
@@ -34,14 +41,17 @@ class Sine(Patch):
         attack = self.add_input("attack", attack)
         sustain = self.add_input("sustain", sustain)
         release = self.add_input("release", release)
-        frequency = self.add_input("frequency", frequency)
+        freq = self.add_input("freq", freq)
         pan = self.add_input("pan", pan)
         amp = self.add_input("amp", amp)
+        vibrato = self.add_input("vib", vib)
+        vibrato = self.add_input("vib_depth", vib_depth)
         if note is not None:
-            frequency = _note_to_freq(note)
-        sine = SineOscillator(frequency)
-        envelope = ASREnvelope(attack, sustain, release)
+            freq = _note_to_freq(note)
+        sine = SineOscillator(freq + (SineOscillator(vib) * vib_depth))
+        envelope = ASREnvelope(attack, sustain, release, curve=curve)
         output = sine * envelope * amp
+        output = SVFilter(input=output, filter_type=filter_type, cutoff=cutoff, resonance=resonance)
         output = StereoPanner(output, pan)
         self.auto_free = True
         self.set_output(output)
@@ -53,14 +63,20 @@ class FM(Patch):
     def __init__(
         self,
         note=None,
-        attack=0.0,
-        sustain=0,
-        release=0.1,
-        frequency=440,
-        pan=0.0,
-        amp=0.5,
-        depth=1.0,
-        ratio=1.0,
+        attack: float = 0.0,
+        sustain: float = 0,
+        release: float = 0.1,
+        curve: float = 1,
+        freq: float = 440,
+        pan: float = 0.0,
+        amp: float = 0.25,
+        depth: float = 1.0,
+        ratio: float = 1.0,
+        cutoff: float = 18000,
+        resonance: float = 0.5,
+        filter_type: str = "low_pass",
+        vib: float = 6.0,
+        vib_depth: float = 0.0,
         *args,
         **kwargs,
     ):
@@ -68,17 +84,21 @@ class FM(Patch):
         attack = self.add_input("attack", attack)
         sustain = self.add_input("sustain", sustain)
         release = self.add_input("release", release)
-        frequency = self.add_input("frequency", frequency)
+        freq = self.add_input("freq", freq)
         mod_ratio = self.add_input("mod_ratio", ratio)
         mod_depth = self.add_input("mod_depth", depth)
         pan = self.add_input("pan", pan)
         amp = self.add_input("amp", amp)
         if note is not None:
-            frequency = _note_to_freq(note)
-        modulator = SineOscillator(frequency * mod_ratio) * mod_depth
-        carrier = SineOscillator(frequency * modulator)
-        envelope = ASREnvelope(attack, sustain, release)
+            freq = _note_to_freq(note)
+        modulator = (
+            SineOscillator((freq + (SineOscillator(vib) * vib_depth)) * mod_ratio) * mod_depth
+        )
+        carrier = SineOscillator((freq + (SineOscillator(vib) * vib_depth)) * modulator)
+        envelope = ASREnvelope(attack=attack, sustain=sustain, release=release, curve=curve)
         output = carrier * envelope * amp
+
+        output = SVFilter(input=output, filter_type=filter_type, cutoff=cutoff, resonance=resonance)
         output = StereoPanner(output, pan)
         self.auto_free = True
         self.set_output(output)
@@ -93,12 +113,18 @@ class Additive(Patch):
         attack: float = 0.0,
         sustain: float = 0,
         release: float = 0.5,
-        frequency: float = 440,
+        curve: float = 1,
+        freq: float = 440,
         pan: float = 0.0,
         amp: float = 0.5,
         harmonics: int = 4,
         amplitudes: list = [1],
         deviation: float = 0.0,
+        cutoff: float = 18000,
+        resonance: float = 0.5,
+        filter_type: str = "low_pass",
+        vib: float = 6.0,
+        vib_depth: float = 0.0,
         *args,
         **kwargs,
     ):
@@ -108,18 +134,20 @@ class Additive(Patch):
         attack = self.add_input("attack", attack)
         sustain = self.add_input("sustain", sustain)
         release = self.add_input("release", release)
-        frequency = self.add_input("frequency", frequency)
+        freq = self.add_input("freq", freq)
         pan = self.add_input("pan", pan)
         amp = self.add_input("amp", amp)
         if note is not None:
-            frequency = _note_to_freq(note)
+            freq = _note_to_freq(note)
         note_harmonics = [
-            frequency * _ + ((random() * deviation) * frequency) for _ in range(harmonics)
+            freq + (SineOscillator(vib) * vib_depth) * _ + ((random() * deviation) * freq)
+            for _ in range(harmonics)
         ]
         oscillator = SineOscillator(note_harmonics) * list(islice(cycle(amplitudes), harmonics))
-        envelope = ASREnvelope(attack, sustain, release)
+        envelope = ASREnvelope(attack=attack, sustain=sustain, release=release, curve=curve)
         output = oscillator * envelope * amp
         output = ChannelMixer(num_channels=1, input=output, amplitude_compensation=True)
+        output = SVFilter(input=output, filter_type=filter_type, cutoff=cutoff, resonance=resonance)
         output = StereoPanner(output, pan)
         self.auto_free = True
         self.set_output(output)
@@ -131,13 +159,19 @@ class Square(Patch):
     def __init__(
         self,
         note=None,
-        attack=0.0,
-        sustain=0,
-        release=0.1,
-        frequency=440,
-        width=0.5,
-        pan=0.0,
-        amp=0.5,
+        attack: float = 0.0,
+        sustain: float = 0,
+        release: float = 0.1,
+        curve: float = 1,
+        freq: float = 440,
+        width: float = 0.5,
+        cutoff: float = 18000,
+        resonance: float = 0.5,
+        pan: float = 0.0,
+        amp: float = 0.25,
+        filter_type: str = "low_pass",
+        vib: float = 6.0,
+        vib_depth: float = 0.0,
         *args,
         **kwargs,
     ):
@@ -146,14 +180,16 @@ class Square(Patch):
         sustain = self.add_input("sustain", sustain)
         release = self.add_input("release", release)
         width = self.add_input("width", width)
-        frequency = self.add_input("frequency", frequency)
+        freq = self.add_input("freq", freq)
         pan = self.add_input("pan", pan)
         amp = self.add_input("pan", amp)
         if note is not None:
-            frequency = _note_to_freq(note)
-        square = SquareOscillator(frequency, width)
-        envelope = ASREnvelope(attack, sustain, release)
+            freq = _note_to_freq(note)
+        square = SquareOscillator(freq + (SineOscillator(vib) * vib_depth), width)
+        envelope = ASREnvelope(attack=attack, sustain=sustain, release=release, curve=curve)
         output = square * envelope * amp
+
+        output = SVFilter(input=output, filter_type=filter_type, cutoff=cutoff, resonance=resonance)
         output = StereoPanner(output, pan)
         self.auto_free = True
         self.set_output(output)
@@ -165,12 +201,18 @@ class Triangle(Patch):
     def __init__(
         self,
         note=None,
-        attack=0.0,
-        sustain=0,
-        release=0.1,
-        frequency=440,
-        pan=0.0,
-        amp=0.5,
+        attack: float = 0.0,
+        sustain: float = 0,
+        release: float = 0.1,
+        curve: float = 1,
+        freq: float = 440,
+        pan: float = 0.0,
+        amp: float = 0.25,
+        cutoff: float = 18000,
+        resonance: float = 0.5,
+        filter_type: str = "low_pass",
+        vib: float = 6.0,
+        vib_depth: float = 0.0,
         *args,
         **kwargs,
     ):
@@ -178,13 +220,15 @@ class Triangle(Patch):
         attack = self.add_input("attack", attack)
         sustain = self.add_input("sustain", sustain)
         release = self.add_input("release", release)
-        frequency = self.add_input("frequency", frequency)
+        freq = self.add_input("freq", freq)
         pan = self.add_input("pan", pan)
         if note is not None:
-            frequency = _note_to_freq(note)
-        triangle = TriangleOscillator(frequency)
-        envelope = ASREnvelope(attack, sustain, release)
+            freq = _note_to_freq(note)
+        triangle = TriangleOscillator(freq + (SineOscillator(vib) * vib_depth))
+        envelope = ASREnvelope(attack=attack, sustain=sustain, release=release, curve=curve)
         output = triangle * envelope * amp
+
+        output = SVFilter(input=output, filter_type=filter_type, cutoff=cutoff, resonance=resonance)
         output = StereoPanner(output, pan)
         self.auto_free = True
         self.set_output(output)
@@ -196,13 +240,19 @@ class Saw(Patch):
     def __init__(
         self,
         note=None,
-        attack=0.0,
-        sustain=0,
-        release=0.1,
-        frequency=440,
-        phase=0.0,
-        pan=0.0,
-        amp=0.0,
+        attack: float = 0.0,
+        sustain: float = 0,
+        release: float = 0.1,
+        curve: float = 1,
+        freq: float = 440,
+        phase: float = 0.0,
+        pan: float = 0.0,
+        amp: float = 0.0,
+        cutoff: float = 18000,
+        resonance: float = 0.5,
+        filter_type: str = "low_pass",
+        vib: float = 6.0,
+        vib_depth: float = 0.0,
         *args,
         **kwargs,
     ):
@@ -210,14 +260,15 @@ class Saw(Patch):
         attack = self.add_input("attack", attack)
         sustain = self.add_input("sustain", sustain)
         release = self.add_input("release", release)
-        frequency = self.add_input("frequency", frequency)
+        freq = self.add_input("freq", freq)
         phase = self.add_input("phase", phase)
         pan = self.add_input("pan", pan)
         if note is not None:
-            frequency = _note_to_freq(note)
-        sine = SawOscillator(frequency, phase)
-        envelope = ASREnvelope(attack, sustain, release)
+            freq = _note_to_freq(note)
+        sine = SawOscillator(freq + (SineOscillator(vib) * vib_depth), phase)
+        envelope = ASREnvelope(attack=attack, sustain=sustain, release=release, curve=curve)
         output = sine * envelope * amp
+        output = SVFilter(input=output, filter_type=filter_type, cutoff=cutoff, resonance=resonance)
         output = StereoPanner(output, pan)
         self.auto_free = True
         self.set_output(output)
