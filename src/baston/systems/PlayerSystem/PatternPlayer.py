@@ -45,10 +45,10 @@ class Player(Subscriber):
         self.register_handler("all_notes_off", self.stop)
 
     def __repr__(self):
-        return f"Player {self._name}, pattern: {self._pattern}"
+        return f"Player {self._name}, pattern: {self._patterns}"
 
     def __str__(self):
-        return f"Player {self._name}, pattern: {self._pattern}"
+        return f"Player {self._name}, pattern: {self._patterns}"
 
     @property
     def active(self):
@@ -284,6 +284,9 @@ class Player(Subscriber):
         patterns = {}
         for i in range(20):
             name = f"p{i}"
+            patterns[name] = Player(name=name, clock=clock)
+        for i in range(20):
+            name = f"P{i}"
             patterns[name] = Player(name=name, clock=clock)
         return patterns
 

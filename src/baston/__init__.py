@@ -193,9 +193,13 @@ for key, value in pattern.items():
     globals()[key] = value
 
 
-def silence():
-    env.dispatch("main", "silence", {})
-    for key in pattern.keys():
-        globals()[key].stop()
-    if "graph" in globals():
-        graph.clear()
+def silence(*args):
+    if len(args) == 0:
+        env.dispatch("main", "silence", {})
+        for key in pattern.keys():
+            globals()[key].stop()
+        if "graph" in globals():
+            graph.clear()
+    else:
+        for arg in args:
+            arg.stop()

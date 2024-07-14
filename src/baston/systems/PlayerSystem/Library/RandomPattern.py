@@ -96,3 +96,29 @@ class Pwchoose(Pattern):
     def __call__(self, iterator):
         resolved_weights = [w(iterator) if isinstance(w, Pattern) else w for w in self.weights]
         return random.choices(self.values, weights=resolved_weights)[0]
+
+
+class Phuman(Pattern):
+    """
+    A humanization pattern that takes a value and slightly deviates from it.
+
+    Args:
+        value (int | float | Pattern): The input value to humanize.
+        deviation (float): The maximum percentage deviation (0-1) from the original value.
+
+    Returns:
+        int | float: The humanized value.
+    """
+
+    def __init__(self, value: int | float | Pattern, deviation: float = 0.05):
+        super().__init__()
+        self.value = value
+        self.deviation = deviation
+
+    def __call__(self, _):
+        original_value = self._resolve_pattern(self.value, _)
+        deviation_amount = original_value * self.deviation
+        humanized_value = random.uniform(
+            original_value - deviation_amount, original_value + deviation_amount
+        )
+        return humanized_value
