@@ -1,6 +1,6 @@
-# Baston
+# Shrimp
 
-Baston is a very new project, started on June 29 2024. The end goal is to provide a simple and efficient framework for _live coding_ music with Python: MIDI, OSC, etc. I'm trying to keep it as simple as possible and to make it easy to use for everyone. Baston uses Ableton Link for synchronisation with other softwares and devices. It comes with a timing system and a pattern scheduling system.  Check out the tutorials section!
+Shrimp is a very new project, started on June 29 2024. The end goal is to provide a simple and efficient framework for _live coding_ music with Python: MIDI, OSC, etc. I'm trying to keep it as simple as possible and to make it easy to use for everyone. Shrimp uses Ableton Link for synchronisation with other softwares and devices. It comes with a timing system and a pattern scheduling system.  Check out the tutorials section!
 
 **Features**:
 - networked clock (_Ableton Link_) for synchronisation and sequencing in time.
@@ -9,7 +9,7 @@ Baston is a very new project, started on June 29 2024. The end goal is to provid
 - State of the art REPL (_Read, Eval, Print, Loop_) with goodies (history, vi mode).
 - easy to use and to understand, with a focus on simplicity and efficiency.
 
-![](images/baston_shell.png)
+![](images/shrimp_shell.png)
 
 ## Installation
 
@@ -23,17 +23,17 @@ It should install the required dependencies (specified in `pyproject.toml`). Ple
 
 ### Usage
 
-`Baston` can be used both as a library and imported as a module:
-- `from baston import *`: will import all `__init__.py` without `__main__.py`.
-- `python -m baston`: will import both consequently, start a new interpreter.
+`Shrimp` can be used both as a library and imported as a module:
+- `from shrimp import *`: will import all `__init__.py` without `__main__.py`.
+- `python -m shrimp`: will import both consequently, start a new interpreter.
 
-The central piece is the `clock` instance that will let you schedule recursive functions easily. You can use this mechanism to build time-reactive code, data sequences, etc. Importing Baston as a library is like importing Baston without its interactive REPL (_Read, Eval, Print, Loop_).
+The central piece is the `clock` instance that will let you schedule recursive functions easily. You can use this mechanism to build time-reactive code, data sequences, etc. Importing Shrimp as a library is like importing Shrimp without its interactive REPL (_Read, Eval, Print, Loop_).
 
 ### Learning
 
 There are tutorials available in the `tutorials/` folder. The tutorials are using Python Notebook as a convenient way to mingle text and code. You can run them using Jupyter Notebook or Jupyter Lab. You can also pre-visualize them on GitHub, how convenient!
 
-The `examples/` folder contains examples of using Baston as a library. You can run each example using your Python interpreter. The examples are meant to be simple and to the point. They are also meant to be easy to understand and to modify.
+The `examples/` folder contains examples of using Shrimp as a library. You can run each example using your Python interpreter. The examples are meant to be simple and to the point. They are also meant to be easy to understand and to modify.
 
 ### Contributing
 

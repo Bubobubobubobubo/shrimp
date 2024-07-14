@@ -1,9 +1,9 @@
 ---
-title: Choosing a Text Editor
+title: 1) Choosing a Text Editor
 tag: configuration, editors
 ---
 
-Baston features a native REPL that you can use to write and run your code. However, you might want to use a code editor to be more comfortable. Support for Python is widespread, and you can use any code editor you like. The feature you are looking for is the ability to evaluate code fragments or code blocks in a separate terminal or REPL. Here are some code editors that I recommend:
+Shrimp features a [native REPL](./basic_repl.md) that you can use to write and run your code. It is useful to experiment very fast without having to boot multiple software. However, you might want to use a code editor to be more comfortable. Support for Python is widespread, and you can use any code editor you like. The feature you are looking for is the ability to evaluate code fragments or code blocks in a separate terminal or REPL. Here are some code editors that I recommend:
 
 - [Microsoft VSCode](https://code.visualstudio.com/): the ubiquitous modern code editor by the fear inducing company Microsoft.
 - [Vim](https://www.vim.org/) or [Neovim](https://neovim.io/): old school text editor for cool kids and hackers. I highly recommend using Neovim and learning Vim keybindings. This is a life changing experience.
@@ -15,7 +15,7 @@ There are multiple techniques you can use to live-code in VSCode:
 
 - Use [Jupyter Notebooks](../editors/jupyter_notebook.md) to write and run your code.
 - Check the `Run Selection in Python Terminal` shortcut in the command palette. Add a keybinding.
-- Wait for the dedicated Baston extension for VSCode...
+- Wait for the dedicated Shrimp extension for VSCode...
 
 ## Vim / Neovim
 

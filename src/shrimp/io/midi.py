@@ -60,7 +60,7 @@ class MIDIIn(Subscriber):
         self._received_controls = CCStorage()
 
         try:
-            if self.port == "baston":
+            if self.port == "shrimp":
                 self._midi_in = mido.open_input(port, virtual=True)
             else:
                 self._midi_in = mido.open_input(port)
@@ -116,7 +116,7 @@ class MIDIOut(Subscriber):
         self.clock = clock
         self.nudge = -0.1
         try:
-            if self.port == "baston":
+            if self.port == "shrimp":
                 self._midi_out = mido.open_output(port, virtual=True)
             else:
                 self._midi_out = mido.open_output(port)

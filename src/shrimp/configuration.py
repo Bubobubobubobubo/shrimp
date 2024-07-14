@@ -6,7 +6,7 @@ import pathlib
 import mido
 import sys
 
-APPNAME = "Baston"
+APPNAME = "Shrimp"
 APPAUTHOR = "Raphaël Forment"
 USER_DIRECTORY = appdirs.user_data_dir(APPNAME, APPAUTHOR)
 
@@ -20,7 +20,7 @@ def _find_default_output_midi_port() -> str:
         else:
             return False
     else:
-        return "baston"
+        return "shrimp"
 
 
 def _find_default_input_midi_port() -> str:
@@ -32,7 +32,7 @@ def _find_default_input_midi_port() -> str:
         else:
             return False
     else:
-        return "baston"
+        return "shrimp"
 
 
 def open_config_folder():
@@ -52,7 +52,7 @@ def open_config_folder():
 
 
 def _create_default_configuration() -> dict:
-    """Create a default configuration for Baston."""
+    """Create a default configuration for Shrimp."""
     configuration = {
         "clock": {
             "default_tempo": 135,
@@ -135,7 +135,7 @@ def _check_for_configuration() -> None:
 
 
 def read_configuration() -> dict:
-    """Read the configuration file for Baston."""
+    """Read the configuration file for Shrimp."""
     _check_for_configuration()
     config_path = os.path.join(USER_DIRECTORY, "config.json")
 

@@ -7,7 +7,7 @@ Let's break down the configuration file in detail and study each section. Please
 
 ## Clock
 
-This section is used to configure the clock settings in #baston. The clock is used to control the tempo of the music and the time grain of the sequencer.
+This section is used to configure the clock settings in #shrimp. The clock is used to control the tempo of the music and the time grain of the sequencer.
 
 ```json title="config.json"
 "clock": {
@@ -30,7 +30,7 @@ This section is used to configure the clock settings in #baston. The clock is us
 
 ## Editor
 
-This section is used to configure the REPL (Read, Eval, Print, Loop) settings in #baston.
+This section is used to configure the REPL (Read, Eval, Print, Loop) settings in #shrimp.
 
 ```json title="config.json"
 "editor": {
@@ -48,7 +48,7 @@ This section is used to configure the REPL (Read, Eval, Print, Loop) settings in
 
 > [!note]- Differences between `python` and `ptpython`?
 > - `python` is the default REPL, with no special features like history or special keybindings. It is the most basic REPL available, but also the most reliable!
-> - `ptpython` is a more advanced REPL that includes features like multiline editing, tab completion, history, and special keybindings. It is a good choice if you are familiar with IPython and want to use its features in #baston.
+> - `ptpython` is a more advanced REPL that includes features like multiline editing, tab completion, history, and special keybindings. It is a good choice if you are familiar with IPython and want to use its features in #shrimp.
 
 
 - `greeter` (`bool`): Enable or disable the greeter message.
@@ -58,7 +58,7 @@ This section is used to configure the REPL (Read, Eval, Print, Loop) settings in
 
 ## Audio Engine
 
-The audio engine section is used to configure the audio engine used internally by Baston, [signalflow](https://signalflow.dev). It is only available for MacOS for the moment. It will be available for Linux and Windows as well soon enough.
+The audio engine section is used to configure the audio engine used internally by Shrimp, [signalflow](https://signalflow.dev). It is only available for MacOS for the moment. It will be available for Linux and Windows as well soon enough.
 
 ```json title="config.json"
 "audio_engine": {

@@ -3,12 +3,12 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "Baston"
+name = "Shrimp"
 version = "0.0.1"
 authors = [
   {name="Raphaël Forment", email="raphael.forment@gmail.com"},
 ]
-description = "La baston sur scène"
+description = "Live Coding with Python"
 readme = "README.md"
 requires-python = ">= 3.10"
 classifiers = [
@@ -43,5 +43,5 @@ enable = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Bubobubobubobubo/baston"
-Issues = "https://github.com/Bubobubobubobubo/baston"
+Homepage = "https://github.com/Bubobubobubobubo/shrimp"
+Issues = "https://github.com/Bubobubobubobubo/shrimp"

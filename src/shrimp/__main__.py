@@ -1,6 +1,6 @@
-from baston import *
+from shrimp import *
 from ptpython.repl import embed
-from baston.configuration import read_configuration, get_ptpython_history_file
+from shrimp.configuration import read_configuration, get_ptpython_history_file
 
 CONFIGURATION = read_configuration()
 
@@ -18,7 +18,7 @@ if __name__ == "__main__":
 
             embed(
                 patch_stdout=CONFIGURATION["editor"]["print_above"],
-                title="Baston",
+                title="Shrimp",
                 locals=locals(),
                 globals=globals(),
                 history_filename=get_ptpython_history_file(),

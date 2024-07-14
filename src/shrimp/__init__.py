@@ -145,6 +145,16 @@ if globals().get("superdirt", None) is not None:
         >> aa * None
         >> aa.stop()
         """
+        # Manipulate to interpret the first args as "sound"
+        if not "sound" in kwargs:
+            kwargs["sound"] = args[0]
+
+        # Manipulate to replicate how "loopAt" works
+        if "loop" in kwargs:
+            loop = kwargs.pop("loop")
+            kwargs["unit"] = "c"
+            kwargs["speed"] = loop * (clock.tempo / clock._denominator) / 60
+            kwargs["cut"] = 1
         return Player._play_factory(superdirt.player_dirt, *args, **kwargs)
 
 
