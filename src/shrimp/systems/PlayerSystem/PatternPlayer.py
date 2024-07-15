@@ -45,8 +45,6 @@ class Player(Subscriber):
         self._next_pattern: Optional[Sender] = None
         self._transition_scheduled = False
         self._until: Optional[int] = None
-        self._begin: Optional[TimePos] = None
-        self._end: Optional[TimePos] = None
         self._active: bool = True
         self.register_handler("all_notes_off", self.stop)
 
@@ -62,16 +60,6 @@ class Player(Subscriber):
     def active(self):
         """Return the active state of the player."""
         return self._active
-
-    @property
-    def begin(self) -> Optional[TimePos]:
-        """Return the begin time of the player."""
-        return self._begin
-
-    @property
-    def end(self) -> Optional[TimePos]:
-        """Return the end time of the player."""
-        return self._end
 
     @property
     def iterator(self):
@@ -94,14 +82,6 @@ class Player(Subscriber):
     def active(self, value: bool):
         """Set the active state of the player."""
         self._active = value
-
-    @begin.setter
-    def begin(self, value: TimePos):
-        self._begin = value
-
-    @end.setter
-    def end(self, value: TimePos):
-        self._end = value
 
     @iterator.setter
     def iterator(self, value: int):
@@ -335,9 +315,6 @@ class Player(Subscriber):
         - Until conditions: stop the pattern after n iterations. This is useful for one shot events
           that are not meant to loop around forever.
 
-        - Begin conditions: start the pattern at time t.
-        - End conditions: stop the pattern at time t.
-
         - Active state: check if the player is active or not. If not, do not play the pattern.
 
 
@@ -360,16 +337,6 @@ class Player(Subscriber):
             if self._iterator >= pattern.kwargs["until"]:
                 self.stop()
                 return
-
-        ctime = self._clock.time_position()
-        # End condition: stop the pattern at time t
-        if self._end is not None and ctime > self._end:
-            self._push(again=True)
-            return
-        # Begin condition: start the pattern at time t
-        if self._begin is not None and ctime < self._begin:
-            self._push(again=True)
-            return
 
         # Grab active from kwargs
         self.active = kwargs.get("active", True)
