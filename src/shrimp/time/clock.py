@@ -17,9 +17,9 @@ import types
 class TimePos:
     """A class to represent a time position in a musical context."""
 
-    bar: int
-    beat: int
-    phase: float
+    bar: int = 1
+    beat: int = 0
+    phase: float = 0
 
     def __eq__(self, other):
         if not isinstance(other, TimePos):
@@ -93,7 +93,7 @@ class Clock(Subscriber):
     Threads are used to ensure that the clock runs in the background and does not block the main thread.
     """
 
-    def __init__(self, tempo: int | float, grain: float = 0.0001, delay: int = 0.0):
+    def __init__(self, tempo: int | float, grain: float = 0.0001, delay: int = 0):
         super().__init__()
         self._clock_thread: threading.Thread | None = None
         self._stop_event: threading.Event = threading.Event()
