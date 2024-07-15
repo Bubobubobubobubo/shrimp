@@ -2,12 +2,16 @@ from ...environment import Subscriber
 from dataclasses import dataclass
 from typing import TypeVar, Callable, ParamSpec, Optional, Dict, Self, Any, List
 from ...time.clock import Clock, TimePos
-from types import LambdaType
+from types import LambdaType, GeneratorType
+from inspect import isgeneratorfunction
 from .Pattern import Pattern
 from .Rest import Rest
 from .Library.TimePattern import TimePattern
 from dataclasses import dataclass
 import traceback
+from inspect import isgeneratorfunction, isgenerator
+from collections.abc import Iterable
+
 
 P = ParamSpec("P")
 T = TypeVar("T")
@@ -60,12 +64,12 @@ class Player(Subscriber):
         return self._active
 
     @property
-    def begin(self):
+    def begin(self) -> Optional[TimePos]:
         """Return the begin time of the player."""
         return self._begin
 
     @property
-    def end(self):
+    def end(self) -> Optional[TimePos]:
         """Return the end time of the player."""
         return self._end
 
@@ -118,6 +122,16 @@ class Player(Subscriber):
 
     # Argument and keyword argument resolvers
 
+    def __is_generator_or_iterable(self, arg: Any) -> bool:
+        """Check if the argument is a generator or an iterable."""
+        tests = [
+            isgeneratorfunction(arg),
+            isgenerator(arg),
+            isinstance(arg, GeneratorType),
+            isinstance(arg, Iterable),
+        ]
+        return any(tests)
+
     def _args_resolver(self, args: tuple[Any]) -> tuple[Any]:
         """Resolve pattern arguments. Each pattern is submitted along with *args and **kwargs.
         These arguments can be of many different types, including Patterns, Callables, and plain
@@ -139,6 +153,10 @@ class Player(Subscriber):
                 new_args += (arg(),)
             elif isinstance(arg, TimePattern):
                 new_args += (arg(self._clock.now),)
+            elif isinstance(arg, (list, tuple)):
+                new_args += (arg,)
+            elif self.__is_generator_or_iterable(arg):
+                new_args += (next(arg),)
 
         return new_args  # type: ignore
 
@@ -146,33 +164,70 @@ class Player(Subscriber):
         """Resolve pattern keyword arguments. This method is recursive and can handle nested patterns.
         Each pattern is submitted along with *args and **kwargs. These arguments can be of many different
         types, including Patterns, Callables, and plain values. This method resolves the keyword arguments
-        recursively in order to feed a valid argument to the PlayerPattern send_method.
+        recursively to ensure all values are fully resolved.
 
         Args:
             kwargs (dict): The keyword arguments of the pattern.
 
         Returns:
-            dict: The resolved keyword
+            dict: The fully resolved keyword arguments
         """
 
         def resolve_value(value: Any) -> Any:
-            """Resolve a keyword argument recursively."""
+            """Resolve a value recursively."""
             if isinstance(value, Pattern):
-                resolved = value(self.iterator - self._silence_count)
-                return resolve_value(resolved)
+                return resolve_value(value(self.iterator - self._silence_count))
+            elif isinstance(value, (list, tuple)):
+                return [resolve_value(item) for item in value]
+            elif isinstance(value, dict):
+                return {k: resolve_value(v) for k, v in value.items()}
+            elif self.__is_generator_or_iterable(value):
+                return resolve_value(next(value))
             elif isinstance(value, Callable | LambdaType):
                 try:
                     return resolve_value(value())
                 except TypeError:
-                    return resolve_value(self.iterator - self._silence_count)
+                    return resolve_value(value(self.iterator - self._silence_count))
             else:
                 return value
 
-        new_kwargs = {}
-        for key, value in kwargs.items():
-            new_kwargs[key] = resolve_value(value)
+        return {key: resolve_value(value) for key, value in kwargs.items()}
 
-        return new_kwargs
+    # def _kwargs_resolver(self, kwargs: dict[str, Any]) -> dict[str, Any]:
+    #     """Resolve pattern keyword arguments. This method is recursive and can handle nested patterns.
+    #     Each pattern is submitted along with *args and **kwargs. These arguments can be of many different
+    #     types, including Patterns, Callables, and plain values. This method resolves the keyword arguments
+    #     recursively in order to feed a valid argument to the PlayerPattern send_method.
+
+    #     Args:
+    #         kwargs (dict): The keyword arguments of the pattern.
+
+    #     Returns:
+    #         dict: The resolved keyword
+    #     """
+
+    #     def resolve_value(value: Any) -> Any:
+    #         """Resolve a keyword argument recursively."""
+    #         if isinstance(value, Pattern):
+    #             resolved = value(self.iterator - self._silence_count)
+    #             return resolve_value(resolved)
+    #         elif isinstance(value, (list, tuple)):
+    #             return value
+    #         elif self.__is_generator_or_iterable(value):
+    #             return next(value)
+    #         elif isinstance(value, Callable | LambdaType):
+    #             try:
+    #                 return resolve_value(value())
+    #             except TypeError:
+    #                 return resolve_value(self.iterator - self._silence_count)
+    #         else:
+    #             return value
+
+    #     new_kwargs = {}
+    #     for key, value in kwargs.items():
+    #         new_kwargs[key] = resolve_value(value)
+
+    #     return new_kwargs
 
     def stop(self, _: dict = {}):
         """Method to stop a player.
@@ -335,7 +390,7 @@ class Player(Subscriber):
         else:
             self._push(again=True)
 
-    def _silence(self, *args, _: Optional[Sender] = None, **kwargs) -> None:
+    def _silence(self, *args, pattern: Optional[Sender] = None, **kwargs) -> None:
         """Internal recursive function implementing a silence, aka a function that do nothing.
         This is the "mirror" version of the _func method but this one doesn't do anything!
 
@@ -365,6 +420,14 @@ class Player(Subscriber):
             name = f"P{i}"
             patterns[name] = Player(name=name, clock=clock)
         return patterns
+
+    @classmethod
+    def create_player(cls, name: str, clock: Clock) -> Self:
+        """
+        Initialize a single Player object. This method is used to create a single Player object
+        if you need a special one or if you have overriden an instance created by default.
+        """
+        return Player(name=name, clock=clock)
 
     @staticmethod
     def _play_factory(send_method: Callable[P, T], *args, **kwargs) -> Sender:
@@ -412,32 +475,32 @@ class Player(Subscriber):
             "passthrough": current_pattern.kwargs.get("passthrough", False),
             "once": current_pattern.kwargs.get("once", False),
             "relative": True if again else False,
-            "p": lambda: current_pattern.kwargs.get("p", 1),
+            "period": lambda: current_pattern.kwargs.get("period", 1),
             "swing": current_pattern.kwargs.get("swing", 0),
         }
 
-        while isinstance(kwargs["p"], Callable | LambdaType | Pattern):
-            if isinstance(kwargs["p"], Pattern):
-                kwargs["p"] = kwargs["p"](self.iterator)
-            elif isinstance(kwargs["p"], Callable | LambdaType):
-                kwargs["p"] = kwargs["p"]()
+        while isinstance(kwargs["period"], Callable | LambdaType | Pattern):
+            if isinstance(kwargs["period"], Pattern):
+                kwargs["period"] = kwargs["period"](self.iterator)
+            elif isinstance(kwargs["period"], Callable | LambdaType):
+                kwargs["period"] = kwargs["period"]()
 
-        if isinstance(kwargs["p"], Rest):
-            kwargs["p"] = kwargs["p"].duration
+        if isinstance(kwargs["period"], Rest):
+            kwargs["period"] = kwargs["period"].duration
             self._silence_count += 1
             schedule_silence = True
 
         swing = kwargs.get("swing", 0.0)
         if swing > 0:
             if self._iterator % 2 == 0:
-                adjusted_duration = kwargs["p"] * (1 - swing)
+                adjusted_duration = kwargs["period"] * (1 - swing)
             else:
-                adjusted_duration = kwargs["p"] * (1 + swing)
+                adjusted_duration = kwargs["period"] * (1 + swing)
 
             if schedule_silence:
-                kwargs["p"] = Rest(adjusted_duration)
+                kwargs["period"] = Rest(adjusted_duration)
             else:
-                kwargs["p"] = adjusted_duration
+                kwargs["period"] = adjusted_duration
 
         if not again:
             quant_policy = current_pattern.kwargs.get("quant", "now")
@@ -450,7 +513,7 @@ class Player(Subscriber):
             elif isinstance(quant_policy, (int, float)):
                 kwargs["time"] = self._clock.beat + quant_policy
         else:
-            kwargs["time"] = kwargs["p"]
+            kwargs["time"] = kwargs["period"]
 
         self._iterator += 1
 

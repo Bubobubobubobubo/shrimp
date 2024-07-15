@@ -4,6 +4,7 @@ from ..environment import Subscriber
 import threading
 from time import sleep
 from typing import Dict, Optional
+from ..utils import linear_scaling
 
 
 class CCStorage:
@@ -122,6 +123,9 @@ class MIDIOut(Subscriber):
                 self._midi_out = mido.open_output(port)
         except:
             print(f"Could not open MIDI port {port}")
+        self.pressed_notes: Dict[int, Dict[int, bool]] = {
+            i: {} for i in range(16)
+        }  # Track pressed notes per channel
 
         self.register_handler("pause", self._pause_handler)
         self.register_handler("stop", self._stop_handler)
@@ -150,8 +154,12 @@ class MIDIOut(Subscriber):
             channel (int): The MIDI channel.
 
         """
-        note = mido.Message("note_on", note=note, velocity=velocity, channel=channel)
-        self._midi_out.send(note)
+        # Send note_off if the note is already pressed
+        if self.pressed_notes[channel].get(note, False):
+            self._note_off(note=note, channel=channel)
+        midi_message = mido.Message("note_on", note=note, velocity=velocity, channel=channel)
+        self._midi_out.send(midi_message)
+        self.pressed_notes[channel][note] = True  # Mark note as pressed
 
     def _note_off(self, note: int = 60, velocity: int = 0, channel: int = 1) -> None:
         """Send a MIDI note off message.
@@ -161,15 +169,16 @@ class MIDIOut(Subscriber):
             velocity (int): The velocity of the note.
             channel (int): The MIDI channel.
         """
-        note = mido.Message("note_off", note=note, velocity=velocity, channel=channel)
-        self._midi_out.send(note)
+        midi_message = mido.Message("note_off", note=note, velocity=velocity, channel=channel)
+        self._midi_out.send(midi_message)
+        self.pressed_notes[channel][note] = False  # Mark note as released
 
     def note(
         self,
         note: int | list[int] = 60,
-        velocity: int = 100,
+        velocity: int = 0.75,
         channel: int = 1,
-        duration: int = 1,
+        length: int = 1,
         **kwargs,
     ):
         """Play a note for a given duration.
@@ -186,16 +195,16 @@ class MIDIOut(Subscriber):
         note = (
             _clamp_midi(int(note)) if isinstance(note, int) else [_clamp_midi(int(n)) for n in note]
         )
-        velocity = _clamp_midi(int(velocity))
-        duration = duration * self.clock.beat_duration
+        velocity = _clamp_midi(int(linear_scaling(velocity, 0.0, 1.0, 0, 127)))
+        length = length * self.clock.beat_duration
         time = self.clock.now - self.nudge
 
         if isinstance(note, list):
             for n in note:
-                self.note(note=int(n), velocity=velocity, channel=channel, duration=duration)
+                self.note(note=int(n), velocity=velocity, channel=channel, length=length)
             return
 
-        epsilon = duration / 100
+        epsilon = length / 100
         self.clock.add(
             func=lambda: self._note_on(
                 note=int(note), velocity=int(velocity), channel=int(channel) - 1
@@ -205,7 +214,7 @@ class MIDIOut(Subscriber):
         )
         self.clock.add(
             func=lambda: self._note_off(note=int(note), velocity=0, channel=int(channel) - 1),
-            time=time + (duration - epsilon),
+            time=time + (length - epsilon),
             once=True,
         )
 

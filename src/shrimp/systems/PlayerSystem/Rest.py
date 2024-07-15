@@ -77,6 +77,12 @@ class Rest:
             return self.duration >= other.duration
         return self.duration >= other
 
+    def __repr__(self) -> str:
+        return f"Rest({self.duration})"
+
+    def __str__(self) -> str:
+        return f"Rest({self.duration})"
+
     def to_number(self):
         """
         Converts the duration of the rest to a number.

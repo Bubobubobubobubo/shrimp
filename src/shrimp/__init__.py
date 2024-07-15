@@ -137,6 +137,8 @@ clock.add(func=lambda: clock.play(now=True), time=clock.now, passthrough=True)
 if globals().get("superdirt", None) is not None:
     superdirt = globals()["superdirt"]
 
+    @alias_param("sound", "s")
+    @alias_param("period", "p")
     def dirt(*args, **kwargs):
         """Example use:
 
@@ -161,15 +163,18 @@ if globals().get("superdirt", None) is not None:
 if globals().get("midi", None) is not None:
     midi = globals()["midi"]
 
+    @alias_param("period", "p")
     def debug(*args, **kwargs):
         return Player._play_factory(pattern_printer, *args, **kwargs)
 
+    @alias_param("period", "p")
     def tick(*args, **kwargs):
         return Player._play_factory(midi.tick, *args, **kwargs)
 
-    @alias_param("duration", "dur")
+    @alias_param("length", "len")
     @alias_param("channel", "chan")
     @alias_param("velocity", "vel")
+    @alias_param("period", "p")
     def note(*args, **kwargs):
         return Player._play_factory(midi.note, *args, **kwargs)
 
@@ -177,26 +182,31 @@ if globals().get("midi", None) is not None:
     @alias_param("channel", "chan")
     @alias_param("control", "ctrl")
     @alias_param("value", "val")
+    @alias_param("period", "p")
     def cc(*args, **kwargs):
         return Player._play_factory(midi.control_change, *args, **kwargs)
 
     @alias_param("duration", "dur")
     @alias_param("channel", "chan")
     @alias_param("program", "prg")
+    @alias_param("period", "p")
     def pc(*args, **kwargs):
         return Player._play_factory(midi.program_change, *args, **kwargs)
 
     @alias_param("duration", "dur")
+    @alias_param("period", "p")
     def bd(*args, **kwargs):
         return Player._play_factory(midi.pitch_bend, *args, **kwargs)
 
     @alias_param("duration", "dur")
+    @alias_param("period", "p")
     def sy(*args, **kwargs):
         return Player._play_factory(midi.sysex, *args, **kwargs)
 
     if globals().get("kabelsalat_instrument", None) is not None:
         kabel = globals()["kabelsalat_instrument"]
 
+        @alias_param("period", "p")
         def kabelsalat(*args, **kwargs):
             return Player._play_factory(kabel, *args, **kwargs)
 

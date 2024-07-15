@@ -1,11 +1,11 @@
 ---
 title: 3) Clock and Tempo
-tag: get started, tutorial
+tag: get_started, tutorial
 ---
 
 ## Clock basics
 
-Everything you do in #shrimp is synchronized or relative to a clock. The clock is the heart of the system. It is the object that keeps track of time, that schedules events to take place. It is important to understand how the clock works and what you can expect from it!
+Everything you do in #shrimp is synchronized or relative to a musical clock. The clock is the beating heart of the system. It is the object that keeps track of time, that schedules events and when they should take place! When you boot #shrimp, the clock is already there, waiting for events to schedule, for functions to run, etc. It will be there until you quit the session.
 
 ### Getting / setting the tempo
 

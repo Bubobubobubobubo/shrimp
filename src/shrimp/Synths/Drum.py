@@ -10,6 +10,7 @@ from signalflow import (
 )
 from ..systems.PlayerSystem import PatternPlayer
 from .Utils import graph
+from ..utils import alias_param
 
 
 class Kick(Patch):
@@ -99,21 +100,25 @@ class Noise(Patch):
         self.set_output(output)
 
 
+@alias_param("period", "p")
 def kick(*args, **kwargs):
     test = lambda *a, **k: graph.play(Kick(*a, **k))
     return PatternPlayer.Player._play_factory(test, *args, **kwargs)
 
 
+@alias_param("period", "p")
 def noise(*args, **kwargs):
     test = lambda *a, **k: graph.play(Noise(*a, **k))
     return PatternPlayer.Player._play_factory(test, *args, **kwargs)
 
 
+@alias_param("period", "p")
 def hat(*args, **kwargs):
     test = lambda *a, **k: graph.play(HiHat(*a, **k))
     return PatternPlayer.Player._play_factory(test, *args, **kwargs)
 
 
+@alias_param("period", "p")
 def snare(*args, **kwargs):
     test = lambda *a, **k: graph.play(Snare(*a, **k))
     return PatternPlayer.Player._play_factory(test, *args, **kwargs)

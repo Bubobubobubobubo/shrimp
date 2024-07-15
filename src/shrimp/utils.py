@@ -105,3 +105,14 @@ def euclidian_rhythm(pulses: int, length: int, rotate: int = 0):
         return l[-n:] + l[:-n]
 
     return rotation([1 if x is True else 0 for x in bool_list], rotate)
+
+
+def linear_scaling(
+    value: int | float,
+    min: int | float,
+    max: int | float,
+    new_min: int | float,
+    new_max: int | float,
+):
+    """Lienar scaling conversion from range min/max to new_min/new_max"""
+    return ((value - min) / (max - min)) * (new_max - new_min) + new_min

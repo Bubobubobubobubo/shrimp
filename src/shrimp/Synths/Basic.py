@@ -1,6 +1,7 @@
 from itertools import cycle, islice
 from random import random
 from ..systems.PlayerSystem import PatternPlayer
+from ..utils import alias_param
 from signalflow import (
     SineOscillator,
     SVFilter,
@@ -274,11 +275,13 @@ class Saw(Patch):
         self.set_output(output)
 
 
+@alias_param("period", "p")
 def sine(*args, **kwargs):
     test = lambda *a, **k: graph.play(Sine(*a, **k))
     return PatternPlayer.Player._play_factory(test, *args, manual_polyphony=True, **kwargs)
 
 
+@alias_param("period", "p")
 def square(*args, **kwargs):
     test = lambda *a, **k: graph.play(Square(*a, **k))
     return PatternPlayer.Player._play_factory(
@@ -289,11 +292,13 @@ def square(*args, **kwargs):
     )
 
 
+@alias_param("period", "p")
 def triangle(*args, **kwargs):
     test = lambda *a, **k: graph.play(Triangle(*a, **k))
     return PatternPlayer.Player._play_factory(test, *args, manual_polyphony=True, **kwargs)
 
 
+@alias_param("period", "p")
 def saw(*args, **kwargs):
     test = lambda *a, **k: graph.play(Saw(*a, **k))
     return PatternPlayer.Player._play_factory(
@@ -304,6 +309,7 @@ def saw(*args, **kwargs):
     )
 
 
+@alias_param("period", "p")
 def fm2(*args, **kwargs):
     test = lambda *a, **k: graph.play(FM(*a, **k))
     return PatternPlayer.Player._play_factory(
@@ -314,6 +320,7 @@ def fm2(*args, **kwargs):
     )
 
 
+@alias_param("period", "p")
 def add(*args, **kwargs):
     test = lambda *a, **k: graph.play(Additive(*a, **k))
     return PatternPlayer.Player._play_factory(
