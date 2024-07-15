@@ -209,6 +209,18 @@ class MIDIOut(Subscriber):
             once=True,
         )
 
+    def tick(self, *args, **kwargs):
+        """Send a MIDI clock message."""
+        self._midi_out.send(mido.Message("clock"))
+
+    def start(self, *args, **kwargs):
+        """Send a MIDI start message."""
+        self._midi_out.send(mido.Message("start"))
+
+    def stop(self, *args, **kwargs):
+        """Send a MIDI stop message."""
+        self._midi_out.send(mido.Message("stop"))
+
     def pitch_bend(self, value: int = 0, channel: int = 1, **kwargs) -> None:
         """Send a MIDI pitch bend message.
 

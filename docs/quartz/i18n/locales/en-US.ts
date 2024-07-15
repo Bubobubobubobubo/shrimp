@@ -33,7 +33,7 @@ export default {
       title: "Explorer",
     },
     footer: {
-      createdWith: "Created by",
+      createdWith: "Created with",
     },
     graph: {
       title: "Graph View",

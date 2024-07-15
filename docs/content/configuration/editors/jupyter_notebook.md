@@ -1,5 +1,5 @@
 ---
-title: 2) Jupyter Notebooks
+title: Jupyter Notebooks
 tag: configuration, editors, jupyter
 ---
 

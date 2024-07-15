@@ -1,5 +1,5 @@
 ---
-title: 5) Using SuperCollider
+title: Using SuperCollider
 tag: configuration, technical
 ---
 

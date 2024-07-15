@@ -5,7 +5,7 @@ import signal
 def interrupt_handler(sig, frame):
     """Handle the interrupt signal from the user"""
     print("\b\bSaved from infinite recursion!")
-    clock.stop()
+    clock._stop()
 
 
 def recursive():

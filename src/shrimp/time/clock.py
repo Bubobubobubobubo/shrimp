@@ -100,11 +100,11 @@ class Clock(Subscriber):
         self._grain = grain
         self._nudge = 0.00
         self._delay = delay
-        self.register_handler("start", self.start)
+        self.register_handler("start", self._start)
         self.register_handler("play", self.play)
         self.register_handler("pause", self.pause)
-        self.register_handler("stop", self.stop)
-        self.register_handler("exit", self.stop)
+        self.register_handler("stop", self._stop)
+        self.register_handler("exit", self._stop)
 
     def __str__(self) -> str:
         state = "PLAY" if self._playing else "STOP"
@@ -114,9 +114,17 @@ class Clock(Subscriber):
         state = "PLAY" if self._playing else "STOP"
         return f"Clock {state}: {self.tempo} BPM, {self.bar} bars, {self.beat} beats, {self.phase} phase."
 
-    def sync(self, bool: bool = True):
+    def sync(self, value: bool = True):
         """Enable or disable the sync of the clock"""
-        self._link.startStopSyncEnabled = bool
+        self._link.startStopSyncEnabled = value
+
+    @property
+    def peers(self) -> int:
+        """Return the peers of the clock"""
+        if self._link:
+            return self._link.numPeers()
+        else:
+            return 0
 
     @property
     def delay(self):
@@ -124,8 +132,10 @@ class Clock(Subscriber):
         return self._delay
 
     @delay.setter
-    def delay(self, value: int | float):
+    def delay(self, value: int):
         """Set the delay of the clock"""
+        if not isinstance(value, int):
+            raise ValueError("Delay must be an integer")
         self._delay = value
 
     @property
@@ -238,7 +248,7 @@ class Clock(Subscriber):
         time = self._link.clock().micros()
         return state.phaseAtTime(time, self._denominator)
 
-    def start(self) -> None:
+    def _start(self) -> None:
         """Start the clock"""
         if self.env:
             self.env.dispatch(self, "start", {})
@@ -296,7 +306,7 @@ class Clock(Subscriber):
         while time_module.perf_counter() < end_time:
             pass  # Busy-wait for the remaining time
 
-    def stop(self, _: dict = {}) -> None:
+    def _stop(self, _: dict = {}) -> None:
         """Stop the clock and wait for the thread to finish
 
         Args:

@@ -1,5 +1,5 @@
 ---
-title: 1) Choosing a Text Editor
+title: Choosing a Text Editor
 tag: configuration, editors
 ---
 

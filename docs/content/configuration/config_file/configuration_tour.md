@@ -1,5 +1,5 @@
 ---
-title: 2) Configuration Tour
+title: Configuration Tour
 tag: configuration, technical
 ---
 

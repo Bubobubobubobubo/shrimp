@@ -1,5 +1,5 @@
 ---
-title: 3) Configuring MIDI
+title: Configuring MIDI
 tag: configuration, midi, technical
 ---
 

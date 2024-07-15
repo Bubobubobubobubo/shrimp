@@ -12,11 +12,9 @@ import traceback
 P = ParamSpec("P")
 T = TypeVar("T")
 
-__ALL__ = ["PlayerPattern", "Player"]
-
 
 @dataclass
-class PlayerPattern:
+class Sender:
     """
     PlayerPattern class to store the pattern information. Every pattern is a PlayerPattern object.
     """
@@ -40,7 +38,7 @@ class Player(Subscriber):
         self._silence_count = 0
         self._patterns = []
         self._current_pattern_index = 0
-        self._next_pattern: Optional[PlayerPattern] = None
+        self._next_pattern: Optional[Sender] = None
         self._transition_scheduled = False
         self._until: Optional[int] = None
         self._begin: Optional[TimePos] = None
@@ -107,7 +105,7 @@ class Player(Subscriber):
         self._iterator = value
 
     @pattern.setter
-    def pattern(self, pattern: Optional[PlayerPattern]):
+    def pattern(self, pattern: Optional[Sender]):
         """Set the current pattern"""
         if pattern is None:
             self._patterns = []
@@ -201,7 +199,7 @@ class Player(Subscriber):
         """Play the current pattern."""
         self._push()
 
-    def __mul__(self, patterns: Optional[PlayerPattern | List[PlayerPattern]] = None) -> None:
+    def __rshift__(self, patterns: Optional[Sender | List[Sender]] = None) -> None:
         """
         Central method to submit and play a pattern. This method is overriding the * operator.
         Patterns can be submitted as a single PlayerPattern object or as a list of PlayerPattern
@@ -224,7 +222,7 @@ class Player(Subscriber):
                 return
 
             # TODO: do something about iterations
-            if isinstance(patterns, PlayerPattern):
+            if isinstance(patterns, Sender):
                 patterns = [patterns]
                 self._patterns = patterns
             elif isinstance(patterns, list):
@@ -239,7 +237,7 @@ class Player(Subscriber):
             once=True,
         )
 
-    def _handle_manual_polyphony(self, pattern: PlayerPattern, args: tuple, kwargs: dict) -> None:
+    def _handle_manual_polyphony(self, pattern: Sender, args: tuple, kwargs: dict) -> None:
         """Internal function to handle polyphony manually. This method is required for scheduling
         synthesizers written with SignalFlow (Synths/ folder). In other cases, polyphony is natively
         handled by the implementation of whatever send_method is used.
@@ -265,7 +263,7 @@ class Player(Subscriber):
             }
             pattern.send_method(*current_args, **current_kwargs)
 
-    def _func(self, pattern: PlayerPattern, *args, **kwargs) -> None:
+    def _func(self, pattern: Sender, *args, **kwargs) -> None:
         """Internal temporal recurisve function used to play patterns. This is the central piece
         of this class. This method serves to "programatically" compose a function that will then
         be scheduled on the clock for each iteration of the player. This method is recursive and
@@ -337,7 +335,7 @@ class Player(Subscriber):
         else:
             self._push(again=True)
 
-    def _silence(self, *args, _: Optional[PlayerPattern] = None, **kwargs) -> None:
+    def _silence(self, *args, _: Optional[Sender] = None, **kwargs) -> None:
         """Internal recursive function implementing a silence, aka a function that do nothing.
         This is the "mirror" version of the _func method but this one doesn't do anything!
 
@@ -369,7 +367,7 @@ class Player(Subscriber):
         return patterns
 
     @staticmethod
-    def _play_factory(send_method: Callable[P, T], *args, **kwargs) -> PlayerPattern:
+    def _play_factory(send_method: Callable[P, T], *args, **kwargs) -> Sender:
         """Factory method to create a PlayerPattern object. Used to declare various instruments
         for the user. The send_method is the method that will be called when the pattern is played.
         This class is basically in charge of gracefully handling the *args and **kwargs provided to
@@ -383,7 +381,7 @@ class Player(Subscriber):
         Returns:
             PlayerPattern: The PlayerPattern object.
         """
-        return PlayerPattern(
+        return Sender(
             send_method=send_method,
             manual_polyphony=kwargs.get("manual_polyphony", False),
             args=args,

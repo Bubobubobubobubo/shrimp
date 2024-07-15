@@ -1,5 +1,5 @@
 ---
-title: 4) Configuring OSC
+title: Configuring OSC
 tag: configuration, osc, technical, supercollider, superdirt
 ---
 

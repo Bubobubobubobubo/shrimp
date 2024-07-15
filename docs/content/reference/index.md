@@ -1,5 +1,5 @@
 ---
-title: Glossary of Patterns
+title: 5) Reference
 ---
 
 ## Duration Patterns

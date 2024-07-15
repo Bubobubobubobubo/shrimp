@@ -1,15 +1,18 @@
 ---
-title: Shrimp - Live Coding with Python
+title: 🦐 Shrimp 🦐  - Live Coding Library for Python
 ---
 
-Test Test
+Welcome! Shrimp is a music [live coding](https://en.wikipedia.org/wiki/Live_coding) framework for Python. Shrimp is designed like a musical instrument, simple in design, lightweight and easy to use. Shrimp allows you to live code anything you might want to control on stage: hardware and software synthesizers, other software, etc. Using Shrimp, you can easily manipulate sounds, rhythms and melodies in real-time with code. 
 
-Welcome to the #shrimp documentation! Shrimp is a [live coding](https://en.wikipedia.org/wiki/Live_coding) environment for Python. It is designed to be simple to use and lightweight. Shrimp allows you to _live code_ pretty much everything: hardware and software synthesizers, audio, data, etc. You can create and manipulate sound, rhythms and melodies in real-time, and experiment with pattern creation. It can be used for _live coding_ and composition. I have designed it to be used in live performances like [Algoraves](https://algorave.com). Shrimp can be considered both as a **library** and a **standalone application**. You can import it in your Python scripts and use it as a library, or you can use it as a standalone application with a REPL (Read, Eval, Print, Loop) interface.
+I have created #shrimp for my personal use in live performances: [Algorithmic Rave Parties](https://algorave.com), jamming with friends, playing with other musicians. Shrimp can be used in a wide range of scenarios: from live coding performances to studio productions, from educational purposes to prototyping new musical ideas. You can import it in your Python scripts and use it as a library. You can also use it as a standalone application with a REPL (Read, Eval, Print, Loop) interface.
 
->[!faq]- Where to start?
+
+>[!faq] Where to start?
 > 1) [Install](installation.md) Shrimp on your system (MacOS/Linux/Windows) as a Python library
 > 2) Peak at the [Configuration](configuration/) section, setup your MIDI and OSC devices 
+>    - (Optional) Take some time to pick your favorite [text editor](/configuration/editors/)
 > 3) Jump to the [Get Started](get_started/) section to learn the basics of Shrimp
+> 4) Find inspiration and learn more about #shrimp in the [reference](reference/) section
 
 ## What can you do with Shrimp?
 

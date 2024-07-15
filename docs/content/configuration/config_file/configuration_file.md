@@ -1,5 +1,5 @@
 ---
-title: 1) Configuration File
+title: Configuration File
 tag: configuration, technical
 ---
 

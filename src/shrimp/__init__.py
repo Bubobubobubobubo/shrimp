@@ -9,7 +9,7 @@ from .environment import get_global_environment
 from .systems.PlayerSystem.Pattern import *
 from .systems.PlayerSystem.Library import *
 from .systems.PlayerSystem.PatternPlayer import Player
-from .systems.PlayerSystem.GlobalConfig import global_config as PlayerConfig
+from .systems.PlayerSystem.GlobalConfig import global_config as G
 import functools
 import os
 
@@ -125,10 +125,10 @@ def loop_now(quant="bar"):
 
 def exit():
     """Exit the interactive shell"""
-    clock.stop()
+    clock._stop()
 
 
-clock.start()
+clock._start()
 clock.add(func=lambda: clock.play(now=True), time=clock.now, passthrough=True)
 
 # == TEST AREA FOR THE PATTERN SYSTEM ======================================================
@@ -163,6 +163,9 @@ if globals().get("midi", None) is not None:
 
     def debug(*args, **kwargs):
         return Player._play_factory(pattern_printer, *args, **kwargs)
+
+    def tick(*args, **kwargs):
+        return Player._play_factory(midi.tick, *args, **kwargs)
 
     @alias_param("duration", "dur")
     @alias_param("channel", "chan")
@@ -213,3 +216,6 @@ def silence(*args):
     else:
         for arg in args:
             arg.stop()
+
+
+R = Rest

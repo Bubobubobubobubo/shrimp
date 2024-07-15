@@ -7,7 +7,7 @@ CONFIGURATION = read_configuration()
 
 def exit():
     """Custom override for the exit function"""
-    clock.stop()
+    clock._stop()
     raise SystemExit
 
 
