@@ -127,7 +127,9 @@ def exit():
 
 
 clock._start()
-clock.add(func=lambda: clock.play(now=True), time=clock.next_bar, passthrough=True, once=True)
+clock.add(
+    func=lambda: clock.play(now=True), time=clock.next_bar - clock.now, passthrough=True, once=True
+)
 
 # == TEST AREA FOR THE PATTERN SYSTEM ======================================================
 
