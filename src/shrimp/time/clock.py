@@ -15,6 +15,8 @@ import types
 
 @dataclass
 class TimePos:
+    """A class to represent a time position in a musical context."""
+
     bar: int
     beat: int
     phase: float
@@ -72,6 +74,8 @@ class TimePos:
 
 @dataclass(order=True)
 class PriorityEvent:
+    """A class to represent an event to be scheduled."""
+
     name: str
     next_time: int | float = field(compare=True)
     next_ideal_time: int | float = field(compare=False)
@@ -83,6 +87,11 @@ class PriorityEvent:
 
 
 class Clock(Subscriber):
+    """
+    A musical clock synchronized with Ableton Link. The clock can be used to schedule events with high precision.
+    Timing information is extracted from the Link session. Event scheduling is done using the central `add` method.
+    Threads are used to ensure that the clock runs in the background and does not block the main thread.
+    """
 
     def __init__(self, tempo: int | float, grain: float = 0.0001, delay: int = 0.0):
         super().__init__()
@@ -292,7 +301,7 @@ class Clock(Subscriber):
             session.setIsPlaying(False, self._link.clock().micros())
             self._link.commitSessionState(session)
 
-    def precise_wait(self, duration):
+    def precise_wait(self, duration) -> None:
         """
         Wait for a specified duration using a combination of sleep and busy-waiting.
 
@@ -337,7 +346,8 @@ class Clock(Subscriber):
             self.pause()
 
     def run(self) -> None:
-        """Clock Event Loop."""
+        """Main Clock Event Loop"""
+
         while not self._stop_event.is_set():
             start_time = time_module.perf_counter()
             self._capture_link_info()
@@ -353,15 +363,23 @@ class Clock(Subscriber):
             if wait_time > 0:
                 self.precise_wait(wait_time)
 
-            # end_time = self.internal_time
-            # elapsed_micros = end_time - start_time
-            # sleep_micros = max(0, int(self._grain * 1_000_000) - elapsed_micros)
-
-            # if sleep_micros > 0:
-            #     sleep(sleep_micros / 1_000_000)
-
     def _execute_due_functions(self) -> None:
-        """Execute all functions that are due to be executed."""
+        """Execute all functions that are due to be executed.
+
+        This method iterates over the possible callables and executes them if they are due to be executed.
+        A callable is considered due if its `next_time` attribute is less than or equal to the current beat
+        and it has not been played before.
+
+        If the clock is playing or the callable has the `passthrough` attribute set to True, the callable
+        is played and marked as played. If the callable has the `once` attribute set to True, it is removed
+        from the list of children after being played.
+
+        If an exception occurs during the execution of a callable, an error message is printed along with
+        the traceback.
+
+        Returns:
+            None
+        """
         possible_callables = sorted(self._children.values(), key=lambda event: event.next_time)
         for callable in possible_callables:
             if callable.next_time <= self._beat and not callable.has_played:
@@ -399,7 +417,25 @@ class Clock(Subscriber):
         *args,
         **kwargs,
     ) -> PriorityEvent:
-        """Add any Callable to the clock with improved precision."""
+        """
+        Add a function to the clock's schedule.
+
+        Parameters:
+        - func: The function to be scheduled.
+        - time: The time at which the function should be executed. If None, the function will be executed immediately.
+                It can also be a Callable that returns the time dynamically.
+        - start_time: The time at which the function should start. If None, the current time will be used.
+        - name: The name of the function. If None, a unique identifier will be generated.
+        - relative: If True, the time parameter will be treated as a relative time from the current time.
+                    If False, the time parameter will be treated as an absolute time.
+        - once: If True, the function will be executed only once. If False, the function will be executed repeatedly.
+        - passthrough: If True, the function will execute even if the clock is paused.
+        - args: Additional positional arguments to be passed to the function.
+        - kwargs: Additional keyword arguments to be passed to the function.
+
+        Returns:
+        - PriorityEvent: An object representing the scheduled function.
+        """
         # Naming the function
         if not name:
             if isinstance(func, Callable) and func.__name__ != "<lambda>":
@@ -461,7 +497,18 @@ class Clock(Subscriber):
         ideal_time: int | float,
         relative: bool = False,
     ) -> PriorityEvent:
-        """Update the children of the clock."""
+        """Update the children of the clock.
+
+        Args:
+            name (str): The name of the clock.
+            item (Any): The item to update.
+            next_time (int | float): The next time for the event.
+            ideal_time (int | float): The ideal next time for the event.
+            relative (bool, optional): Whether the update is relative to current time or not. Defaults to False.
+
+        Returns:
+            PriorityEvent: The updated children of the clock.
+        """
         children = self._children[name]
         if relative:
             next_ideal_time: int | float = children.next_ideal_time + ideal_time
@@ -493,26 +540,6 @@ class Clock(Subscriber):
         """Remove an event from the clock by name."""
         if name in self._children:
             del self._children[name]
-
-    def add_on_next_bar(self, func: Callable, *args, **kwargs) -> None:
-        """Add a function to the clock to be executed on the next bar.
-
-        Args:
-            func (Callable): The function to be executed.
-            *args: Arguments to be passed to the function.
-            **kwargs: Keyword arguments to be passed to the function.
-        """
-        self.add(func, self.next_bar, *args, **kwargs)
-
-    def add_on_next_beat(self, func: Callable, *args, **kwargs) -> None:
-        """Add a function to the clock to be executed on the next beat.
-
-        Args:
-            func (Callable): The function to be executed.
-            *args: Arguments to be passed to the function.
-            **kwargs: Keyword arguments to be passed to the function.
-        """
-        self.add(func, self.next_beat, *args, **kwargs)
 
     def time_position(self):
         """Return the time position of the clock."""

@@ -89,8 +89,6 @@ for osc_port_name, port in CONFIGURATION["osc"]["ports"].items():
 c = clock
 now = lambda: clock.beat
 next_bar = lambda: clock.next_bar
-on_next_bar = clock.add_on_next_bar
-on_next_beat = clock.add_on_next_beat
 loop = clock.add
 loopr = partial(loop, relative=True)
 stop = clock.remove
