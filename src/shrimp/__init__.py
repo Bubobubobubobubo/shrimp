@@ -31,6 +31,9 @@ clock = Clock(
 )
 env.add_clock(clock)
 pattern = Player.initialize_patterns(clock)
+for pattern in pattern.values():
+    # Registering the pattern to the global environment
+    env.subscribe(pattern)
 
 # Opening MIDI output ports based on user configuration
 for all_output_midi_ports in CONFIGURATION["midi"]["out_ports"]:
@@ -127,9 +130,7 @@ def exit():
 
 
 clock._start()
-clock.add(
-    func=lambda: clock.play(now=True), time=clock.next_bar - clock.now, passthrough=True, once=True
-)
+clock.add(func=lambda: clock.play(), time=clock.next_bar - clock.now, passthrough=True, once=True)
 
 # == TEST AREA FOR THE PATTERN SYSTEM ======================================================
 
@@ -212,14 +213,17 @@ if globals().get("midi", None) is not None:
 
 
 # Adding all patterns to the global scope
-for key, value in pattern.items():
+patterns = Player.initialize_patterns(clock)
+for pattern in patterns.values():
+    env.subscribe(pattern)
+for key, value in patterns.items():
     globals()[key] = value
 
 
 def silence(*args):
     if len(args) == 0:
         env.dispatch("main", "silence", {})
-        for key in pattern.keys():
+        for key in patterns.keys():
             globals()[key].stop()
         if "graph" in globals():
             graph.clear()

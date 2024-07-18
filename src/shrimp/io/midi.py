@@ -156,10 +156,10 @@ class MIDIOut(Subscriber):
         """
         # Send note_off if the note is already pressed
         if self.pressed_notes[channel].get(note, False):
-            self._note_off(note=note, channel=channel)
+            self._note_off(note=note, channel=channel, velocity=0)
+        self.pressed_notes[channel][note] = True
         midi_message = mido.Message("note_on", note=note, velocity=velocity, channel=channel)
         self._midi_out.send(midi_message)
-        self.pressed_notes[channel][note] = True  # Mark note as pressed
 
     def _note_off(self, note: int = 60, velocity: int = 0, channel: int = 1) -> None:
         """Send a MIDI note off message.
@@ -169,9 +169,9 @@ class MIDIOut(Subscriber):
             velocity (int): The velocity of the note.
             channel (int): The MIDI channel.
         """
+        self.pressed_notes[channel][note] = False
         midi_message = mido.Message("note_off", note=note, velocity=velocity, channel=channel)
         self._midi_out.send(midi_message)
-        self.pressed_notes[channel][note] = False  # Mark note as released
 
     def note(
         self,
@@ -204,7 +204,6 @@ class MIDIOut(Subscriber):
                 self.note(note=int(n), velocity=velocity, channel=channel, length=length)
             return
 
-        epsilon = length / 100
         self.clock.add(
             func=lambda: self._note_on(
                 note=int(note), velocity=int(velocity), channel=int(channel) - 1
@@ -214,7 +213,7 @@ class MIDIOut(Subscriber):
         )
         self.clock.add(
             func=lambda: self._note_off(note=int(note), velocity=0, channel=int(channel) - 1),
-            time=time + (length - epsilon),
+            time=(time + length) - 0.020,
             once=True,
         )
 

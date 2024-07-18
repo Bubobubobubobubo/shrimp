@@ -270,14 +270,20 @@ class Clock(Subscriber):
         for child in self._children.values():
             child.next_time += shift
 
-    def _reset_children_times(self) -> None:
-        for child in self._children.values():
-            child_phase = math.modf(child.next_time)[0]
-            child_ideal_time = math.modf(child.next_ideal_time)[0]
-            child.next_time = child_phase
-            child.next_ideal_time = child_ideal_time
+    # def _reset_children_times(self) -> None:
+    #     for child in self._children.values():
+    #         child_phase = math.modf(child.next_time)[0]
+    #         child_ideal_time = math.modf(child.next_ideal_time)[0]
+    #         child.next_time = child_phase
+    #         child.next_ideal_time = child_ideal_time
 
-    def play(self, now: bool = False) -> None:
+    def _reset_children_times(self) -> None:
+        self.env.dispatch(self, "children_reset", {})
+        for child in self._children.values():
+            child.next_time = 0
+            child.next_ideal_time = 0
+
+    def play(self) -> None:
         """Play the clock"""
         if self._playing:
             return
@@ -339,9 +345,15 @@ class Clock(Subscriber):
             link_state.tempo(),
         )
         self._bar = self._beat // self._denominator
-
         if isPlaying and not self._playing:
-            self.play(now=True)
+            self.add(
+                func=lambda: self.play(),
+                time=self.now - self.next_bar,
+                once=True,
+                passthrough=True,
+                relative=False,
+            )
+            # self.play()
         elif not isPlaying and self._playing:
             self.pause()
 
@@ -404,6 +416,13 @@ class Clock(Subscriber):
             return self._denominator - int(self._beat) % self._denominator
         else:
             return self._denominator - self._beat % self._denominator
+
+    def beats_until_next_beat(self, as_int: bool = True) -> int | float:
+        """Return the number of beats until the next beat."""
+        if as_int:
+            return 1 - int(self._beat) % 1
+        else:
+            return 1 - self._beat % 1
 
     def add(
         self,
