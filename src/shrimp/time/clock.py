@@ -1,75 +1,17 @@
 from dataclasses import dataclass, field
+import logging
 import uuid
 import traceback
 from ..utils import info_message
 from ..environment import Subscriber, Environment
+from .TimePos import TimePos
 from typing import Any, Callable, Dict, Optional
 from types import LambdaType
-from time import sleep
 import threading
 import time as time_module
 import math
 import link
 import types
-
-
-@dataclass
-class TimePos:
-    """A class to represent a time position in a musical context."""
-
-    bar: int = 1
-    beat: int = 0
-    phase: float = 0
-
-    def __eq__(self, other):
-        if not isinstance(other, TimePos):
-            return NotImplemented
-        return (self.bar, self.beat, self.phase) == (other.bar, other.beat, other.phase)
-
-    def __lt__(self, other):
-        if not isinstance(other, TimePos):
-            return NotImplemented
-        return (self.bar, self.beat, self.phase) < (other.bar, other.beat, other.phase)
-
-    def __le__(self, other):
-        if not isinstance(other, TimePos):
-            return NotImplemented
-        return (self.bar, self.beat, self.phase) <= (other.bar, other.beat, other.phase)
-
-    def __gt__(self, other):
-        if not isinstance(other, TimePos):
-            return NotImplemented
-        return (self.bar, self.beat, self.phase) > (other.bar, other.beat, other.phase)
-
-    def __ge__(self, other):
-        if not isinstance(other, TimePos):
-            return NotImplemented
-        return (self.bar, self.beat, self.phase) >= (other.bar, other.beat, other.phase)
-
-    def __eq__(self, other):
-        if not isinstance(other, TimePos):
-            return NotImplemented
-        return (self.bar, self.beat, self.phase) == (other.bar, other.beat, other.phase)
-
-    def __lt__(self, other):
-        if not isinstance(other, TimePos):
-            return NotImplemented
-        return (self.bar, self.beat, self.phase) < (other.bar, other.beat, other.phase)
-
-    def __le__(self, other):
-        if not isinstance(other, TimePos):
-            return NotImplemented
-        return (self.bar, self.beat, self.phase) <= (other.bar, other.beat, other.phase)
-
-    def __gt__(self, other):
-        if not isinstance(other, TimePos):
-            return NotImplemented
-        return (self.bar, self.beat, self.phase) > (other.bar, other.beat, other.phase)
-
-    def __ge__(self, other):
-        if not isinstance(other, TimePos):
-            return NotImplemented
-        return (self.bar, self.beat, self.phase) >= (other.bar, other.beat, other.phase)
 
 
 @dataclass(order=True)
@@ -78,7 +20,6 @@ class PriorityEvent:
 
     name: str
     next_time: int | float = field(compare=True)
-    next_ideal_time: int | float = field(compare=False)
     start_time: int | float = field(compare=False)
     item: Any = field(compare=False)
     has_played: bool = False
@@ -97,7 +38,8 @@ class Clock(Subscriber):
         super().__init__()
         self._clock_thread: threading.Thread | None = None
         self._stop_event: threading.Event = threading.Event()
-        self._children: Dict[str, PriorityEvent] = {}
+        self._events: Dict[str, PriorityEvent] = {}
+        self._first_loop = True
         self._playing: bool = True
         self._link = link.Link(tempo)
         self.env: Optional[Environment] = None
@@ -107,7 +49,6 @@ class Clock(Subscriber):
         self._beat, self._bar, self._phase = 0, 0, 0
         self._nominator, self._denominator = 4, 4
         self._grain = grain
-        self._nudge = 0.00
         self._delay = delay
         self.register_handler("start", self._start)
         self.register_handler("play", self.play)
@@ -161,20 +102,7 @@ class Clock(Subscriber):
     @property
     def children(self):
         """Return the children of the clock"""
-        return self._children
-
-    @property
-    def nudge(self) -> float:
-        """Return the nudge of the clock"""
-        for child in self._children.values():
-            child.next_time += self._nudge
-            child.next_ideal_time += self._nudge
-        return self._nudge
-
-    @nudge.setter
-    def nudge(self, value: float):
-        """Set the nudge of the clock"""
-        self._nudge = value
+        return self._events
 
     @property
     def grain(self) -> float:
@@ -265,28 +193,16 @@ class Clock(Subscriber):
             self._clock_thread = threading.Thread(target=self.run, daemon=False)
             self._clock_thread.start()
 
-    def _shift_children_times(self, shift: int | float) -> None:
-        """Shift all children times by a given amount."""
-        for child in self._children.values():
-            child.next_time += shift
-
-    # def _reset_children_times(self) -> None:
-    #     for child in self._children.values():
-    #         child_phase = math.modf(child.next_time)[0]
-    #         child_ideal_time = math.modf(child.next_ideal_time)[0]
-    #         child.next_time = child_phase
-    #         child.next_ideal_time = child_ideal_time
-
     def _reset_children_times(self) -> None:
         self.env.dispatch(self, "children_reset", {})
-        for child in self._children.values():
+        for child in self._events.values():
             child.next_time = 0
-            child.next_ideal_time = 0
 
     def play(self) -> None:
         """Play the clock"""
         if self._playing:
             return
+        logging.warning(f"(Clock) Clock has started at: {self._phase}")
         self._reset_children_times()
         session = self._link.captureSessionState()
         session.setIsPlaying(True, self._link.clock().micros())
@@ -300,6 +216,7 @@ class Clock(Subscriber):
         if not self._playing:
             return
         else:
+            logging.warning(f"(Clock) Clock has paused at: {self._phase}")
             self._playing = False
             if self.env:
                 self.env.dispatch(self, "pause", {})
@@ -334,8 +251,13 @@ class Clock(Subscriber):
             self.env.dispatch(self, "stop", {})
         del self._link
 
-    def _capture_link_info(self) -> None:
-        """Utility function to capture timing information from Link Session."""
+    def _capture_link_info(self) -> bool:
+        """
+        Utility function to capture timing information from Link Session.
+
+        Returns:
+            bool: True if time has been successfully captured, False otherwise.
+        """
         link_state = self._link.captureSessionState()
         self.internal_time = self._link.clock().micros()
         isPlaying = link_state.isPlaying()
@@ -345,28 +267,50 @@ class Clock(Subscriber):
             link_state.tempo(),
         )
         self._bar = self._beat // self._denominator
-        if isPlaying and not self._playing:
-            self.add(
-                func=lambda: self.play(),
-                time=self.now - self.next_bar,
-                once=True,
-                passthrough=True,
-                relative=False,
-            )
-            # self.play()
-        elif not isPlaying and self._playing:
-            self.pause()
+
+        # First time capturing information
+        if self._first_loop:
+            self._playing = isPlaying
+            if isPlaying:
+                logging.warning("(Clock) Initial state: Playing")
+            else:
+                logging.warning("(Clock) Initial state: Paused")
+                if not math.isclose(self._phase, 0, abs_tol=0.02):
+                    logging.warning(f"(Clock) Clock phase: {self._phase}")
+                    return False
+                else:
+                    self.play()
+                    self._first_loop = False
+                    return True
+
+        # Other times, looping around!
+        else:
+            if isPlaying and not self._playing:
+                logging.warning("(Clock) External Play Request")
+                self.add(
+                    name="restart_playback",
+                    func=lambda: self.play(),
+                    relative=False,
+                    time=0,
+                    once=True,
+                    passthrough=True,
+                )
+            elif not isPlaying and self._playing:
+                logging.warning("(Clock) External Pause Request")
+                self.pause()
+            return True
 
     def run(self) -> None:
         """Main Clock Event Loop"""
 
         while not self._stop_event.is_set():
             start_time = time_module.perf_counter()
-            self._capture_link_info()
-            try:
-                self._execute_due_functions()
-            except Exception as e:
-                print(e)
+            time_captured = self._capture_link_info()
+            if time_captured:
+                try:
+                    self._execute_due_functions()
+                except Exception as e:
+                    print(e)
 
             end_time = time_module.perf_counter()
             elapsed_time = end_time - start_time
@@ -392,7 +336,7 @@ class Clock(Subscriber):
         Returns:
             None
         """
-        possible_callables = sorted(self._children.values(), key=lambda event: event.next_time)
+        possible_callables = sorted(self._events.values(), key=lambda event: event.next_time)
         for callable in possible_callables:
             if callable.next_time <= self._beat and not callable.has_played:
                 if self._playing or callable.passthrough:
@@ -401,7 +345,7 @@ class Clock(Subscriber):
                         func, args, kwargs = callable.item
                         func(*args, **kwargs)
                         if callable.once:
-                            del self._children[callable.name]
+                            del self._events[callable.name]
                     except Exception as e:
                         info_message(
                             f"Error in function [red]{func.__name__}[/red]: [yellow]{e}[/yellow]",
@@ -424,141 +368,133 @@ class Clock(Subscriber):
         else:
             return 1 - self._beat % 1
 
+    # Now I just need a new method to push event forward once it is perfectly aligned with the beat
+
     def add(
         self,
-        func: Callable,
-        time: Optional[int | float] = None,
-        start_time: Optional[int | float] = None,
         name: Optional[str] = None,
-        relative: bool = False,
+        func: Callable = lambda: None,
+        time: Optional[int | float] = 0,
+        quant: Optional[int | float] = None,
+        time_reference: Optional[int | float] = 0,
         once: bool = False,
         passthrough: bool = False,
         *args,
         **kwargs,
     ) -> PriorityEvent:
-        """
-        Add a function to the clock's schedule.
-
-        Parameters:
-        - func: The function to be scheduled.
-        - time: The time at which the function should be executed. If None, the function will be executed immediately.
-                It can also be a Callable that returns the time dynamically.
-        - start_time: The time at which the function should start. If None, the current time will be used.
-        - name: The name of the function. If None, a unique identifier will be generated.
-        - relative: If True, the time parameter will be treated as a relative time from the current time.
-                    If False, the time parameter will be treated as an absolute time.
-        - once: If True, the function will be executed only once. If False, the function will be executed repeatedly.
-        - passthrough: If True, the function will execute even if the clock is paused.
-        - args: Additional positional arguments to be passed to the function.
-        - kwargs: Additional keyword arguments to be passed to the function.
+        """Adding a function to the clock. It can mean two things:
+        1. If the function is already in the clock, update the time and arguments.
+        2. If the function is not in the clock, add it to the clock.
 
         Returns:
-        - PriorityEvent: An object representing the scheduled function.
+            PriorityEvent: The event that was added/modified.
         """
-        # Naming the function
-        if not name:
-            if isinstance(func, Callable) and func.__name__ != "<lambda>":
-                func_name = func.__name__
-            else:
-                func_name = str(uuid.uuid4())
+        while not isinstance(time, (int, float)):
+            time = time()
+
+        name = self.generate_event_name(func, name)
+        method = self._update_on_scheduler if name in self._events else self._add_to_scheduler
+
+        if quant is not None:
+            quantized_time = self._calculate_quantized_time(quant)
+            time_reference = quantized_time
+            time = 0  # Set time to 0 as we're using the quantized time as reference
+
+        return method(
+            name=name,
+            time=time,
+            time_reference=time_reference,
+            func=func,
+            args=args,
+            kwargs=kwargs,
+            once=once,
+            passthrough=passthrough,
+        )
+
+    def _calculate_quantized_time(self, quant: int | float) -> float:
+        """Calculate the next quantized beat time."""
+        if quant == 0:
+            return self.beat
+        current_beat = self._beat
+        next_quantized_beat = math.ceil(current_beat / quant) * quant
+        return next_quantized_beat
+
+    def _update_on_scheduler(
+        self,
+        name: str,
+        time: Optional[int | float],
+        time_reference: Optional[int | float],
+        func: Callable,
+        args: tuple,
+        kwargs: dict,
+        once: bool,
+        passthrough: bool,
+    ) -> PriorityEvent:
+        logging.info(f"(Clock) {name} [UPDATE]")
+        children = self._events[name]
+
+        if time_reference is not None:
+            children.next_time = time_reference + time
         else:
-            func_name = name
+            children.next_time += time
 
-        if time is None:
-            next_time = self.now
-            ideal_time = self.now
-        if time:
-            # Time can be a Callable
-            if isinstance(time, (Callable, LambdaType)):
-                while isinstance(time, (Callable | LambdaType)):
-                    time = time()
+        children.item = (func, args, kwargs)
+        children.has_played = False
+        children.passthrough = passthrough
+        children.once = once
+        return children
 
-            # Relative time calculation
-            if relative:
-                next_time = self.now + (1 if time is None else time)
-                ideal_time = 1 if time is None else time
+    def _add_to_scheduler(
+        self,
+        func: Callable,
+        name: Optional[str],
+        time: Optional[int | float],
+        time_reference: Optional[int | float],
+        args: tuple,
+        kwargs: dict,
+        once: bool,
+        passthrough: bool,
+    ) -> PriorityEvent:
+        if not name.startswith(("note_on_", "note_off_")):
+            logging.info(f"(Clock) {name} [ADDED]")
 
-            # Absolute time calculation
-            if not relative:
-                next_time = time
-                ideal_time = time
-        else:
-            next_time = self.now
-            ideal_time = self.now
+        if time_reference is not None:
+            time = time_reference + time
 
-        if func_name in self._children:
-            children = self._update_children(
-                name=func_name,
-                item=(func, args, kwargs),
-                next_time=next_time,
-                ideal_time=ideal_time,
-                relative=relative,
-            )
-            return children
-
-        children = self._children[func_name] = PriorityEvent(
-            name=func_name,
-            next_time=next_time - self._nudge,
-            next_ideal_time=next_time - self._nudge,
+        children = self._events[name] = PriorityEvent(
+            name=name,
+            start_time=self.now,
+            next_time=time,
             once=once,
             passthrough=passthrough,
             has_played=False,
-            start_time=start_time if start_time else self.now,
             item=(func, args, kwargs),
         )
         return children
 
-    def _update_children(
-        self,
-        name: str,
-        item: Any,
-        next_time: int | float,
-        ideal_time: int | float,
-        relative: bool = False,
-    ) -> PriorityEvent:
-        """Update the children of the clock.
-
-        Args:
-            name (str): The name of the clock.
-            item (Any): The item to update.
-            next_time (int | float): The next time for the event.
-            ideal_time (int | float): The ideal next time for the event.
-            relative (bool, optional): Whether the update is relative to current time or not. Defaults to False.
-
-        Returns:
-            PriorityEvent: The updated children of the clock.
-        """
-        children = self._children[name]
-        if relative:
-            next_ideal_time: int | float = children.next_ideal_time + ideal_time
-            children.next_time = next_ideal_time
-            children.next_ideal_time = next_ideal_time
-            children.item = item
-            children.has_played = False
-        if not relative:
-            children.next_time = next_time
-            children.next_ideal_time = ideal_time
-            children.item = item
-            children.has_played = False
-        return children
+    def generate_event_name(self, func, name):
+        """Generate a unique name for an event"""
+        not_a_lambda = isinstance(func, Callable) and func.__name__ != "<lambda>"
+        func_name = name if name else func.__name__ if not_a_lambda else str(uuid.uuid1())[:8]
+        return func_name
 
     def clear(self) -> None:
         """Clear all events from the clock."""
         if self.env:
             self.env.dispatch(self, "all_notes_off", {})
-        self._children = {}
+        self._events = {}
 
     def remove(self, *args) -> None:
         """Remove an event from the clock."""
         args = filter(lambda x: isinstance(x, types.FunctionType | types.LambdaType), args)
         for func in args:
-            if func.__name__ in self._children:
-                del self._children[func.__name__]
+            if func.__name__ in self._events:
+                del self._events[func.__name__]
 
     def remove_by_name(self, name: str) -> None:
         """Remove an event from the clock by name."""
-        if name in self._children:
-            del self._children[name]
+        if name in self._events:
+            del self._events[name]
 
     def time_position(self):
         """Return the time position of the clock."""

@@ -1,5 +1,5 @@
 import mido
-from ..time.clock import Clock
+from ..time.Clock import Clock
 from ..environment import Subscriber
 import threading
 from time import sleep
@@ -209,11 +209,13 @@ class MIDIOut(Subscriber):
                 note=int(note), velocity=int(velocity), channel=int(channel) - 1
             ),
             time=time,
+            name=f"note_on_{note}{channel}{self.port}",
             once=True,
         )
         self.clock.add(
             func=lambda: self._note_off(note=int(note), velocity=0, channel=int(channel) - 1),
-            time=(time + length) - 0.020,
+            name=f"note_off_{note}{channel}{self.port}",
+            time=(time + length) - 0.010,
             once=True,
         )
 

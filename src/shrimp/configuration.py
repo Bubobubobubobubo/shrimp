@@ -10,6 +10,14 @@ APPNAME = "Shrimp"
 APPAUTHOR = "Raphaël Forment"
 USER_DIRECTORY = appdirs.user_data_dir(APPNAME, APPAUTHOR)
 
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s  [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S",
+    filename=os.path.join(USER_DIRECTORY, "shrimp.log"),
+    filemode="w",
+)
+
 
 def _find_default_output_midi_port() -> str:
     """Find the default MIDI port to use by default when config is created."""
@@ -142,7 +150,6 @@ def read_configuration() -> dict:
     try:
         with open(config_path, "r") as f:
             content = f.read()
-            logging.debug(f"Configuration file content: {content}")
             return json.loads(content)
     except json.JSONDecodeError as e:
         logging.error(f"Error decoding JSON from the configuration file: {e}")

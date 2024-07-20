@@ -2,7 +2,7 @@ from osc4py3 import oscbuildparse
 from osc4py3.as_eventloop import *
 from osc4py3.oscmethod import *
 from ..environment import Subscriber
-from ..time.clock import Clock
+from ..time.Clock import Clock
 from ..utils import flatten, kwargs_to_flat_list
 from typing import Optional, Any, Callable
 from ..systems.PlayerSystem.Rest import Rest

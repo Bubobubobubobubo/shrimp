@@ -1,7 +1,7 @@
 from ...environment import Subscriber
 from dataclasses import dataclass
 from typing import TypeVar, Callable, ParamSpec, Optional, Dict, Self, Any, List
-from ...time.clock import Clock, TimePos
+from ...time.Clock import Clock, TimePos
 from types import LambdaType, GeneratorType
 from inspect import isgeneratorfunction
 from .Pattern import Pattern
@@ -11,6 +11,7 @@ from dataclasses import dataclass
 import traceback
 from inspect import isgeneratorfunction, isgenerator
 from collections.abc import Iterable
+import logging
 
 
 P = ParamSpec("P")
@@ -40,7 +41,7 @@ class Player(Subscriber):
         self._clock = clock
         self._iterator = -1
         self._silence_count = 0
-        self._patterns = []
+        self._patterns = None
         self._current_pattern_index = 0
         self._next_pattern: Optional[Sender] = None
         self._transition_scheduled = False
@@ -56,6 +57,9 @@ class Player(Subscriber):
 
     def __str__(self):
         return f"Player {self._name}, pattern: {self._patterns}"
+
+    def __rshift__(self, *args, **kwargs) -> None:
+        self._update_pattern(*args, **kwargs)
 
     # Properties
 
@@ -209,7 +213,7 @@ class Player(Subscriber):
         """Play the current pattern."""
         self._push()
 
-    def __rshift__(self, patterns: Optional[Sender | List[Sender]] = None) -> None:
+    def _update_pattern(self, patterns: Optional[Sender | List[Sender]] = None) -> None:
         """
         Central method to submit and play a pattern. This method is overriding the * operator.
         Patterns can be submitted as a single PlayerPattern object or as a list of PlayerPattern
@@ -226,29 +230,40 @@ class Player(Subscriber):
             None
         """
         if patterns is None:
+            logging.info(f"(Player) {self._name} stopping at {round(self._clock.beat, 2)}.")
             self.stop()
             return
 
-        # We need to know if this is an update or a pattern start by checking if _patterns is None
+        quant = patterns.kwargs.get("quant", False)
+
         is_an_update = self._patterns is not None
 
         def _callback():
+            if quant:
+                logging.info(f"============= QUANT EVAL ===============")
+            else:
+                logging.info(f"============= EVAL ===============")
             current_pattern_iteration = self.current_pattern.iterations if self._patterns else 0
             self._patterns = [patterns] if isinstance(patterns, Sender) else patterns
             self.current_pattern.iterations = current_pattern_iteration
-            self._push(
-                playing_again=True if is_an_update else False,
-                first_time=True if not is_an_update else False,
-            )
 
-        self._clock.add(
-            func=_callback,
-            name=f"{self._name}_pattern_start_update",
-            relative=True,
-            time=self._clock.beats_until_next_bar(as_int=False),
-            passthrough=True,
-            once=True,
-        )
+        if self._name in self._clock._events:
+            if quant:
+                self._clock._events[self._name].next_time = int(self._clock.now) + quant
+                _callback()
+            else:
+                _callback()
+        else:
+            logging.info(f"(Player) {self._name} starting at {round(self._clock.beat, 2)}.")
+            self._patterns = [patterns] if isinstance(patterns, Sender) else patterns
+            self._clock.add(
+                name=self._name,
+                func=lambda: self._push(first_time=True),
+                time_reference=int(self._clock.next_bar),
+                time=0,
+                once=False,
+                passthrough=False,
+            )
 
     def _func(self, pattern: Sender, *args, **kwargs) -> None:
         """Internal temporal recurisve function used to play patterns. This is the central piece
@@ -278,10 +293,8 @@ class Player(Subscriber):
         Returns:
             None
         """
-        if pattern is None:
-            return
-
-        args, kwargs = (self._args_resolver(pattern.args), self._kwargs_resolver(pattern.kwargs))
+        args = self._args_resolver(pattern.args)
+        kwargs = self._kwargs_resolver(pattern.kwargs)
 
         # Until condition: stop the pattern after n iterations
         if pattern.kwargs.get("until", None) is not None:
@@ -306,7 +319,7 @@ class Player(Subscriber):
         if pattern.limit is not None and pattern.iterations >= pattern.limit:
             self._transition_to_next_pattern()
         else:
-            self._push(playing_again=True)
+            self._push()
 
     def _silence(self, *args, pattern: Optional[Sender] = None, **kwargs) -> None:
         """Internal recursive function implementing a silence, aka a function that do nothing.
@@ -316,9 +329,9 @@ class Player(Subscriber):
             args (tuple): The arguments
             kwargs (dict): The keyword arguments
         """
-        self._push(playing_again=True)
+        self._push()
 
-    def _push(self, playing_again: bool = False, first_time: bool = False) -> None:
+    def _push(self, first_time: bool = False) -> None:
         """
         Internal method to push the pattern to the clock. This method is called recursively by the
         _func method. It schedules the next iteration of the pattern on the clock. This method is
@@ -330,23 +343,17 @@ class Player(Subscriber):
         Returns:
             None
         """
-        if not self._patterns:
-            return
-
         # These are kwargs link to time that we should handle and process manually!
         kwargs = {
             "period": lambda: self.current_pattern.kwargs.get("period", 1),
             "swing": self.current_pattern.kwargs.get("swing", 0),
         }
+
         self._resolve_period(kwargs)
         schedule_silence = self._process_silence(kwargs)
         self._handle_swing(schedule_silence, kwargs)
         self.current_pattern.limit = self.current_pattern.kwargs.get("limit", None)
-
-        # Now, we can prepare for the next iteration (finding the next deadline!)
         kwargs["time"] = kwargs["period"]
-        if not playing_again:
-            self.calculate_next_iteration_time(kwargs)
 
         self._iterator, self.current_pattern.iterations = (
             self._iterator + 1,
@@ -354,31 +361,17 @@ class Player(Subscriber):
         )
 
         if first_time:
-            kwargs["time"] = 0
+            player_last_deadline = self._clock._events[self._name].next_time - kwargs["period"]
+        else:
+            player_last_deadline = self._clock._events[self._name].next_time
+        logging.info(f"Player {self._name} last deadline: {player_last_deadline}")
         self._clock.add(
             name=self._name,
             func=self._func if not schedule_silence else self._silence,
-            relative=True,
-            once=False,
-            passthrough=True,
+            time_reference=player_last_deadline,
             pattern=self.current_pattern,
             **kwargs,
         )
-
-    def calculate_next_iteration_time(self, kwargs):
-        """Calculate the next iteration time."""
-        quant_policy = self.current_pattern.kwargs.get("quant", "now")
-
-        quant_methods = {
-            "bar": lambda: self._clock.beats_until_next_bar(as_int=False),
-            "beat": lambda: self._clock.beats_until_next_beat(as_int=False),
-            "now": lambda: 0,
-        }
-
-        if quant_policy in quant_methods:
-            kwargs["time"] = quant_methods[quant_policy]()
-        elif isinstance(quant_policy, (int, float)):
-            kwargs["time"] = quant_policy
 
     def _resolve_period(self, kwargs):
         """Resolve the period argument."""
@@ -419,7 +412,6 @@ class Player(Subscriber):
         Returns:
             None
         """
-        print("Transition amorcée")
         self._current_pattern_index = (self._current_pattern_index + 1) % len(self._patterns)
         self.current_pattern.iterations = 0
         self._iterator = -1

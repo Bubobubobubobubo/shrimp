@@ -1,6 +1,6 @@
 from .configuration import read_configuration, open_config_folder
 from .utils import info_message, greeter, alias_param
-from .time.clock import Clock, TimePos
+from .time.Clock import Clock, TimePos
 from functools import partial
 from .io.midi import MIDIOut, MIDIIn, list_midi_ports
 from .io.osc import OSC
@@ -11,7 +11,10 @@ from .systems.PlayerSystem.Library import *
 from .systems.PlayerSystem.PatternPlayer import Player
 from .systems.PlayerSystem.GlobalConfig import global_config as G
 import functools
+import logging
 import os
+
+logging.warning("=========== Program start ==============")
 
 # Do not import signalflow if on Linux or Windows!
 current_os = os.uname().sysname
@@ -40,6 +43,7 @@ for all_output_midi_ports in CONFIGURATION["midi"]["out_ports"]:
     for midi_out_port_name, port in all_output_midi_ports.items():
         if midi_out_port_name != "instruments" and port:
             if CONFIGURATION["editor"]["greeter"]:
+                logging.info(f"MIDI Output {midi_out_port_name} added for port: {port}")
                 print(
                     f"[bold yellow]> MIDI Output [red]{midi_out_port_name}[/red] added for port: [red]{port}[/red] [/bold yellow]"
                 )
@@ -56,6 +60,7 @@ for all_output_midi_ports in CONFIGURATION["midi"]["out_ports"]:
                 )
                 globals()[name] = new_instrument
                 if CONFIGURATION["editor"]["greeter"]:
+                    logging.info(f"MIDI Instrument added: {name}")
                     print(f"[bold yellow]> MIDI Instrument added: [red]{name}[/red] [/bold yellow]")
 
             # Declaring new MIDI controllers
@@ -67,6 +72,7 @@ for all_output_midi_ports in CONFIGURATION["midi"]["out_ports"]:
                 )
                 globals()[name] = new_controller
                 if CONFIGURATION["editor"]["greeter"]:
+                    logging.info(f"MIDI Controller added: {name}")
                     print(f"[bold yellow]> MIDI Controller added: [red]{name}[/red] [/bold yellow]")
 
 
@@ -74,6 +80,7 @@ for all_output_midi_ports in CONFIGURATION["midi"]["out_ports"]:
 for midi_in_port_name, port in CONFIGURATION["midi"]["in_ports"].items():
     if port is not False:
         if CONFIGURATION["editor"]["greeter"]:
+            logging.info(f"MIDI Input {midi_in_port_name} added for port: {port}")
             print(
                 f"[bold yellow]> MIDI Output [red]{midi_in_port_name}[/red] added for port: [red]{port}[/red] [/bold yellow]"
             )
@@ -83,6 +90,7 @@ for midi_in_port_name, port in CONFIGURATION["midi"]["in_ports"].items():
 # Opening OSC connexions based on user configuration
 for osc_port_name, port in CONFIGURATION["osc"]["ports"].items():
     if CONFIGURATION["editor"]["greeter"]:
+        logging.info(f"OSC Port added: {osc_port_name}")
         print(f"[bold yellow]> OSC Port added: [red]{osc_port_name}[/red] [/bold yellow]")
     globals()[osc_port_name] = OSC(
         name=osc_port_name, host=port["host"], port=port["port"], clock=clock
@@ -90,38 +98,7 @@ for osc_port_name, port in CONFIGURATION["osc"]["ports"].items():
     env.subscribe(globals()[osc_port_name])
 
 c = clock
-now = lambda: clock.beat
-next_bar = lambda: clock.next_bar
-loop = clock.add
-loopr = partial(loop, relative=True)
 stop = clock.remove
-
-
-def loop_now(quant="bar"):
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            return func(*args, **kwargs)
-
-        if quant == "bar":
-            info_message(f"Starting [red]{func.__name__}[/red] on next bar")
-            clock.add(func, clock.next_bar)
-        elif quant == "beat":
-            info_message(f"Starting [red]{func.__name__}[/red] on next beat")
-            clock.add(func, clock.next_beat)
-        elif quant == "now":
-            info_message(f"Starting [red]{func.__name__}[/red] now")
-            clock.add(func, clock.beat)
-        elif isinstance(quant, (int, float)):
-            info_message(f"Starting [red]{func.__name__}[/red] in {quant} beats")
-            clock.add(func, clock.beat + quant)
-        else:
-            raise ValueError(
-                "Invalid quantization option. Choose 'bar', 'beat', 'now', or a numeric value."
-            )
-        return wrapper
-
-    return decorator
 
 
 def exit():
@@ -130,7 +107,6 @@ def exit():
 
 
 clock._start()
-clock.add(func=lambda: clock.play(), time=clock.next_bar - clock.now, passthrough=True, once=True)
 
 # == TEST AREA FOR THE PATTERN SYSTEM ======================================================
 
