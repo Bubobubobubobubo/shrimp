@@ -290,7 +290,7 @@ class Clock(Subscriber):
                 self.add(
                     name="restart_playback",
                     func=lambda: self.play(),
-                    relative=False,
+                    time_reference=0,
                     time=0,
                     once=True,
                     passthrough=True,
