@@ -305,7 +305,6 @@ class Player(Subscriber):
         # Grab active from kwargs
         self.active = kwargs.get("active", True)
 
-        # Main function call
         try:
             if self._active:
                 if pattern.manual_polyphony:

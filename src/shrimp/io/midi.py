@@ -192,17 +192,17 @@ class MIDIOut(Subscriber):
         Note: This function schedules the note on and note off messages to be sent
         at the appropriate times using the clock.
         """
-        note = (
-            _clamp_midi(int(note)) if isinstance(note, int) else [_clamp_midi(int(n)) for n in note]
-        )
-        velocity = _clamp_midi(int(linear_scaling(velocity, 0.0, 1.0, 0, 127)))
-        length = length * self.clock.beat_duration
-        time = self.clock.now - self.nudge
-
         if isinstance(note, list):
             for n in note:
                 self.note(note=int(n), velocity=velocity, channel=channel, length=length)
             return
+
+        note = (
+            _clamp_midi(int(note)) if isinstance(note, int) else [_clamp_midi(int(n)) for n in note]
+        )
+        velocity = int(velocity * 127)
+        length = length * self.clock.beat_duration
+        time = self.clock.now - self.nudge
 
         self.clock.add(
             func=lambda: self._note_on(

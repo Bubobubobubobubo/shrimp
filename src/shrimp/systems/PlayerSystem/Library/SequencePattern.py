@@ -7,24 +7,11 @@ from dataclasses import dataclass
 from .SequenceTransformer import *
 
 
-@dataclass
-class SequenceTransformation:
-    condition: Callable
-    transformer: Callable
-
-    def __repr__(self):
-        return f"Condition: {self.condition}, Transformer: {self.transformer}"
-
-    def __str__(self) -> str:
-        return self.__repr__()
-
-
 class SequencePattern(Pattern):
     def __init__(
         self,
         *sequence,
         length: Optional[int | Pattern] = None,
-        hardness: Optional[int] = 1,
     ):
         """
         A base class for sequence patterns.
@@ -37,7 +24,6 @@ class SequencePattern(Pattern):
         self._length = length
         self.sequence = sequence
         self._stack = []
-        self._hardness = hardness
 
     def mul(self, mult: int | float) -> Self:
         self._stack.append(
@@ -480,39 +466,56 @@ class SequencePattern(Pattern):
             return pattern(iterator)
         return pattern
 
-    def __call__(self, iterator):
-        """Resolving the stack and returning the good index in the final sequence"""
-        solved_pattern = list(self.sequence)
+    def _resolve_pattern(self, pattern, iterator):
+        if isinstance(pattern, Pattern):
+            return pattern(iterator)
+        return pattern
 
-        # No transformations, we just proceed to return the sequence as is
-        if len(self._stack) == 0:
-            index = (iterator // self._hardness) % len(solved_pattern)
-            return self._resolve_pattern(self.sequence[index], iterator)
+    def _resolve_sequence(self, sequence: List | tuple, iterator: int) -> Any:
+        index = iterator % len(sequence)
+        item = sequence[index]
+
+        if isinstance(item, SequencePattern):
+            return item(iterator // len(sequence))
+        elif isinstance(item, (list, tuple)):
+            # Return the tuple as a chord (list of the tuple) directly
+            if isinstance(item, tuple):
+                return list(item)
+            return self._resolve_sequence(item, iterator // len(sequence))
+        else:
+            return item
+
+    # def _resolve_sequence(self, sequence: List | tuple, iterator: int) -> Any:
+    #     index = iterator % len(sequence)
+    #     item = sequence[index]
+    #     if isinstance(item, SequencePattern):
+    #         return item(iterator // len(sequence))
+    #     elif isinstance(item, (list, tuple)):
+    #         return self._resolve_sequence(item, iterator // len(sequence))
+    #     else:
+    #         return item
+
+    def __call__(self, iterator):
+        solved_pattern = list(self.sequence)
+        no_transformations = len(self._stack) == 0
+
+        if no_transformations:
+            return self._resolve_pattern(self._resolve_sequence(solved_pattern, iterator), iterator)
 
         for pattern_transformation in self._stack:
-
-            # Each pattern transformation is a condition and a transformer
-            # When the condition is true, we apply the transformation to the
-            # pattern. We re-assign the sequence after each transformation
-            # until the stack is depleted.
-
             if pattern_transformation.condition():
                 solved_pattern = pattern_transformation.transformer(solved_pattern)
 
-        index = (iterator // self._hardness) % len(solved_pattern)
-        return solved_pattern[index]
+        return self._resolve_pattern(self._resolve_sequence(solved_pattern, iterator), iterator)
 
 
 class Pseq(SequencePattern):
-    def __init__(
-        self, *values, length: Optional[int] = None, hardness: Optional[int] = 1, **kwargs
-    ):
+    def __init__(self, *values, length: Optional[int] = None, **kwargs):
         Pattern.__init__(self)  # Initialize the base Pattern class
         SequencePattern.__init__(
             self,
             *values,
             length=length,
-            hardness=hardness,
             **kwargs,
         )
 
@@ -529,34 +532,64 @@ class Pnote(SequencePattern):
         *values,
         length: Optional[int] = None,
         root: Optional[int] = None,
-        scale: Optional[str] = None,
-        hardness: Optional[int] = 1,
+        scale=None,  # I don't know how to type it
         **kwargs,
     ):
-        super().__init__(*values, length=length, hardness=hardness, **kwargs)
-        self._root = root
+        Pattern.__init__(self)
+        SequencePattern.__init__(self, *values, length=length, **kwargs)
         self._raw_scale = scale
+        self._root = root
 
     def __call__(self, iterator):
         self._local_root = self._root if self._root is not None else global_config.root
         self._scale = self._raw_scale if self._raw_scale is not None else global_config.scale
-        note = super().__call__(iterator)
-        root = self._local_root
-        note_value = self._resolve_pattern(note, iterator) if isinstance(note, Pattern) else note
-
-        if isinstance(note_value, int):
-            return self._calculate_note(note_value, self._scale, root)
-        elif isinstance(note_value, list):
-            return [
-                self._calculate_note(self._resolve_pattern(n, iterator), self._scale, root)
-                for n in note_value
-            ]
+        value = SequencePattern.__call__(self, iterator)
+        print(f"Note value: {value}")
+        return self._calculate_note(value, self._scale, self._local_root)
 
     @staticmethod
     def _calculate_note(note, scale, root):
         octave_shift = note // len(scale)
         scale_position = note % len(scale)
         return root + scale[scale_position] + (octave_shift * 12)
+
+    def __len__(self) -> int:
+        return len(self.sequence)
+
+
+# class Pnote(SequencePattern):
+#     def __init__(
+#         self,
+#         *values,
+#         length: Optional[int] = None,
+#         root: Optional[int] = None,
+#         scale: Optional[str] = None,
+#         **kwargs,
+#     ):
+#         super().__init__(*values, length=length)
+#         self._root = root
+#         self._raw_scale = scale
+
+#     def __call__(self, iterator):
+#         self._local_root = self._root if self._root is not None else global_config.root
+#         self._scale = self._raw_scale if self._raw_scale is not None else global_config.scale
+#         note = super().__call__(iterator)
+#         root = self._local_root
+#         note_value = self._resolve_pattern(note, iterator) if isinstance(note, Pattern) else note
+
+#         if isinstance(note_value, int):
+#             return self._calculate_note(note_value, self._scale, root)
+#         elif isinstance(note_value, list):
+#             return [
+#                 self._calculate_note(self._resolve_pattern(n, iterator), self._scale, root)
+#                 for n in note_value
+#             ]
+
+#     @staticmethod
+#     def _calculate_note(note, scale, root):
+#         octave_shift = note // len(scale)
+#         scale_position = note % len(scale)
+#         return root + scale[scale_position] + (octave_shift * 12)
 
 
 class ConditionalApplicationPattern(Pattern):

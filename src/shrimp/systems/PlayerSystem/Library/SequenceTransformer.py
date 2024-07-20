@@ -1,5 +1,20 @@
-from typing import List, Any
+from dataclasses import dataclass
+from typing import List, Any, Callable
 import random
+
+
+@dataclass
+class SequenceTransformation:
+    """Transformations to apply to a sequence in a SequencePattern."""
+
+    condition: Callable
+    transformer: Callable
+
+    def __repr__(self):
+        return f"Condition: {self.condition}, Transformer: {self.transformer}"
+
+    def __str__(self) -> str:
+        return self.__repr__()
 
 
 def replace(old_seq: List[Any] | Any, new_seq: List[Any] | Any) -> List[Any]:
