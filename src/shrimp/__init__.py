@@ -153,7 +153,7 @@ if globals().get("midi", None) is not None:
     @alias_param("velocity", "vel")
     @alias_param("period", "p")
     def note(*args, **kwargs):
-        return Player._play_factory(midi.note, *args, **kwargs)
+        return Player._play_factory(midi.note, *args, nudge=-0.15, **kwargs)
 
     @alias_param("duration", "dur")
     @alias_param("channel", "chan")

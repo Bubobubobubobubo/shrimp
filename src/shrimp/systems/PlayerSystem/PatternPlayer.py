@@ -247,9 +247,12 @@ class Player(Subscriber):
                 logging.info(f"============= EVAL ===============")
             if reset_iterator:
                 self._iterator, self._silence_count = -1, 0
-            current_pattern_iteration = self.current_pattern.iterations if self._patterns else 0
-            self._patterns = [patterns] if isinstance(patterns, Sender) else patterns
-            self.current_pattern.iterations = current_pattern_iteration
+                self._patterns = [patterns] if isinstance(patterns, Sender) else patterns
+                self.current_pattern.iterations = 0
+            else:
+                current_pattern_iteration = self.current_pattern.iterations if self._patterns else 0
+                self._patterns = [patterns] if isinstance(patterns, Sender) else patterns
+                self.current_pattern.iterations = current_pattern_iteration
 
         if self._name in self._clock._events:
             if quant:
