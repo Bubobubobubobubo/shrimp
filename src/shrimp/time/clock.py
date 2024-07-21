@@ -21,6 +21,7 @@ class PriorityEvent:
     name: str
     next_time: int | float = field(compare=True)
     start_time: int | float = field(compare=False)
+    nudge: int | float = field(compare=False)
     item: Any = field(compare=False)
     has_played: bool = False
     passthrough: bool = False
@@ -63,6 +64,11 @@ class Clock(Subscriber):
     def __repr__(self) -> str:
         state = "PLAY" if self._playing else "STOP"
         return f"Clock {state}: {self.tempo} BPM, {self.bar} bars, {self.beat} beats, {self.phase} phase."
+
+    def _log(self, level: str = "info", message: str = "") -> None:
+        """Helper function to log messages within this class"""
+        levels = {"debug": 10, "info": 20, "warning": 30, "error": 40, "critical": 50}
+        logging.log(levels[level], f"(Clock: {round(self.now, 3)}) {message}")
 
     def sync(self, value: bool = True):
         """Enable or disable the sync of the clock"""
@@ -202,7 +208,7 @@ class Clock(Subscriber):
         """Play the clock"""
         if self._playing:
             return
-        logging.warning(f"(Clock) Clock has started at: {self._phase}")
+        self._log("warning", f"Clock has started at: {self._phase}")
         self._reset_children_times()
         session = self._link.captureSessionState()
         session.setIsPlaying(True, self._link.clock().micros())
@@ -216,7 +222,7 @@ class Clock(Subscriber):
         if not self._playing:
             return
         else:
-            logging.warning(f"(Clock) Clock has paused at: {self._phase}")
+            self._log("warning", f"paused at: {self._phase}")
             self._playing = False
             if self.env:
                 self.env.dispatch(self, "pause", {})
@@ -272,11 +278,13 @@ class Clock(Subscriber):
         if self._first_loop:
             self._playing = isPlaying
             if isPlaying:
-                logging.warning("(Clock) Initial state: Playing")
+                pass
             else:
-                logging.warning("(Clock) Initial state: Paused")
                 if not math.isclose(self._phase, 0, abs_tol=0.02):
-                    logging.warning(f"(Clock) Clock phase: {self._phase}")
+                    # NOTE: this will loop until the phase is 0
+                    # It can take a while depending on the grain
+                    # and runtime conditions!
+                    # logging.warning(f"(Clock) Clock phase: {self._phase}")
                     return False
                 else:
                     self.play()
@@ -286,7 +294,7 @@ class Clock(Subscriber):
         # Other times, looping around!
         else:
             if isPlaying and not self._playing:
-                logging.warning("(Clock) External Play Request")
+                self._log("warning", "Play Requested by Peer")
                 self.add(
                     name="restart_playback",
                     func=lambda: self.play(),
@@ -296,7 +304,7 @@ class Clock(Subscriber):
                     passthrough=True,
                 )
             elif not isPlaying and self._playing:
-                logging.warning("(Clock) External Pause Request")
+                self._log("warning", "Pause Requested by Peer")
                 self.pause()
             return True
 
@@ -338,7 +346,8 @@ class Clock(Subscriber):
         """
         possible_callables = sorted(self._events.values(), key=lambda event: event.next_time)
         for callable in possible_callables:
-            if callable.next_time <= self._beat and not callable.has_played:
+            adjusted_time = callable.next_time + callable.nudge
+            if adjusted_time <= self._beat and not callable.has_played:
                 if self._playing or callable.passthrough:
                     callable.has_played = True
                     try:
@@ -375,6 +384,7 @@ class Clock(Subscriber):
         name: Optional[str] = None,
         func: Callable = lambda: None,
         time: Optional[int | float] = 0,
+        nudge: Optional[int | float] = 0,
         quant: Optional[int | float] = None,
         time_reference: Optional[int | float] = 0,
         once: bool = False,
@@ -404,6 +414,7 @@ class Clock(Subscriber):
             name=name,
             time=time,
             time_reference=time_reference,
+            nudge=nudge,
             func=func,
             args=args,
             kwargs=kwargs,
@@ -424,13 +435,14 @@ class Clock(Subscriber):
         name: str,
         time: Optional[int | float],
         time_reference: Optional[int | float],
+        nudge: Optional[int | float],
         func: Callable,
         args: tuple,
         kwargs: dict,
         once: bool,
         passthrough: bool,
     ) -> PriorityEvent:
-        logging.info(f"(Clock) {name} [UPDATE]")
+        self._log("info", f"{name} [UPDATE]")
         children = self._events[name]
 
         if time_reference is not None:
@@ -442,6 +454,7 @@ class Clock(Subscriber):
         children.has_played = False
         children.passthrough = passthrough
         children.once = once
+        children.nudge = nudge
         return children
 
     def _add_to_scheduler(
@@ -450,13 +463,14 @@ class Clock(Subscriber):
         name: Optional[str],
         time: Optional[int | float],
         time_reference: Optional[int | float],
+        nudge: Optional[int | float],
         args: tuple,
         kwargs: dict,
         once: bool,
         passthrough: bool,
     ) -> PriorityEvent:
         if not name.startswith(("note_on_", "note_off_")):
-            logging.info(f"(Clock) {name} [ADDED]")
+            self._log("info", f" {name} [ADDED]")
 
         if time_reference is not None:
             time = time_reference + time
@@ -465,6 +479,7 @@ class Clock(Subscriber):
             name=name,
             start_time=self.now,
             next_time=time,
+            nudge=nudge,
             once=once,
             passthrough=passthrough,
             has_played=False,

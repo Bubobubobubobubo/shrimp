@@ -58,6 +58,72 @@ class Pattern(ABC):
         else:
             raise ValueError(f"Unsupported value type for pattern operations: {type(value)}")
 
+    def print_table(self, num_iterations=16, padding=1):
+        """
+        Prints a horizontal table of the SequencePattern with light ASCII boxes.
+        Includes "Index" and "Value" labels at the beginning of each line.
+
+        Args:
+            num_iterations (int): The number of iterations to print. Default is 16.
+            padding (int): Number of spaces to add on each side of the cell content. Default is 1.
+
+        Returns:
+            None
+        """
+        # Generate the data
+        table_data = [(i, self(i)) for i in range(num_iterations)]
+
+        # Find the maximum width for each cell
+        cell_width = max(max(len(str(i)), len(str(v))) for i, v in table_data) + (
+            padding * 2
+        )  # Add padding to both sides
+
+        # Set the label width
+        label_width = max(len("Index"), len("Value")) + (padding * 2)
+
+        # Create the box drawing characters
+        top_border = (
+            "┌"
+            + "─" * label_width
+            + "┬"
+            + ("─" * cell_width + "┬") * (num_iterations - 1)
+            + "─" * cell_width
+            + "┐"
+        )
+        middle_border = (
+            "├"
+            + "─" * label_width
+            + "┼"
+            + ("─" * cell_width + "┼") * (num_iterations - 1)
+            + "─" * cell_width
+            + "┤"
+        )
+        bottom_border = (
+            "└"
+            + "─" * label_width
+            + "┴"
+            + ("─" * cell_width + "┴") * (num_iterations - 1)
+            + "─" * cell_width
+            + "┘"
+        )
+
+        # Create the format string for each cell
+        label_format = f"│{{:^{label_width}}}"
+        cell_format = f"│{{:^{cell_width}}}"
+
+        # Print the table
+        print(top_border)
+        print(
+            label_format.format("Index")
+            + "".join(cell_format.format(str(i).center(cell_width - 2)) for i, _ in table_data)
+        )
+        print(middle_border)
+        print(
+            label_format.format("Value")
+            + "".join(cell_format.format(str(v).center(cell_width - 2)) for _, v in table_data)
+        )
+        print(bottom_border)
+
     def int(self) -> "IntegerPattern":
         """
         Returns a new pattern that always outputs integers.

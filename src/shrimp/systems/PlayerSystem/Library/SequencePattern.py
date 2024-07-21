@@ -4,6 +4,7 @@ import random
 from ..GlobalConfig import global_config
 from ..Scales import SCALES
 from dataclasses import dataclass
+import logging
 from .SequenceTransformer import *
 
 
@@ -437,6 +438,7 @@ class SequencePattern(Pattern):
 
     def repeat(self, n) -> Self:
         """
+
         Repeats the values in the sequence pattern.
 
         Args:
@@ -466,11 +468,6 @@ class SequencePattern(Pattern):
             return pattern(iterator)
         return pattern
 
-    def _resolve_pattern(self, pattern, iterator):
-        if isinstance(pattern, Pattern):
-            return pattern(iterator)
-        return pattern
-
     def _resolve_sequence(self, sequence: List | tuple, iterator: int) -> Any:
         index = iterator % len(sequence)
         item = sequence[index]
@@ -484,16 +481,6 @@ class SequencePattern(Pattern):
             return self._resolve_sequence(item, iterator // len(sequence))
         else:
             return item
-
-    # def _resolve_sequence(self, sequence: List | tuple, iterator: int) -> Any:
-    #     index = iterator % len(sequence)
-    #     item = sequence[index]
-    #     if isinstance(item, SequencePattern):
-    #         return item(iterator // len(sequence))
-    #     elif isinstance(item, (list, tuple)):
-    #         return self._resolve_sequence(item, iterator // len(sequence))
-    #     else:
-    #         return item
 
     def __call__(self, iterator):
         solved_pattern = list(self.sequence)
@@ -544,8 +531,11 @@ class Pnote(SequencePattern):
         self._local_root = self._root if self._root is not None else global_config.root
         self._scale = self._raw_scale if self._raw_scale is not None else global_config.scale
         value = SequencePattern.__call__(self, iterator)
-        print(f"Note value: {value}")
-        return self._calculate_note(value, self._scale, self._local_root)
+        return (
+            self._calculate_note(value, self._scale, self._local_root)
+            if isinstance(value, int | float)
+            else [self._calculate_note(n, self._scale, self._local_root) for n in value]
+        )
 
     @staticmethod
     def _calculate_note(note, scale, root):
@@ -555,50 +545,6 @@ class Pnote(SequencePattern):
 
     def __len__(self) -> int:
         return len(self.sequence)
-
-
-# class Pnote(SequencePattern):
-#     def __init__(
-#         self,
-#         *values,
-#         length: Optional[int] = None,
-#         root: Optional[int] = None,
-#         scale: Optional[str] = None,
-#         **kwargs,
-#     ):
-#         super().__init__(*values, length=length)
-#         self._root = root
-#         self._raw_scale = scale
-
-#     def __call__(self, iterator):
-#         self._local_root = self._root if self._root is not None else global_config.root
-#         self._scale = self._raw_scale if self._raw_scale is not None else global_config.scale
-#         note = super().__call__(iterator)
-#         root = self._local_root
-#         note_value = self._resolve_pattern(note, iterator) if isinstance(note, Pattern) else note
-
-#         if isinstance(note_value, int):
-#             return self._calculate_note(note_value, self._scale, root)
-#         elif isinstance(note_value, list):
-#             return [
-#                 self._calculate_note(self._resolve_pattern(n, iterator), self._scale, root)
-#                 for n in note_value
-#             ]
-
-#     @staticmethod
-#     def _calculate_note(note, scale, root):
-#         octave_shift = note // len(scale)
-#         scale_position = note % len(scale)
-#         return root + scale[scale_position] + (octave_shift * 12)
-
-
-class ConditionalApplicationPattern(Pattern):
-    def __init__(self, wrapped_pattern: Callable):
-        super().__init__()
-        self.condition_pattern = wrapped_pattern
-
-    def __call__(self, iterator: int) -> Any:
-        return self._resolve_pattern(self.condition_pattern(), iterator)
 
 
 Pn = Pnote

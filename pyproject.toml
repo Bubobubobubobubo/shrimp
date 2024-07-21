@@ -26,6 +26,13 @@ dependencies = [
   "osc4py3 >= 1.0.8",
   "python-rtmidi >= 1.5.8",
   'signalflow >= 0.4.8 ; platform_system != "Windows"'
+
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.1",
+  "black>=24.4.2"
 ]
 
 [tool.black]

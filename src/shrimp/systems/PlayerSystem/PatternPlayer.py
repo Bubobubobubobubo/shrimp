@@ -42,6 +42,7 @@ class Player(Subscriber):
         self._iterator = -1
         self._silence_count = 0
         self._patterns = None
+        self._speed = 1
         self._current_pattern_index = 0
         self._next_pattern: Optional[Sender] = None
         self._transition_scheduled = False
@@ -60,8 +61,6 @@ class Player(Subscriber):
 
     def __rshift__(self, *args, **kwargs) -> None:
         self._update_pattern(*args, **kwargs)
-
-    # Properties
 
     @property
     def active(self):
@@ -93,8 +92,6 @@ class Player(Subscriber):
     def name(self):
         """Return the name of the player"""
         return self._name
-
-    # Setters
 
     @active.setter
     def active(self, value: bool):
@@ -234,16 +231,22 @@ class Player(Subscriber):
             self.stop()
             return
 
-        quant = patterns.kwargs.get("quant", False)
-        begin = patterns.kwargs.get("begin", False)
+        if isinstance(patterns, list):
+            quant = patterns[0].kwargs.get("quant", False)
+            begin = patterns[0].kwargs.get("begin", False)
+        else:
+            quant = patterns.kwargs.get("quant", False)
+            begin = patterns.kwargs.get("begin", False)
 
         is_an_update = self._patterns is not None
 
-        def _callback():
+        def _callback(reset_iterator: bool = False):
             if quant:
                 logging.info(f"============= QUANT EVAL ===============")
             else:
                 logging.info(f"============= EVAL ===============")
+            if reset_iterator:
+                self._iterator, self._silence_count = -1, 0
             current_pattern_iteration = self.current_pattern.iterations if self._patterns else 0
             self._patterns = [patterns] if isinstance(patterns, Sender) else patterns
             self.current_pattern.iterations = current_pattern_iteration
@@ -251,7 +254,7 @@ class Player(Subscriber):
         if self._name in self._clock._events:
             if quant:
                 self._clock._events[self._name].next_time = int(self._clock.now) + quant
-                _callback()
+                _callback(reset_iterator=True)
             else:
                 _callback()
         else:
@@ -298,9 +301,10 @@ class Player(Subscriber):
         """
         args = self._args_resolver(pattern.args)
         kwargs = self._kwargs_resolver(pattern.kwargs)
+        self._speed = kwargs.get("speed", 1)
         end = kwargs.get("end", False)
         if end:
-            if self._clock.now > end:
+            if self._clock.now >= end:
                 logging.info(f"End time reached for {self._name}.")
                 self.stop()
                 return
@@ -354,6 +358,7 @@ class Player(Subscriber):
         # These are kwargs link to time that we should handle and process manually!
         kwargs = {
             "period": lambda: self.current_pattern.kwargs.get("period", 1),
+            "nudge": self.current_pattern.kwargs.get("nudge", 0),
             "swing": self.current_pattern.kwargs.get("swing", 0),
         }
 
@@ -361,7 +366,7 @@ class Player(Subscriber):
         schedule_silence = self._process_silence(kwargs)
         self._handle_swing(schedule_silence, kwargs)
         self.current_pattern.limit = self.current_pattern.kwargs.get("limit", None)
-        kwargs["time"] = kwargs["period"]
+        kwargs["time"] = kwargs["period"] * self._speed
 
         self._iterator, self.current_pattern.iterations = (
             self._iterator + 1,
