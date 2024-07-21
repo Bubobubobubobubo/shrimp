@@ -1,4 +1,0 @@
----
-title: Plin
-tag: pattern
----

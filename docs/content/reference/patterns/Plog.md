@@ -1,4 +1,0 @@
----
-title: Plog
-tag: pattern
----

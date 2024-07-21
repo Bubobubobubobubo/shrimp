@@ -1,4 +1,0 @@
----
-title: Pexpdur
-tag: pattern
----

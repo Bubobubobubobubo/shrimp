@@ -1,4 +1,0 @@
----
-title: Pgeom
-tag: pattern
----

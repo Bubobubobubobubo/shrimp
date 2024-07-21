@@ -1,4 +1,0 @@
----
-title: Pseq
-tag: pattern
----
