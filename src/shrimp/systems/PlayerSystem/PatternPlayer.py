@@ -235,6 +235,7 @@ class Player(Subscriber):
             return
 
         quant = patterns.kwargs.get("quant", False)
+        begin = patterns.kwargs.get("begin", False)
 
         is_an_update = self._patterns is not None
 
@@ -256,10 +257,12 @@ class Player(Subscriber):
         else:
             logging.info(f"(Player) {self._name} starting at {round(self._clock.beat, 2)}.")
             self._patterns = [patterns] if isinstance(patterns, Sender) else patterns
+            time_reference = int(self._clock.next_bar) if begin is False else begin
+            logging.warning(f"Time Reference: {time_reference}")
             self._clock.add(
                 name=self._name,
                 func=lambda: self._push(first_time=True),
-                time_reference=int(self._clock.next_bar),
+                time_reference=time_reference,
                 time=0,
                 once=False,
                 passthrough=False,
@@ -295,6 +298,12 @@ class Player(Subscriber):
         """
         args = self._args_resolver(pattern.args)
         kwargs = self._kwargs_resolver(pattern.kwargs)
+        end = kwargs.get("end", False)
+        if end:
+            if self._clock.now > end:
+                logging.info(f"End time reached for {self._name}.")
+                self.stop()
+                return
 
         # Until condition: stop the pattern after n iterations
         if pattern.kwargs.get("until", None) is not None:
