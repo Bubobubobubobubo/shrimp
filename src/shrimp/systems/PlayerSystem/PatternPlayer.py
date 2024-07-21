@@ -13,7 +13,6 @@ from inspect import isgeneratorfunction, isgenerator
 from collections.abc import Iterable
 import logging
 
-
 P = ParamSpec("P")
 T = TypeVar("T")
 

@@ -468,17 +468,39 @@ class SequencePattern(Pattern):
             return pattern(iterator)
         return pattern
 
+    # Keeping it around for now..
+
+    # def _resolve_sequence(self, sequence: List | tuple, iterator: int) -> Any:
+    #     index = iterator % len(sequence)
+    #     item = sequence[index]
+    #     if isinstance(item, SequencePattern):
+    #         return item(iterator // len(sequence))
+    #     elif isinstance(item, (list, tuple)):
+    #         # Return the tuple as a chord (list of the tuple) directly
+    #         if isinstance(item, tuple):
+    #             return list(item)
+    #         return self._resolve_sequence(item, iterator // len(sequence))
+    #     else:
+    #         return item
+
     def _resolve_sequence(self, sequence: List | tuple, iterator: int) -> Any:
         index = iterator % len(sequence)
         item = sequence[index]
 
         if isinstance(item, SequencePattern):
             return item(iterator // len(sequence))
+        elif isinstance(item, tuple):
+            return tuple(self._resolve_nested_item(x, iterator // len(sequence)) for x in item)
+        elif isinstance(item, list):
+            return [self._resolve_nested_item(x, iterator // len(sequence)) for x in item]
+        else:
+            return item
+
+    def _resolve_nested_item(self, item: Any, iterator: int) -> Any:
+        if isinstance(item, SequencePattern):
+            return item(iterator)
         elif isinstance(item, (list, tuple)):
-            # Return the tuple as a chord (list of the tuple) directly
-            if isinstance(item, tuple):
-                return list(item)
-            return self._resolve_sequence(item, iterator // len(sequence))
+            return self._resolve_sequence(item, iterator)
         else:
             return item
 
