@@ -155,7 +155,6 @@ if globals().get("midi", None) is not None:
     def note(*args, **kwargs):
         return Player._play_factory(midi.note, *args, nudge=-0.15, **kwargs)
 
-    @alias_param("duration", "dur")
     @alias_param("channel", "chan")
     @alias_param("control", "ctrl")
     @alias_param("value", "val")
@@ -163,19 +162,16 @@ if globals().get("midi", None) is not None:
     def cc(*args, **kwargs):
         return Player._play_factory(midi.control_change, *args, **kwargs)
 
-    @alias_param("duration", "dur")
     @alias_param("channel", "chan")
     @alias_param("program", "prg")
     @alias_param("period", "p")
     def pc(*args, **kwargs):
         return Player._play_factory(midi.program_change, *args, **kwargs)
 
-    @alias_param("duration", "dur")
     @alias_param("period", "p")
     def bd(*args, **kwargs):
         return Player._play_factory(midi.pitch_bend, *args, **kwargs)
 
-    @alias_param("duration", "dur")
     @alias_param("period", "p")
     def sy(*args, **kwargs):
         return Player._play_factory(midi.sysex, *args, **kwargs)

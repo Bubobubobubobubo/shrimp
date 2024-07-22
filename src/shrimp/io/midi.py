@@ -249,7 +249,7 @@ class MIDIOut(Subscriber):
             value (int): The control value.
             channel (int): The MIDI channel.
         """
-        cc = mido.Message("control_change", control=control, value=value, channel=channel)
+        cc = mido.Message("control_change", control=control, value=value, channel=channel - 1)
         self._midi_out.send(cc)
 
     def program_change(self, program: int = 0, channel: int = 1, **kwargs) -> None:
@@ -259,7 +259,7 @@ class MIDIOut(Subscriber):
             program (int): The program number.
             channel (int): The MIDI channel.
         """
-        pc = mido.Message("program_change", program=program, channel=channel)
+        pc = mido.Message("program_change", program=program, channel=channel - 1)
         self._midi_out.send(pc)
 
     def sysex(self, data: list, *kwargs) -> None:
