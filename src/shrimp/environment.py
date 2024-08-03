@@ -1,7 +1,7 @@
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .time.Clock import Clock
+    from .Time.Clock import Clock
 
 
 class Environment:
