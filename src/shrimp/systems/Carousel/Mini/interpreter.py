@@ -13,7 +13,7 @@ from ..Pattern import (
     stack,
     timecat,
 )
-from carousel.Utils import flatten
+from ..Utils import flatten
 
 
 class MiniVisitor(NodeVisitor):
