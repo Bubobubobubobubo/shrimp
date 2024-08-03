@@ -1,17 +1,12 @@
 from .configuration import read_configuration, open_config_folder
 from .utils import info_message, greeter, alias_param
-from .time.Clock import Clock, TimePos
+from .Time.Clock import Clock
 from functools import partial
-from .io.midi import MIDIOut, MIDIIn, list_midi_ports
-from .io.osc import OSC
+from .IO.midi import MIDIOut, MIDIIn, list_midi_ports
+from .IO.osc import OSC
 from rich import print
 from .environment import get_global_environment
-
-# from .systems.PlayerSystem.Pattern import *
-# from .systems.PlayerSystem.Library import *
-# from .systems.PlayerSystem.PatternPlayer import Player
-# from .systems.PlayerSystem.GlobalConfig import global_config as G
-import functools
+from .Systems.Carousel import *
 import logging
 import os
 
@@ -207,5 +202,3 @@ clock._start()
 # R = Rest
 
 # == NEW PATTERN SYSTEM, LET'S TRY IT ======================================================
-
-from .systems.Carousel import *

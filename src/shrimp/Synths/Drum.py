@@ -8,7 +8,7 @@ from signalflow import (
     StereoPanner,
     SVFilter,
 )
-from ..systems.PlayerSystem import PatternPlayer
+from ..Systems.PlayerSystem import PatternPlayer
 from .Utils import graph
 from ..utils import alias_param
 

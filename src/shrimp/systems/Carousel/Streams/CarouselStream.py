@@ -1,9 +1,9 @@
-from shrimp.io.midi import MIDIOut
+from shrimp.IO.midi import MIDIOut
 from ..Base.BaseStream import BaseCarouselStream
 from typing import Dict, Any, Literal, Callable, Self, Optional
 from fractions import Fraction
 from ..Pattern import Pattern
-from ....io.osc import OSC
+from ....IO.osc import OSC
 import logging
 import datetime
 

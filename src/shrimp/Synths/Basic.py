@@ -1,6 +1,6 @@
 from itertools import cycle, islice
 from random import random
-from ..systems.PlayerSystem import PatternPlayer
+from ..Systems.PlayerSystem import PatternPlayer
 from ..utils import alias_param
 from signalflow import (
     SineOscillator,

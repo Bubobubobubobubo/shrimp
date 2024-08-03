@@ -3,10 +3,10 @@ from osc4py3.oscbuildparse import OSCtimetag
 from osc4py3.as_eventloop import *
 from osc4py3.oscmethod import *
 from ..environment import Subscriber
-from ..time.Clock import Clock
+from ..Time.Clock import Clock
 from ..utils import flatten, kwargs_to_flat_list
 from typing import Optional, Any, Callable, Optional
-from ..systems.PlayerSystem.Rest import Rest
+from ..Systems.PlayerSystem.Rest import Rest
 import threading
 import logging
 import time

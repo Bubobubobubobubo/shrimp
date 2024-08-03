@@ -3,8 +3,7 @@ from .Control import *
 from .Base.BaseStream import *
 from .Streams.CarouselStream import *
 from ...environment import get_global_environment
-from ...io.osc import OSC
-import logging
+from ...IO.osc import OSC
 from typing import Optional
 
 env = get_global_environment()

@@ -9,6 +9,22 @@ import sys
 APPNAME = "Shrimp"
 APPAUTHOR = "Raphaël Forment"
 USER_DIRECTORY = appdirs.user_data_dir(APPNAME, APPAUTHOR)
+LOG_FILE = os.path.join(USER_DIRECTORY, "shrimp.log")
+
+
+def _ensure_log_file_exists():
+    """Ensure that the log file exists."""
+    try:
+        if not os.path.exists(USER_DIRECTORY):
+            os.makedirs(USER_DIRECTORY)
+        if not os.path.exists(LOG_FILE):
+            with open(LOG_FILE, "a") as f:
+                pass
+    except OSError as e:
+        print(f"An error occurred while ensuring the log file exists: {e}")
+
+
+_ensure_log_file_exists()
 
 logging.basicConfig(
     level=logging.DEBUG,

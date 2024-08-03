@@ -1,5 +1,5 @@
 import mido
-from ..time.Clock import Clock
+from ..Time.Clock import Clock
 from ..environment import Subscriber
 import threading
 from time import sleep

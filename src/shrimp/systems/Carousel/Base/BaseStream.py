@@ -2,8 +2,8 @@ from abc import ABC
 from ..TimeSpan import TimeSpan
 from ..Pattern import Pattern
 from typing import Dict, Any, Optional
-from ....io.osc import OSC
-from ....time.Clock import Clock
+from ....IO.osc import OSC
+from ....Time.Clock import Clock
 from ....environment import Subscriber
 import time
 

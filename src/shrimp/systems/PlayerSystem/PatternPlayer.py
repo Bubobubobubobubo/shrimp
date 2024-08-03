@@ -1,7 +1,7 @@
 from ...environment import Subscriber
 from dataclasses import dataclass
 from typing import TypeVar, Callable, ParamSpec, Optional, Dict, Self, Any, List
-from ...time.Clock import Clock, TimePos
+from ...Time.Clock import Clock, TimePos
 from types import LambdaType, GeneratorType
 from inspect import isgeneratorfunction
 from .Pattern import Pattern
