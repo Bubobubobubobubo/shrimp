@@ -3,6 +3,7 @@ from ...environment import get_global_environment
 from .Scales import SCALES
 from .GlobalConfig import global_config
 from abc import ABC, abstractmethod
+import itertools
 
 Number: int | float
 
@@ -53,6 +54,10 @@ class Pattern(ABC):
     def _convert(self, value: Any) -> "Pattern":
         if isinstance(value, (int, float)):
             return ConstantPattern(value)
+        if isinstance(value, (tuple)):
+            resolution = [self._resolve_pattern(v, 0) for v in value]
+            return tuple(resolution)
+            # return (self._convert(v) for v in value)
         elif isinstance(value, Pattern):
             return value
         else:
@@ -209,8 +214,18 @@ class ArithmeticPattern(Pattern):
     def operation(self, value1: Any, value2: Any) -> Any:
         pass
 
+    # def __call__(self, iterator: int) -> Any:
+    #     return self.operation(self.pattern1(iterator), self.pattern2(iterator))
+
     def __call__(self, iterator: int) -> Any:
-        return self.operation(self.pattern1(iterator), self.pattern2(iterator))
+        pattern1_result = self.pattern1(iterator) if callable(self.pattern1) else self.pattern1
+        pattern2_result = self.pattern2(iterator) if callable(self.pattern2) else self.pattern2
+        operation_result = (
+            self.operation(pattern1_result, pattern2_result)
+            if callable(self.operation)
+            else self.operation
+        )
+        return operation_result
 
     def __len__(self) -> int:
         return len(self.pattern1)
@@ -225,9 +240,23 @@ class AddPattern(ArithmeticPattern):
         elif isinstance(value2, (list, tuple)) and isinstance(value1, (int, float)):
             return [value1 + v for v in value2]
         elif isinstance(value1, (list, tuple)) and isinstance(value2, (list, tuple)):
+            if len(value1) > len(value2):
+                value2 = list(itertools.islice(itertools.cycle(value2), len(value1)))
+            else:
+                value1 = list(itertools.islice(itertools.cycle(value1), len(value2)))
             return [v1 + v2 for v1, v2 in zip(value1, value2)]
         else:
             return value1 + value2
+
+    # def operation(self, value1: Any, value2: Any) -> Any:
+    #     if isinstance(value1, (list, tuple)) and isinstance(value2, (int, float)):
+    #         return [v + value2 for v in value1]
+    #     elif isinstance(value2, (list, tuple)) and isinstance(value1, (int, float)):
+    #         return [value1 + v for v in value2]
+    #     elif isinstance(value1, (list, tuple)) and isinstance(value2, (list, tuple)):
+    #         return [v1 + v2 for v1, v2 in zip(value1, value2)]
+    #     else:
+    #         return value1 + value2
 
 
 class SubtractPattern(ArithmeticPattern):

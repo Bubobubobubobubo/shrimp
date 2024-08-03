@@ -6,7 +6,7 @@ from ..utils import info_message
 from ..environment import Subscriber, Environment
 from .TimePos import TimePos
 from typing import Any, Callable, Dict, Optional
-from types import LambdaType
+import types
 import threading
 import time as time_module
 import math
@@ -25,6 +25,7 @@ class PriorityEvent:
     item: Any = field(compare=False)
     has_played: bool = False
     passthrough: bool = False
+    persistant: bool = False
     once: bool = False
 
 
@@ -141,6 +142,11 @@ class Clock(Subscriber):
         """Get the tempo of the clock"""
         return self._tempo
 
+    @property
+    def cps(self):
+        """Get the cycles per second of the clock"""
+        return self._tempo / 60 / self._denominator
+
     @tempo.setter
     def tempo(self, value: int | float):
         """Set the tempo of the clock"""
@@ -208,7 +214,7 @@ class Clock(Subscriber):
         """Play the clock"""
         if self._playing:
             return
-        self._log("warning", f"Clock has started at: {self._phase}")
+        # self._log("warning", f"Clock has started at: {self._phase}")
         self._reset_children_times()
         session = self._link.captureSessionState()
         session.setIsPlaying(True, self._link.clock().micros())
@@ -222,7 +228,7 @@ class Clock(Subscriber):
         if not self._playing:
             return
         else:
-            self._log("warning", f"paused at: {self._phase}")
+            # self._log("warning", f"paused at: {self._phase}")
             self._playing = False
             if self.env:
                 self.env.dispatch(self, "pause", {})
@@ -442,7 +448,7 @@ class Clock(Subscriber):
         once: bool,
         passthrough: bool,
     ) -> PriorityEvent:
-        self._log("info", f"{name} [UPDATE]")
+        # self._log("info", f"{name} [UPDATE]")
         children = self._events[name]
 
         if time_reference is not None:
@@ -497,7 +503,8 @@ class Clock(Subscriber):
         """Clear all events from the clock."""
         if self.env:
             self.env.dispatch(self, "all_notes_off", {})
-        self._events = {}
+        # Clear all events except those who are persistant
+        self._events = {k: v for k, v in self._events.items() if v.persistant}
 
     def remove(self, *args) -> None:
         """Remove an event from the clock."""

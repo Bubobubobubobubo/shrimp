@@ -554,15 +554,18 @@ class Pnote(SequencePattern):
         self._scale = self._raw_scale if self._raw_scale is not None else global_config.scale
         value = SequencePattern.__call__(self, iterator)
         return (
-            self._calculate_note(value, self._scale, self._local_root)
+            self._calculate_note(value, self._scale, self._local_root, iterator)
             if isinstance(value, int | float)
-            else [self._calculate_note(n, self._scale, self._local_root) for n in value]
+            else [self._calculate_note(n, self._scale, self._local_root, iterator) for n in value]
         )
 
     @staticmethod
-    def _calculate_note(note, scale, root):
+    def _calculate_note(note, scale, root, iterator: int):
         octave_shift = note // len(scale)
         scale_position = note % len(scale)
+        scale_position = (
+            scale_position(iterator) if isinstance(scale_position, Pattern) else scale_position
+        )
         return root + scale[scale_position] + (octave_shift * 12)
 
     def __len__(self) -> int:

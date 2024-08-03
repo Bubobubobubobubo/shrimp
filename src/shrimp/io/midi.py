@@ -5,6 +5,7 @@ import threading
 from time import sleep
 from typing import Dict, Optional
 from ..utils import linear_scaling
+import logging
 
 
 class CCStorage:
@@ -194,13 +195,13 @@ class MIDIOut(Subscriber):
         """
         if isinstance(note, list):
             for n in note:
-                self.note(note=int(n), velocity=velocity, channel=channel, length=length)
+                self.note(note=int(n), velocity=int(velocity), channel=int(channel), length=length)
             return
 
         note = (
             _clamp_midi(int(note)) if isinstance(note, int) else [_clamp_midi(int(n)) for n in note]
         )
-        velocity = int(velocity * 127)
+        velocity = velocity
         length = length * self.clock.beat_duration
         time = self.clock.now - self.nudge
 
@@ -212,6 +213,7 @@ class MIDIOut(Subscriber):
             name=f"note_on_{note}{channel}{self.port}",
             once=True,
         )
+
         self.clock.add(
             func=lambda: self._note_off(note=int(note), velocity=0, channel=int(channel) - 1),
             name=f"note_off_{note}{channel}{self.port}",
