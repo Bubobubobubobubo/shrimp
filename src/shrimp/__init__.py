@@ -6,7 +6,6 @@ from .IO.midi import MIDIOut, MIDIIn, list_midi_ports
 from .IO.osc import OSC
 from rich import print
 from .environment import get_global_environment
-from .Systems.Carousel import *
 import logging
 import os
 
@@ -23,6 +22,9 @@ if CONFIGURATION["editor"]["greeter"]:
     greeter()
 
 env = get_global_environment()
+if not env:
+    raise Exception("Environment not found")
+
 clock = Clock(
     tempo=CONFIGURATION["clock"]["default_tempo"],
     grain=CONFIGURATION["clock"]["time_grain"],
@@ -202,3 +204,5 @@ clock._start()
 # R = Rest
 
 # == NEW PATTERN SYSTEM, LET'S TRY IT ======================================================
+
+from .Systems.Carousel import *

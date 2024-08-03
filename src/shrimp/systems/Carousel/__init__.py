@@ -7,6 +7,7 @@ from ...IO.osc import OSC
 from typing import Optional
 
 env = get_global_environment()
+
 carousel_osc = OSC(name="carousel", host="127.0.0.1", port=57120, clock=env.clock)
 env.subscribe(carousel_osc)
 
