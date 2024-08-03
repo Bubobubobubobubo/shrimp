@@ -1,12 +1,14 @@
 from osc4py3 import oscbuildparse
+from osc4py3.oscbuildparse import OSCtimetag
 from osc4py3.as_eventloop import *
 from osc4py3.oscmethod import *
 from ..environment import Subscriber
 from ..time.Clock import Clock
 from ..utils import flatten, kwargs_to_flat_list
-from typing import Optional, Any, Callable
+from typing import Optional, Any, Callable, Optional
 from ..systems.PlayerSystem.Rest import Rest
 import threading
+import logging
 import time
 
 
@@ -66,46 +68,35 @@ class OSC(Subscriber):
     def __str__(self):
         return self.__repr__()
 
-    def _send_timed_message(
-        self, address: str, message: list, timestamp: Optional[int | float] = None
-    ) -> None:
-        """Build and send OSC bundles
+    def send(self, address: str, messages: list, timestamp: Optional[float] = None) -> None:
+        """Send one or multiple timestamped OSC messages to the client. The expected format
+           for the timestamp is a Unix timetag (float). Conversion into OSC Timetag is done
+           by this method.
 
         Args:
             address (str): The OSC address.
-            message (list): The OSC message.
-            timestamp (int | float, optional): The timestamp to send the message. Defaults to None.
+            messages (list): A list of messages to send.
+            timestamp (Optional[float]): The Unix timestamp of the message.
         """
-        timestamp = time.time() + self._nudge if timestamp is None else timestamp
-        msg = oscbuildparse.OSCMessage(address, None, message)
-        bun = oscbuildparse.OSCBundle(
-            oscbuildparse.unixtime2timetag(timestamp),
-            [msg],
-        )
-        self._clock.add(
-            func=lambda: osc_send(bun, self.name),
-            time=self._clock.beat,
-            passthrough=True,
-            once=True,
-        )
+        messages = [
+            oscbuildparse.OSCMessage(
+                addrpattern=address, typetags=None, arguments=message  # auto-detect types
+            )
+            for message in messages
+        ]
 
-    def _send(self, address: str, message: list) -> None:
-        """Send an OSC message to the client.
-
-        Args:
-            address (str): The OSC address.
-            message (list): The OSC message.
-        """
-        bundle = self._make_bundle([[address, message]])
-        # TODO: try to quantize the message to the next smallest
-        # time division
-        epsilon = 0.001
-        self._clock.add(
-            func=lambda: osc_send(bundle, self.name),
-            time=self._clock.beat + self._nudge - epsilon,
-            once=True,
-            passthrough=True,
+        bundle = oscbuildparse.OSCBundle(
+            timetag=(
+                oscbuildparse.unixtime2timetag(timestamp)
+                if timestamp
+                else oscbuildparse.OSC_IMMEDIATELY
+            ),
+            elements=messages,
         )
+        try:
+            osc_send(bundle, self.name)
+        except Exception as e:
+            logging.error(f"Error sending OSC messages: {e}")
 
     def dirt(self, **kwargs) -> None:
         """Send a /dirt/play message to the SuperDirt audio engine.
@@ -211,33 +202,6 @@ class OSC(Subscriber):
     def panic(self, _={}) -> None:
         """Send a panic message to the SuperDirt audio engine."""
         self.dirt(sound="superpanic")
-
-    def _make_bundle(self, messages: list) -> oscbuildparse.OSCBundle:
-        """Create an OSC bundle.
-
-        Args:
-            messages (list): A list of OSC messages.
-        """
-        return oscbuildparse.OSCBundle(
-            oscbuildparse.unixtime2timetag(time.time() + self._nudge),
-            [oscbuildparse.OSCMessage(message[0], None, message[1]) for message in messages],
-        )
-
-    def _send_bundle(self, messages: list) -> None:
-        """Send an OSC bundle to the client.
-
-        Args:
-            messages (list): A list of OSC messages.
-
-        """
-        bundle = self._make_bundle(messages)
-        epsilon = 0.001
-        self._clock.add(
-            func=lambda: osc_send(bundle, self.name),
-            time=self._clock.beat + self._nudge - epsilon,
-            once=True,
-            passthrough=True,
-        )
 
     def _generic_store(self, address) -> None:
         """Generic storage function to attach to a given address

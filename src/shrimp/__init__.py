@@ -6,10 +6,11 @@ from .io.midi import MIDIOut, MIDIIn, list_midi_ports
 from .io.osc import OSC
 from rich import print
 from .environment import get_global_environment
-from .systems.PlayerSystem.Pattern import *
-from .systems.PlayerSystem.Library import *
-from .systems.PlayerSystem.PatternPlayer import Player
-from .systems.PlayerSystem.GlobalConfig import global_config as G
+
+# from .systems.PlayerSystem.Pattern import *
+# from .systems.PlayerSystem.Library import *
+# from .systems.PlayerSystem.PatternPlayer import Player
+# from .systems.PlayerSystem.GlobalConfig import global_config as G
 import functools
 import logging
 import os
@@ -33,10 +34,10 @@ clock = Clock(
     delay=int(CONFIGURATION["clock"]["delay"]),
 )
 env.add_clock(clock)
-pattern = Player.initialize_patterns(clock)
-for pattern in pattern.values():
-    # Registering the pattern to the global environment
-    env.subscribe(pattern)
+# pattern = Player.initialize_patterns(clock)
+# for pattern in pattern.values():
+#     # Registering the pattern to the global environment
+#     env.subscribe(pattern)
 
 # Opening MIDI output ports based on user configuration
 for all_output_midi_ports in CONFIGURATION["midi"]["out_ports"]:
@@ -110,98 +111,101 @@ clock._start()
 
 # == TEST AREA FOR THE PATTERN SYSTEM ======================================================
 
+# if globals().get("superdirt", None) is not None:
+#     superdirt = globals()["superdirt"]
 
-if globals().get("superdirt", None) is not None:
-    superdirt = globals()["superdirt"]
+#     @alias_param("sound", "s")
+#     @alias_param("period", "p")
+#     def dirt(*args, **kwargs):
+#         """Example use:
 
-    @alias_param("sound", "s")
-    @alias_param("period", "p")
-    def dirt(*args, **kwargs):
-        """Example use:
+#         >> aa * d(sound="bd", speed=2, amp=4)
 
-        >> aa * d(sound="bd", speed=2, amp=4)
+#         >> aa * None
+#         >> aa.stop()
+#         """
+#         # Manipulate to interpret the first args as "sound"
+#         if not "sound" in kwargs:
+#             kwargs["sound"] = args[0]
 
-        >> aa * None
-        >> aa.stop()
-        """
-        # Manipulate to interpret the first args as "sound"
-        if not "sound" in kwargs:
-            kwargs["sound"] = args[0]
-
-        # Manipulate to replicate how "loopAt" works
-        if "loop" in kwargs:
-            loop = kwargs.pop("loop")
-            kwargs["unit"] = "c"
-            kwargs["speed"] = loop * (clock.tempo / clock._denominator) / 60
-            kwargs["cut"] = 1
-        return Player._play_factory(superdirt.player_dirt, *args, **kwargs)
-
-
-if globals().get("midi", None) is not None:
-    midi = globals()["midi"]
-
-    @alias_param("period", "p")
-    def debug(*args, **kwargs):
-        return Player._play_factory(pattern_printer, *args, **kwargs)
-
-    @alias_param("period", "p")
-    def tick(*args, **kwargs):
-        return Player._play_factory(midi.tick, *args, **kwargs)
-
-    @alias_param("length", "len")
-    @alias_param("channel", "chan")
-    @alias_param("velocity", "vel")
-    @alias_param("period", "p")
-    def note(*args, **kwargs):
-        return Player._play_factory(midi.note, *args, nudge=-0.15, **kwargs)
-
-    @alias_param("channel", "chan")
-    @alias_param("control", "ctrl")
-    @alias_param("value", "val")
-    @alias_param("period", "p")
-    def cc(*args, **kwargs):
-        return Player._play_factory(midi.control_change, *args, **kwargs)
-
-    @alias_param("channel", "chan")
-    @alias_param("program", "prg")
-    @alias_param("period", "p")
-    def pc(*args, **kwargs):
-        return Player._play_factory(midi.program_change, *args, **kwargs)
-
-    @alias_param("period", "p")
-    def bd(*args, **kwargs):
-        return Player._play_factory(midi.pitch_bend, *args, **kwargs)
-
-    @alias_param("period", "p")
-    def sy(*args, **kwargs):
-        return Player._play_factory(midi.sysex, *args, **kwargs)
-
-    if globals().get("kabelsalat_instrument", None) is not None:
-        kabel = globals()["kabelsalat_instrument"]
-
-        @alias_param("period", "p")
-        def kabelsalat(*args, **kwargs):
-            return Player._play_factory(kabel, *args, **kwargs)
+#         # Manipulate to replicate how "loopAt" works
+#         if "loop" in kwargs:
+#             loop = kwargs.pop("loop")
+#             kwargs["unit"] = "c"
+#             kwargs["speed"] = loop * (clock.tempo / clock._denominator) / 60
+#             kwargs["cut"] = 1
+#         return Player._play_factory(superdirt.player_dirt, *args, **kwargs)
 
 
-# Adding all patterns to the global scope
-patterns = Player.initialize_patterns(clock)
-for pattern in patterns.values():
-    env.subscribe(pattern)
-for key, value in patterns.items():
-    globals()[key] = value
+# if globals().get("midi", None) is not None:
+#     midi = globals()["midi"]
+
+#     @alias_param("period", "p")
+#     def debug(*args, **kwargs):
+#         return Player._play_factory(pattern_printer, *args, **kwargs)
+
+#     @alias_param("period", "p")
+#     def tick(*args, **kwargs):
+#         return Player._play_factory(midi.tick, *args, **kwargs)
+
+#     @alias_param("length", "len")
+#     @alias_param("channel", "chan")
+#     @alias_param("velocity", "vel")
+#     @alias_param("period", "p")
+#     def note(*args, **kwargs):
+#         return Player._play_factory(midi.note, *args, nudge=-0.15, **kwargs)
+
+#     @alias_param("channel", "chan")
+#     @alias_param("control", "ctrl")
+#     @alias_param("value", "val")
+#     @alias_param("period", "p")
+#     def cc(*args, **kwargs):
+#         return Player._play_factory(midi.control_change, *args, **kwargs)
+
+#     @alias_param("channel", "chan")
+#     @alias_param("program", "prg")
+#     @alias_param("period", "p")
+#     def pc(*args, **kwargs):
+#         return Player._play_factory(midi.program_change, *args, **kwargs)
+
+#     @alias_param("period", "p")
+#     def bd(*args, **kwargs):
+#         return Player._play_factory(midi.pitch_bend, *args, **kwargs)
+
+#     @alias_param("period", "p")
+#     def sy(*args, **kwargs):
+#         return Player._play_factory(midi.sysex, *args, **kwargs)
+
+#     if globals().get("kabelsalat_instrument", None) is not None:
+#         kabel = globals()["kabelsalat_instrument"]
+
+#         @alias_param("period", "p")
+#         def kabelsalat(*args, **kwargs):
+#             return Player._play_factory(kabel, *args, **kwargs)
 
 
-def silence(*args):
-    if len(args) == 0:
-        env.dispatch("main", "silence", {})
-        for key in patterns.keys():
-            globals()[key].stop()
-        if "graph" in globals():
-            graph.clear()
-    else:
-        for arg in args:
-            arg.stop()
+# # Adding all patterns to the global scope
+# patterns = Player.initialize_patterns(clock)
+# for pattern in patterns.values():
+#     env.subscribe(pattern)
+# for key, value in patterns.items():
+#     globals()[key] = value
 
 
-R = Rest
+# def silence(*args):
+#     if len(args) == 0:
+#         env.dispatch("main", "silence", {})
+#         for key in patterns.keys():
+#             globals()[key].stop()
+#         if "graph" in globals():
+#             graph.clear()
+#     else:
+#         for arg in args:
+#             arg.stop()
+
+
+# R = Rest
+
+# == NEW PATTERN SYSTEM, LET'S TRY IT ======================================================
+
+from .systems.Carousel import *

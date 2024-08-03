@@ -5,18 +5,22 @@ if TYPE_CHECKING:
 
 
 class Environment:
+    """The Environment class is a global object that holds all the components of the system."""
+
     def __init__(self):
         self._subscribers = []
         self._clock: Optional["Clock"] = None
 
     @property
     def clock(self):
+        """Return the global clock of the system"""
         if self._clock is None:
             pass
         else:
             return self._clock
 
     def add_clock(self, clock: "Clock"):
+        """Add a global clock to the environment"""
         if self._clock is not None:
             pass
         else:

@@ -74,28 +74,25 @@ class Pchoose(Pattern):
 
 class Pwchoose(Pattern):
     """
-    A pattern that chooses a value from a set of values with optional weights.
+    A pattern that randomly chooses a value from a given set of values based on weighted probabilities.
 
     Args:
         *values: Variable number of values to choose from.
-        weights (Optional[list[float]]): Optional list of weights corresponding to the values.
-        If not provided, all values are equally weighted.
+        weights: List of weights corresponding to the values.
 
     Returns:
-        The chosen value.
+        The randomly chosen value based on weights.
     """
 
-    def __init__(self, *values, weights: Optional[list[float]] = None):
+    def __init__(self, *values, weights):
         super().__init__()
+        if len(values) != len(weights):
+            raise ValueError("The number of values must match the number of weights.")
         self.values = values
-        if weights is None:
-            self.weights = [1] * len(values)
-        else:
-            self.weights = weights
+        self.weights = weights
 
-    def __call__(self, iterator):
-        resolved_weights = [w(iterator) if isinstance(w, Pattern) else w for w in self.weights]
-        return random.choices(self.values, weights=resolved_weights)[0]
+    def __call__(self, _):
+        return random.choices(self.values, weights=self.weights, k=1)[0]
 
 
 class Phuman(Pattern):
