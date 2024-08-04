@@ -1,3 +1,7 @@
+import sys
+
+sys.dont_write_bytecode = True
+
 from .configuration import read_configuration, open_config_folder
 from .utils import info_message, greeter, alias_param
 from .Time.Clock import Clock
@@ -206,3 +210,6 @@ clock._start()
 # == NEW PATTERN SYSTEM, LET'S TRY IT ======================================================
 
 from .Systems.Carousel import *
+from .Systems.Carousel import vortex_clock_callback
+
+clock._vortex_clock_callback = vortex_clock_callback

@@ -14,16 +14,13 @@ env.subscribe(carousel_osc)
 
 CarouselManager = CarouselPatternManager()
 
+RATE = 1 / 20
+FRAME = RATE * 1e6
 
-def vortex_clock(ticks=0, start=0):
+
+def vortex_clock_callback(start, ticks: int, session: "LinkSession", now: int | float) -> int:  # type: ignore
     """Emulation of the scheduler used by TidalVortex using a recursive function"""
-    if ticks == 0:
-        start = env.clock._link.clock().micros()
-    rate = 1 / 20
-    frame = rate * 1e6
-    session = env.clock._link.captureSessionState()
-    now = env.clock._link.clock().micros()
-
+    frame = (1 / 20) * 1e6
     logical_now, logical_next = (
         math.floor(start + (ticks * frame)),
         math.floor(start + ((ticks + 1) * frame)),
@@ -32,7 +29,6 @@ def vortex_clock(ticks=0, start=0):
         session.beatAtTime(logical_now, 0) / env.clock._denominator,
         session.beatAtTime(logical_next, 0) / env.clock._denominator,
     )
-
     try:
         for player in CarouselManager._players.values():
             player.notify_tick(
@@ -45,21 +41,7 @@ def vortex_clock(ticks=0, start=0):
     except Exception as _:
         print(_)
 
-    timeref = env.clock._events.get("vortex_clock", None)
-    timeref = timeref.next_time if timeref is not None else env.clock.next_bar
-
-    env.clock.add(
-        name="vortex_clock",
-        func=vortex_clock,
-        time_reference=timeref,
-        time=rate,
-        ticks=ticks + 1,
-        start=start,
-    )
+    return (logical_now - now) / 1e6
 
 
 P = CarouselManager
-
-env.clock.add(
-    name="clock_start", func=lambda: vortex_clock(), time_reference=env.clock.next_bar, time=0
-)
