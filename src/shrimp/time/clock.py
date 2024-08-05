@@ -12,6 +12,7 @@ import time as time_module
 import math
 import link
 import types
+import datetime
 
 
 @dataclass(order=True)
@@ -46,6 +47,7 @@ class Clock(Subscriber):
         self._first_loop = True
         self._playing: bool = True
         self._link = link.Link(tempo)
+        self._link_epoch = self._link.clock().micros()
         self.env: Optional[Environment] = None
         self._link.enabled = True
         self._link.startStopSyncEnabled = True

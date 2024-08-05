@@ -13,7 +13,7 @@ class CarouselStream(BaseCarouselStream):
 
     def __init__(self, clock, pattern: Optional[Pattern] = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.clock = clock
+        self._clock = clock
         if pattern:
             self.pattern = pattern
 
@@ -111,7 +111,7 @@ class CarouselStream(BaseCarouselStream):
         if "out" not in event or not isinstance(event.get("out", None), MIDIOut):
             return
 
-        base_duration = self.clock.beat_duration
+        base_duration = self._clock.beat_duration
         duration = base_duration * event.get("dur", 1)
 
         # Send note if backend!

@@ -6,6 +6,7 @@ from typing import Dict, Any, Optional
 from ....IO.osc import OSC
 from ....Time.Clock import Clock
 from ....environment import Subscriber
+import datetime
 
 
 class BaseCarouselStream(ABC, Subscriber):
@@ -43,8 +44,15 @@ class BaseCarouselStream(ABC, Subscriber):
                 link_session.timeAtBeat(event.whole.end * beats_per_cycle, 0),
             )
             delta_secs = (link_off - link_on) / 1e6
-            # This is where insanity starts
-            ts = time.time() + (link_on / 1e6) + self._latency + event.value.get("nudge", 0)
+            ts = (link_session.timeAtBeat(event.whole.begin * beats_per_cycle, 0) - now) / 1e6
+            ts = (
+                ts
+                + datetime.datetime.now().timestamp()
+                + self._latency
+                + event.value.get("nudge", 0)
+            )
+            # giohappy
+            # ts = link_origin + datetime.timedelta(microseconds=link_next_beat_micros + (self._latency * 1e6) + (nudge * 1e6))
 
             self.notify_event(
                 event.value,
