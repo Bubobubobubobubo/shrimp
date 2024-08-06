@@ -22,6 +22,20 @@ class Pattern:
         # TODO: add all the tactus related things
         self._generate_applicative_methods()
 
+    @property
+    def tactus(self) -> Optional[int]:
+        return self._tactus
+
+    @tactus.setter
+    def tactus(self, tactus: int):
+        self._tactus = tactus
+
+    def with_tactus(self, f) -> Self:
+        return Pattern(self.query, None if self.tactus is None else f(self.tactus))
+
+    def has_tactus(self) -> bool:
+        return self.tactus is not None
+
     @staticmethod
     def reify(x: Any) -> Self:
         """
@@ -85,6 +99,10 @@ class Pattern:
 
         return Pattern(_query)
 
+    def fmap(self, func: Callable) -> Self:
+        """Maps a function over the values of the pattern."""
+        return self.with_value(lambda x: func(x))
+
     def filter_events(self, event_test: Callable) -> Self:
         """Returns a new pattern that will only return events that pass the given test."""
         return Pattern(lambda span: list(filter(event_test, self.query(span))))
@@ -110,6 +128,23 @@ class Pattern:
     #              withFX ef ex = do let whole' = whole ef
     #                                part' <- subArc (part ef) (part ex)
     #                                return (Event (combineContexts [context ef, context ex]) whole' part' (value ef $ value ex))
+
+    def _app_both( self, pat_val) -> Self:
+        """TODO: check if implementation is correct"""
+
+        def whole_func(span_a, span_b):
+            if (span_a is not None) and (span_b is not None):
+                return span_a.intersection(span_b, throw=True)
+            else:
+                return None
+
+        result = self._appwhole(whole_func, pat_val)
+        if self.tactus is not None:
+            result.tactus = math.lcm(pat_val.tactus, self.tactus)
+        return result
+
+
+        return NotImplementedError
 
     def _app_whole(
         self,
@@ -148,15 +183,15 @@ class Pattern:
         return Pattern(_query)
 
     # A bit more complicated than this..
-    def app_both(self, pat_val: Self) -> Self:
+    def app_both(self, other: Self) -> Self:
         """Tidal's <*> operator"""
 
         def whole_func(span_a: TimeSpan, span_b: TimeSpan) -> Optional[TimeSpan]:
             return span_a.intersection(span_b, throw=True) if span_a and span_b else None
 
-        return self._app_whole(whole_func, pat_val)
+        return self._app_whole(whole_func, other)
 
-    def app_left(self, other: Self) -> Self:
+    def _app_left(self, other: Self) -> Self:
         """Tidal's <* operator.
 
         Args:
@@ -182,9 +217,11 @@ class Pattern:
                         events.append(Event(new_whole, new_part, new_value))
             return events
 
-        return Pattern(_query)
+        result = Pattern(_query)
+        result.tactus = self.tactus
+        return result
 
-    def app_right(self, other: Self) -> Self:
+    def _app_right(self, other: Self) -> Self:
         """Tidal's *> operator"""
 
         def _query(span: TimeSpan) -> List[Event]:
@@ -203,7 +240,9 @@ class Pattern:
                         events.append(Event(new_whole, new_part, new_value))
             return events
 
-        return Pattern(_query)
+        result = Pattern(_query)
+        result.tactus = other.tactus
+        return result
 
     def _apply_op(
         self,
@@ -269,72 +308,72 @@ class Pattern:
     def __add__(self, other: Self) -> Self:
         return self.with_value(
             lambda x: lambda y: self._apply_op(x, y, lambda a, b: a + b)
-        ).app_left(reify(other))
+        )._app_left(reify(other))
 
     def __radd__(self, other: Self) -> Self:
         return self.with_value(
             lambda x: lambda y: self._apply_op(x, y, lambda a, b: b + a)
-        ).app_left(reify(other))
+        )._app_left(reify(other))
 
     def __sub__(self, other: Self) -> Self:
         return self.with_value(
             lambda x: lambda y: self._apply_op(x, y, lambda a, b: a - b)
-        ).app_left(reify(other))
+        )._app_left(reify(other))
 
     def __rsub__(self, other: Self) -> Self:
         return self.with_value(
             lambda x: lambda y: self._apply_op(x, y, lambda a, b: b - a)
-        ).app_left(reify(other))
+        )._app_left(reify(other))
 
     def __mul__(self, other: Self) -> Self:
         return self.with_value(
             lambda x: lambda y: self._apply_op(x, y, lambda a, b: a * b)
-        ).app_left(reify(other))
+        )._app_left(reify(other))
 
     def __rmul__(self, other: Self) -> Self:
         return self.with_value(
             lambda x: lambda y: self._apply_op(x, y, lambda a, b: b * a)
-        ).app_left(reify(other))
+        )._app_left(reify(other))
 
     def __truediv__(self, other: Self) -> Self:
         return self.with_value(
             lambda x: lambda y: self._apply_op(x, y, lambda a, b: a / b)
-        ).app_left(reify(other))
+        )._app_left(reify(other))
 
     def __rtruediv__(self, other: Self) -> Self:
         return self.with_value(
             lambda x: lambda y: self._apply_op(x, y, lambda a, b: b / a)
-        ).app_left(reify(other))
+        )._app_left(reify(other))
 
     def __floordiv__(self, other: Self) -> Self:
         return self.with_value(
             lambda x: lambda y: self._apply_op(x, y, lambda a, b: a // b)
-        ).app_left(reify(other))
+        )._app_left(reify(other))
 
     def __rfloordiv__(self, other: Self) -> Self:
         return self.with_value(
             lambda x: lambda y: self._apply_op(x, y, lambda a, b: b // a)
-        ).app_left(reify(other))
+        )._app_left(reify(other))
 
     def __mod__(self, other: Self) -> Self:
         return self.with_value(
             lambda x: lambda y: self._apply_op(x, y, lambda a, b: a % b)
-        ).app_left(reify(other))
+        )._app_left(reify(other))
 
     def __rmod__(self, other: Self) -> Self:
         return self.with_value(
             lambda x: lambda y: self._apply_op(x, y, lambda a, b: b % a)
-        ).app_left(reify(other))
+        )._app_left(reify(other))
 
     def __pow__(self, other: Self) -> Self:
         return self.with_value(
             lambda x: lambda y: self._apply_op(x, y, lambda a, b: a**b)
-        ).app_left(reify(other))
+        )._app_left(reify(other))
 
     def __rpow__(self, other: Self) -> Self:
         return self.with_value(
             lambda x: lambda y: self._apply_op(x, y, lambda a, b: b**a)
-        ).app_left(reify(other))
+        )._app_left(reify(other))
 
     def combine_right(self, *others: Self) -> Self:
         """
@@ -353,7 +392,7 @@ class Pattern:
 
         """
         return reduce(
-            lambda a, b: a.with_value(lambda x: lambda y: {**x, **y}).app_left(b),
+            lambda a, b: a.with_value(lambda x: lambda y: {**x, **y})._app_left(b),
             others,
             self,
         )
@@ -377,7 +416,7 @@ class Pattern:
 
         """
         return reduce(
-            lambda a, b: a.with_value(lambda x: lambda y: {**y, **x}).app_left(b),
+            lambda a, b: a.with_value(lambda x: lambda y: {**y, **x})._app_left(b),
             others,
             self,
         )
@@ -521,8 +560,8 @@ class Pattern:
         boolean_pat = sequence(boolean_pat)
         true_pat = boolean_pat.filter_values(identity)
         false_pat = boolean_pat.filter_values(lambda val: not val)
-        with_pat = true_pat.with_value(lambda _: lambda y: y).app_left(func(self))
-        without_pat = false_pat.with_value(lambda _: lambda y: y).app_left(self)
+        with_pat = true_pat.with_value(lambda _: lambda y: y)._app_left(func(self))
+        without_pat = false_pat.with_value(lambda _: lambda y: y)._app_left(self)
         return stack(with_pat, without_pat)
 
     def when_cycle(self, test_func: Callable, func: Callable) -> Self:
@@ -709,7 +748,7 @@ class Pattern:
         >>> rand().segment(4)
 
         """
-        return pure(identity).fast(n).app_left(self)
+        return pure(identity).fast(n)._app_left(self)
 
     def range(self, minimum: Self, maximum: Self) -> Self:
         """
@@ -751,7 +790,7 @@ class Pattern:
             return self
         if not prand:
             prand = rand()
-        return self.with_value(lambda a: lambda _: a).app_left(
+        return self.with_value(lambda a: lambda _: a)._app_left(
             prand.filter_values(lambda v: v > by)
         )
 
@@ -775,7 +814,7 @@ class Pattern:
         """
         if not prand:
             prand = rand()
-        return self.with_value(lambda a: lambda _: a).app_left(
+        return self.with_value(lambda a: lambda _: a)._app_left(
             prand.filter_values(lambda v: v <= by)
         )
 
@@ -867,7 +906,7 @@ class Pattern:
         return (
             sequence(binary_pats)
             .with_value(lambda b: lambda val: val if b else None)
-            .app_left(self)
+            ._app_left(self)
             .remove_none()
         )
 
@@ -883,7 +922,7 @@ class Pattern:
         return (
             sequence(binary_pats)
             .with_value(lambda b: lambda val: val if b else None)
-            .app_right(self)
+            ._app_right(self)
             .remove_none()
         )
 
