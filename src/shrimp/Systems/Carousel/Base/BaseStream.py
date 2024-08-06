@@ -63,6 +63,7 @@ class BaseCarouselStream(ABC, Subscriber):
                 cps=float(cycles_per_second),
                 cycle=float(event.whole.begin),
                 delta=float(delta_secs),
+                beats_per_cycle=beats_per_cycle,
             )
 
     def notify_event(
