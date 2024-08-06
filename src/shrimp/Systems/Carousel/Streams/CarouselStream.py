@@ -6,6 +6,7 @@ from ..Pattern import Pattern
 from ....IO.osc import OSC
 import logging
 import datetime
+from typing import Dict, Any
 
 
 class CarouselStream(BaseCarouselStream):
@@ -33,60 +34,68 @@ class CarouselStream(BaseCarouselStream):
     def notify_event(
         self,
         event: Dict[str, Any],
-        timestamp: float,
+        unix_timestamp: float,
+        beat_timestamp: float,
         cps: float,
         cycle: float,
         delta: float,
     ) -> None:
         if "m" in event:
-            self.send_midi_note(event, timestamp, cps, cycle, delta)
+            self.send_midi_note(event, unix_timestamp, beat_timestamp, cps, cycle, delta)
         if "s" in event:
-            self.send_superdirt_message(event, timestamp, cps, cycle, delta)
+            self.send_superdirt_message(event, unix_timestamp, beat_timestamp, cps, cycle, delta)
         if "cc" in event:
-            self.send_midi_cc(event, timestamp, cps, cycle, delta)
+            self.send_midi_cc(event, unix_timestamp, beat_timestamp, cps, cycle, delta)
         if "pc" in event:
-            self.send_midi_pc(event, timestamp, cps, cycle, delta)
+            self.send_midi_pc(event, unix_timestamp, beat_timestamp, cps, cycle, delta)
         if "sy" in event:
-            self.send_midi_sysex(event, timestamp, cps, cycle, delta)
+            self.send_midi_sysex(event, unix_timestamp, beat_timestamp, cps, cycle, delta)
 
         return
 
     def send_midi_sysex(
         self,
         event: Dict[str, Any],
-        timestamp: float,
-        cps: float,
-        cycle: float,
-        delta: float,
+        _: float,
+        beat_timestamp: float,
+        __: float,
+        ___: float,
+        ____: float,
     ):
-        # Missing MIDI backend
+        """Sending TimeStamped MIDI sysex messages"""
         if "out" not in event or not isinstance(event.get("out", None), MIDIOut):
             return
-        event["out"].sysex(data=event.get("sy", [])),
+        event["out"].sysex(data=event.get("sy", []), timestamp=beat_timestamp),
 
     def send_midi_pc(
         self,
         event: Dict[str, Any],
-        timestamp: float,
-        cps: float,
-        cycle: float,
-        delta: float,
+        _: float,
+        beat_timestamp: float,
+        __: float,
+        ___: float,
+        ____: float,
     ):
+        """Sending timestamped MIDI program change"""
         # Missing MIDI backend
         if "out" not in event or not isinstance(event.get("out", None), MIDIOut):
             return
 
         # Send note if backend!
-        event["out"].program_change(program=event.get("pc", 0), channel=event.get("channel", 1))
+        event["out"].program_change(
+            program=event.get("pc", 0), channel=event.get("channel", 1), timestamp=beat_timestamp
+        )
 
     def send_midi_cc(
         self,
         event: Dict[str, Any],
-        timestamp: float,
-        cps: float,
-        cycle: float,
-        delta: float,
+        _: float,
+        beat_timestamp: float,
+        __: float,
+        ___: float,
+        ____: float,
     ):
+        """Sending timestamped MIDI control change"""
         # Missing MIDI backend
         if "out" not in event or not isinstance(event.get("out", None), MIDIOut):
             return
@@ -96,14 +105,16 @@ class CarouselStream(BaseCarouselStream):
             control=event.get("cc", 60),
             value=event.get("value", 100),
             channel=event.get("channel", 1),
+            timestamp=beat_timestamp,
         )
 
     def send_midi_note(
         self,
         event: Dict[str, Any],
-        timestamp: float,
-        cps: float,
-        cycle: float,
+        __: float,
+        beat_timestamp: float,
+        ___: float,
+        ____: float,
         delta: float,
     ):
         """Sending MIDI note"""
@@ -111,21 +122,22 @@ class CarouselStream(BaseCarouselStream):
         if "out" not in event or not isinstance(event.get("out", None), MIDIOut):
             return
 
-        base_duration = self._clock.beat_duration
+        base_duration = delta
         duration = base_duration * event.get("dur", 1)
 
-        # Send note if backend!
         event["out"].note(
             note=event.get("m", 60),
             velocity=event.get("velocity", 100),
             channel=event.get("channel", 1),
             length=duration,
+            timestamp=beat_timestamp,
         )
 
     def send_superdirt_message(
         self,
         event: Dict[str, Any],
-        timestamp: float,
+        unix_timestamp: float,
+        _: float,
         cps: float,
         cycle: float,
         delta: float,
@@ -162,13 +174,10 @@ class CarouselStream(BaseCarouselStream):
                     correct_msg.remove(["s"])
                 except ValueError:
                     pass
-            # logging.log(logging.INFO, f"output_send('/dirt/play', {correct_msg}, {timestamp})")
-            output.send(address="/dirt/play", messages=[correct_msg], timestamp=timestamp)
-            human = datetime.datetime.fromtimestamp(timestamp).strftime("%Y-%m-%d %H:%M:%S")
-            logging.log(logging.INFO, human)
+            output.send(address="/dirt/play", messages=[correct_msg], timestamp=unix_timestamp)
         except Exception as e:
             logging.log(
                 logging.ERROR,
-                f"Error while sending message on {output}: {correct_msg} with {timestamp}",
+                f"Error while sending message on {output}: {correct_msg} with {unix_timestamp}",
             )
             raise e

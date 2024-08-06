@@ -116,7 +116,7 @@ class MIDIOut(Subscriber):
         super().__init__()
         self.port = port
         self.clock = clock
-        self.nudge = -0.1
+        self._nudge = -0.01
         try:
             if self.port == "shrimp":
                 self._midi_out = mido.open_output(port, virtual=True)
@@ -131,6 +131,18 @@ class MIDIOut(Subscriber):
         self.register_handler("pause", self._pause_handler)
         self.register_handler("stop", self._stop_handler)
         self.register_handler("all_notes_off", lambda _: self.all_notes_off())
+
+    @property
+    def nudge(self) -> float:
+        """The nudge time in seconds."""
+        return self._nudge
+
+    @nudge.setter
+    def nudge(self, value: float) -> None:
+        """Set the nudge time in seconds."""
+        # All notes off
+        self.all_notes_off()
+        self._nudge = value
 
     def _pause_handler(self, data: dict) -> None:
         """Handle the pause event."""
@@ -180,6 +192,7 @@ class MIDIOut(Subscriber):
         velocity: int = 0.75,
         channel: int = 1,
         length: int = 1,
+        timestamp: Optional[int] = None,
         **kwargs,
     ):
         """Play a note for a given duration.
@@ -203,23 +216,39 @@ class MIDIOut(Subscriber):
         )
         velocity = velocity
         length = length * self.clock.beat_duration
-        time = self.clock.now - self.nudge
+        time = self.clock.now - self._nudge
 
-        self.clock.add(
-            func=lambda: self._note_on(
-                note=int(note), velocity=int(velocity), channel=int(channel) - 1
-            ),
-            time=time,
-            name=f"note_on_{note}{channel}{self.port}",
-            once=True,
-        )
+        if timestamp is None:
+            self.clock.add(
+                func=lambda: self._note_on(
+                    note=int(note), velocity=int(velocity), channel=int(channel) - 1
+                ),
+                time=time,
+                name=f"note_on_{note}{channel}{self.port}",
+                once=True,
+            )
 
-        self.clock.add(
-            func=lambda: self._note_off(note=int(note), velocity=0, channel=int(channel) - 1),
-            name=f"note_off_{note}{channel}{self.port}",
-            time=(time + length) - 0.010,
-            once=True,
-        )
+            self.clock.add(
+                func=lambda: self._note_off(note=int(note), velocity=0, channel=int(channel) - 1),
+                name=f"note_off_{note}{channel}{self.port}",
+                time=(time + length) - 0.010,
+                once=True,
+            )
+        else:
+            self.clock.add_from_timestamp(
+                timestamp=timestamp + self._nudge,
+                func=lambda: self._note_on(
+                    note=int(note), velocity=int(velocity), channel=int(channel) - 1
+                ),
+                once=True,
+                name=f"note_on_{note}{channel}{self.port}",
+            )
+            self.clock.add_from_timestamp(
+                timestamp=(timestamp + length) + self._nudge,
+                func=lambda: self._note_off(note=int(note), velocity=0, channel=int(channel) - 1),
+                once=True,
+                name=f"note_off_{note}{channel}{self.port}",
+            )
 
     def tick(self, *args, **kwargs):
         """Send a MIDI clock message."""
@@ -243,7 +272,14 @@ class MIDIOut(Subscriber):
         pb = mido.Message("pitchwheel", pitch=value, channel=channel)
         self._midi_out.send(pb)
 
-    def control_change(self, control: int = 0, value: int = 0, channel: int = 1, **kwargs) -> None:
+    def control_change(
+        self,
+        control: int = 0,
+        value: int = 0,
+        channel: int = 1,
+        timestamp: Optional[int] = None,
+        **kwargs,
+    ) -> None:
         """Send a MIDI control change message.
 
         Args:
@@ -252,9 +288,19 @@ class MIDIOut(Subscriber):
             channel (int): The MIDI channel.
         """
         cc = mido.Message("control_change", control=control, value=value, channel=channel - 1)
-        self._midi_out.send(cc)
+        if timestamp is not None:
+            self.clock.add_from_timestamp(
+                func=lambda: self._midi_out.send(cc),
+                timestamp=timestamp + self._nudge,
+                once=True,
+                name=f"cc_{self.port}_{timestamp}",
+            )
+        else:
+            self._midi_out.send(cc)
 
-    def program_change(self, program: int = 0, channel: int = 1, **kwargs) -> None:
+    def program_change(
+        self, program: int = 0, channel: int = 1, timestamp: Optional[int] = None, **kwargs
+    ) -> None:
         """Send a MIDI program change message.
 
         Args:
@@ -262,16 +308,32 @@ class MIDIOut(Subscriber):
             channel (int): The MIDI channel.
         """
         pc = mido.Message("program_change", program=program, channel=channel - 1)
-        self._midi_out.send(pc)
+        if timestamp is not None:
+            self.clock.add_from_timestamp(
+                func=lambda: self._midi_out.send(pc),
+                timestamp=timestamp + self._nudge,
+                once=True,
+                name=f"pc_{self.port}_{timestamp}",
+            )
+        else:
+            self._midi_out.send(pc)
 
-    def sysex(self, data: list, *kwargs) -> None:
+    def sysex(self, data: list, timestamp: Optional[int] = None, *kwargs) -> None:
         """Send a MIDI system exclusive message.
 
         Args:
             data (list): The sysex data.
         """
         sysex = mido.Message("sysex", data=data)
-        self._midi_out.send(sysex)
+        if timestamp is not None:
+            self.clock.add_from_timestamp(
+                func=lambda: self._midi_out.send(sysex),
+                timestamp=timestamp + self._nudge,
+                once=True,
+                name=f"sysex_{self.port}_{timestamp}",
+            )
+        else:
+            self._midi_out.send(sysex)
 
     def make_instrument(self, channel: int, control_map: dict[str, int]):
         """

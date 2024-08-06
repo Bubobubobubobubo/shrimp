@@ -402,7 +402,17 @@ class Clock(Subscriber):
         else:
             return 1 - self._beat % 1
 
-    # Now I just need a new method to push event forward once it is perfectly aligned with the beat
+    def add_from_timestamp(self, timestamp: float, func: Callable, *args, **kwargs) -> None:
+        """
+        Add a function to be executed on a specific UNIX Timestamp.
+
+        Args:
+            timestamp (float): The UNIX timestamp at which the function should be executed.
+            func (Callable): The function to be executed.
+            *args: Positional arguments to be passed to the function.
+            **kwargs: Keyword arguments to be passed to the function.
+        """
+        self.add(func=func, time=timestamp, *args, **kwargs)
 
     def add(
         self,

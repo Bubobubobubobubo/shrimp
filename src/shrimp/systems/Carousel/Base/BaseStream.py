@@ -45,7 +45,7 @@ class BaseCarouselStream(ABC, Subscriber):
             )
             delta_secs = (link_off - link_on) / 1e6
             ts = (link_session.timeAtBeat(event.whole.begin * beats_per_cycle, 0) - now) / 1e6
-            ts = (
+            unix_ts = (
                 ts
                 + datetime.datetime.now().timestamp()
                 + self._latency
@@ -53,10 +53,13 @@ class BaseCarouselStream(ABC, Subscriber):
             )
             # giohappy
             # ts = link_origin + datetime.timedelta(microseconds=link_next_beat_micros + (self._latency * 1e6) + (nudge * 1e6))
+            # event_onset_time = link_session.timeAtBeat(event.whole.begin * beats_per_cycle, 0)
+            event_beat_timestamp = link_session.beatAtTime(link_on, beats_per_cycle)
 
             self.notify_event(
                 event.value,
-                timestamp=ts,
+                unix_timestamp=unix_ts,
+                beat_timestamp=event_beat_timestamp,
                 cps=float(cycles_per_second),
                 cycle=float(event.whole.begin),
                 delta=float(delta_secs),
@@ -65,7 +68,8 @@ class BaseCarouselStream(ABC, Subscriber):
     def notify_event(
         self,
         event: Dict[str, Any],
-        timestamp: float,
+        unix_timestamp: float,
+        beat_timestamp: float,
         cps: float,
         cycle: float,
         delta: float,
