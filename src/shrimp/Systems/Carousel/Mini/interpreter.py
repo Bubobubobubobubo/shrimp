@@ -4,7 +4,6 @@ from parsimonious.nodes import Node
 from ..Control import n, s
 from ..TimeSpan import TidalFraction
 from ..Pattern import pure  # polymeter,
-from ..Utils import identity
 from ..Pattern import (
     choose_cycles,
     polyrhythm,
@@ -195,7 +194,7 @@ class MiniVisitor(NodeVisitor):
 
     def visit_repeat(self, _node, children):
         count = sum(flatten(children))
-        return dict(type="modifier", op="repeat", count=count)
+        return dict(type="modifier", op="repeat", count=count-1)
 
     def visit_repeatn(self, _node, children):
         _, _, count = children
@@ -227,7 +226,10 @@ class MiniVisitor(NodeVisitor):
     #
 
     def visit_word(self, node, _children):
-        return node.text
+        if is_valid_note_name(node.text):
+            return note_to_midi(node.text)
+        else:
+            return node.text
 
     def visit_number(self, node, children):
         return children[0]
@@ -372,3 +374,76 @@ class MiniInterpreter:
 
     def eval_rest(self, node):
         return silence()
+
+def note_to_midi(note: str) -> int:
+    """
+    Convert a musical note to its corresponding MIDI note number.
+
+    Args:
+    - note (str): The musical note in English or French notation (e.g., 'c', 'c#3', 'do#3', etc.)
+
+    Returns:
+    - int: The corresponding MIDI note number.
+
+    Raises:
+    - ValueError: If the note notation is invalid.
+    """
+    note_dict = {
+        'c': 0, 'do': 0,
+        'c#': 1, 'do#': 1,
+        'db': 1, 'reb': 1,
+        'd': 2, 're': 2,
+        'd#': 3, 're#': 3,
+        'eb': 3, 'mib': 3,
+        'e': 4, 'mi': 4,
+        'f': 5, 'fa': 5,
+        'f#': 6, 'fa#': 6,
+        'gb': 6, 'solb': 6,
+        'g': 7, 'sol': 7,
+        'g#': 8, 'sol#': 8,
+        'ab': 8, 'lab': 8,
+        'a': 9, 'la': 9,
+        'a#': 10, 'la#': 10,
+        'bb': 10, 'sib': 10,
+        'b': 11, 'si': 11
+    }
+
+    # Extract the base note and octave (if any)
+    base_note = ''.join(filter(str.isalpha, note))
+    octave = ''.join(filter(str.isdigit, note))
+    accidentals = note[len(base_note):len(note)-len(octave)]
+    
+    # Convert the octave to an integer, default to 4 if not specified
+    octave = int(octave) if octave else 4
+
+    # Compute the base MIDI note number
+    if base_note not in note_dict:
+        raise ValueError(f"Invalid note name: {base_note}")
+    
+    midi_note = 12 * (octave + 1) + note_dict[base_note]
+    
+    # Adjust for accidentals
+    for accidental in accidentals:
+        if accidental == '#':
+            midi_note += 1
+        elif accidental == 'b':
+            midi_note -= 1
+        else:
+            raise ValueError(f"Invalid accidental: {accidental}")
+
+    return midi_note
+
+import re
+
+def is_valid_note_name(note: str) -> bool:
+    """
+    Check if a given note name is valid.
+
+    Args:
+    - note (str): The note name to check.
+
+    Returns:
+    - bool: True if the note name is valid, False otherwise.
+    """
+    note_pattern = r'^(c|do|d|re|e|mi|f|fa|g|sol|a|la|b|si)(#{1,2}|b{1,2})?\d?$'
+    return bool(re.match(note_pattern, note))

@@ -465,6 +465,19 @@ class Pattern:
         taken from outer events."""
         return self.outer_bind(identity)
 
+    def discreteOnly(self) -> Self:
+        """
+        Removes continuous events that don't have a 'whole' timespan.
+        TODO: check if this is the right way to implement this
+        """
+        return self.filter_events(lambda event: event.whole)
+
+    def squeezeJoin(self) -> Self:
+        return NotImplementedError
+
+    def squeezeBind(self) -> Self:
+        raise NotImplementedError
+
     @staticmethod
     def _patternify(method: Callable) -> Self:
         def patterned(self, *args):
@@ -542,6 +555,7 @@ class Pattern:
     def append(self, other: Self) -> Self:
         """Appends two patterns together and compress them into a single cycle"""
         return fastcat(self, other)
+
 
     def rev(self) -> Self:
         """Returns the reversed the pattern"""
@@ -856,6 +870,9 @@ class Pattern:
             .app_left(self)
             .remove_none()
         )
+
+    def ply(self, factor: int) -> Self:
+        self.with_value(lambda x: x.fast(factor)).squeezeJoin() # TODO: squeezeJoin does not exist
 
     def mask(self, *binary_pats: bool) -> Self:
         """

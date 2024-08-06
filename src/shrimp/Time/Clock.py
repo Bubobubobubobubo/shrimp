@@ -40,8 +40,8 @@ class Clock(Subscriber):
     def __init__(self, tempo: int | float, grain: float = 0.0001, delay: int = 0):
         super().__init__()
         self._clock_thread: threading.Thread | None = None
-        self._vortex_thread: threading.Thread | None = None
-        self._vortex_clock_callback: Optional[Callable] = lambda a, b, c, d: 0.1
+        self._carousel_thread: threading.Thread | None = None
+        self._carousel_clock_callback: Optional[Callable] = lambda a, b, c, d: 0.1
         self._stop_event: threading.Event = threading.Event()
         self._events: Dict[str, PriorityEvent] = {}
         self._first_loop = True
@@ -207,11 +207,11 @@ class Clock(Subscriber):
             self.env.dispatch(self, "start", {})
         if not self._clock_thread:
             self._clock_thread = threading.Thread(target=self.run, daemon=False)
-            self._vortex_thread = threading.Thread(target=self._run_vortex, daemon=False)
+            self._carousel_thread = threading.Thread(target=self._run_vortex, daemon=False)
             logging.info("Starting Main Clock Thread")
             self._clock_thread.start()
             logging.info("Starting Vortex Clock Thread")
-            self._vortex_thread.start()
+            self._carousel_thread.start()
 
     def _reset_children_times(self) -> None:
         self.env.dispatch(self, "children_reset", {})
@@ -328,10 +328,11 @@ class Clock(Subscriber):
 
         while not self._stop_event.is_set():
             session, now = (self._link.captureSessionState(), self._link.clock().micros())
-            wait_time = self._vortex_clock_callback(start, ticks, session, now)
-            if wait_time > 0:
-                self.precise_wait(wait_time)
-            ticks += 1
+            if self._playing and self.beat >= 0:
+                wait_time = self._carousel_clock_callback(start, ticks, session, now)
+                if wait_time > 0:
+                    self.precise_wait(wait_time)
+                ticks += 1
 
     def run(self) -> None:
         """Main Clock Event Loop"""

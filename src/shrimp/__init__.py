@@ -212,4 +212,4 @@ clock._start()
 from .Systems.Carousel import *
 from .Systems.Carousel import vortex_clock_callback
 
-clock._vortex_clock_callback = vortex_clock_callback
+clock._carousel_clock_callback = vortex_clock_callback
