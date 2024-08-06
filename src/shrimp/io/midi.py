@@ -235,8 +235,9 @@ class MIDIOut(Subscriber):
                 once=True,
             )
         else:
+            timestamp = timestamp + self.nudge
             self.clock.add_from_timestamp(
-                timestamp=timestamp + self._nudge,
+                timestamp=timestamp,
                 func=lambda: self._note_on(
                     note=int(note), velocity=int(velocity), channel=int(channel) - 1
                 ),
@@ -244,7 +245,7 @@ class MIDIOut(Subscriber):
                 name=f"note_on_{note}{channel}{self.port}",
             )
             self.clock.add_from_timestamp(
-                timestamp=(timestamp + length) + self._nudge,
+                timestamp=(timestamp + length),
                 func=lambda: self._note_off(note=int(note), velocity=0, channel=int(channel) - 1),
                 once=True,
                 name=f"note_off_{note}{channel}{self.port}",
