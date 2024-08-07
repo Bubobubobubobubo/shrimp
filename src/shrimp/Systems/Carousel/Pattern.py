@@ -1,9 +1,14 @@
+"""
+This file is a total mess, and it is not clear what is going. 
+If possible, split in multiple files. There are two many funcs
+in this class, and they are unsufficiently documented.
+"""
+
 import math
 from functools import reduce, partial
-from itertools import accumulate
 from typing import Self, List, Callable, Optional, Iterable, Any, Tuple, Dict
 from .TimeSpan import TimeSpan, TidalFraction
-from .Event import Event
+from .Hap import Hap
 from .Utils import flatten, identity, bjorklund, curry, remove_nones, xorwise
 import types
 
@@ -17,9 +22,8 @@ class Pattern:
     """
 
     def __init__(self, query: Callable, tactus: Optional[int] = None):
-        self.query: Callable[[TimeSpan], List[Event]] = query
+        self.query: Callable[[TimeSpan], List[Hap]] = query
         self._tactus = tactus
-        # TODO: add all the tactus related things
         self._generate_applicative_methods()
 
     @property
@@ -42,7 +46,7 @@ class Pattern:
     def with_value(self, func: Callable) -> Self:
         """Returns a new pattern, with the function applied to the value of each event."""
 
-        def _query(span: TimeSpan) -> List[Event]:
+        def _query(span: TimeSpan) -> List[Hap]:
             return [event.with_value(func) for event in self.query(span)]
 
         return Pattern(_query)
@@ -77,16 +81,16 @@ class Pattern:
         pattern of functions.
         """
 
-        def _query(span: TimeSpan) -> List[Event]:
+        def _query(span: TimeSpan) -> List[Hap]:
             event_funcs = self.query(span)
             event_vals = pat_val.query(span)
 
-            def apply(event_func: Event, event_val: Event) -> Optional[Event]:
+            def apply(event_func: Hap, event_val: Hap) -> Optional[Hap]:
                 s = event_func.part.intersection(event_val.part)
                 return (
                     None
                     if s is None
-                    else Event(
+                    else Hap(
                         whole_func(event_func.whole, event_val.whole),
                         s,
                         event_func.value(event_val.value),
@@ -144,8 +148,8 @@ class Pattern:
             Pattern: A new pattern with the given pattern applied to the left
         """
 
-        def _query(span: TimeSpan) -> List[Event]:
-            events: List[Event] = []
+        def _query(span: TimeSpan) -> List[Hap]:
+            events: List[Hap] = []
 
             # Iterating over all the events in the current pattern
             for func in self.query(span):
@@ -157,7 +161,7 @@ class Pattern:
                     new_part: TimeSpan = func.part.intersection(val.part)
                     if new_part:
                         new_value = func.value(val.value)
-                        events.append(Event(new_whole, new_part, new_value))
+                        events.append(Hap(new_whole, new_part, new_value))
             return events
 
         result = Pattern(_query)
@@ -169,8 +173,8 @@ class Pattern:
         are instead taken from the pattern of values, i.e. structure is
         preserved from the right hand/outer pattern."""
 
-        def _query(span: TimeSpan) -> List[Event]:
-            events: List[Event] = []
+        def _query(span: TimeSpan) -> List[Hap]:
+            events: List[Hap] = []
 
             # Iterating over all the events in the other pattern
             for val in other.query(span):
@@ -182,7 +186,7 @@ class Pattern:
                     new_part: TimeSpan = func.part.intersection(val.part)
                     if new_part:
                         new_value = func.value(val.value)
-                        events.append(Event(new_whole, new_part, new_value))
+                        events.append(Hap(new_whole, new_part, new_value))
             return events
 
         result = Pattern(_query)
@@ -195,7 +199,7 @@ class Pattern:
 
         def _query(state):
             def with_whole(a, b):
-                return Event(choose_whole(a.whole, b.whole), b.part, b.value)
+                return Hap(choose_whole(a.whole, b.whole), b.part, b.value)
 
             def match(a):
                 return func(a.value).query(state.set_span(a.part)).map(lambda b: with_whole(a, b))
@@ -230,7 +234,7 @@ class Pattern:
         constrained to happen within a cycle.
         """
 
-        def _query(span: TimeSpan) -> List[Event]:
+        def _query(span: TimeSpan) -> List[Hap]:
             return flatten([self.query(subspan) for subspan in span.span_cycles()])
 
         return Pattern(_query)
@@ -248,7 +252,7 @@ class Pattern:
         """Returns a new pattern, with the function applied to each event
         timespan."""
 
-        def _query(span: TimeSpan) -> List[Event]:
+        def _query(span: TimeSpan) -> List[Hap]:
             return [event.with_span(func) for event in self.query(span)]
 
         return Pattern(_query)
@@ -274,7 +278,7 @@ class Pattern:
         of the 'whole' timespan matches the start of the 'part'
         timespan, i.e. the events that include their 'onset'.
         """
-        return self.filter_events(Event.has_onset)
+        return self.filter_events(Hap.has_onset)
 
     # A bit more complicated than this..
     def _app_both(self, other: Self) -> Self:
@@ -503,11 +507,11 @@ class Pattern:
     def _bind_whole(self, choose_whole, func: Callable) -> Self:
         pat_val: Pattern = self
 
-        def _query(span: TimeSpan) -> List[Event]:
-            def with_whole(a: TimeSpan, b: TimeSpan) -> Event:
-                return Event(choose_whole(a.whole, b.whole), b.part, b.value)
+        def _query(span: TimeSpan) -> List[Hap]:
+            def with_whole(a: TimeSpan, b: TimeSpan) -> Hap:
+                return Hap(choose_whole(a.whole, b.whole), b.part, b.value)
 
-            def match(a: Event) -> List[Event]:
+            def match(a: Hap) -> List[Hap]:
                 return [with_whole(a, b) for b in func(a.value).query(a.part)]
 
             return flatten([match(ev) for ev in pat_val.query(span)])
@@ -565,7 +569,7 @@ class Pattern:
                     )
                     combined_part = inner_hap.part.intersection(outer_hap.part)
                     if combined_part:
-                        return Event(
+                        return Hap(
                             combined_whole,
                             combined_part,
                             inner_hap.value,
@@ -592,7 +596,7 @@ class Pattern:
         def _query(state):
             haps = pat_of_pats.discrete_only().query(state)
 
-            def flat_hap(outer_hap: Event):
+            def flat_hap(outer_hap: Hap):
                 # What is _focus_span? It is not defined anywhere in the Strudel source...
                 inner_pat = outer_hap.value._focus_span(outer_hap.whole_or_part())
                 inner_haps = inner_pat.query(state.set_span(outer_hap.part))
@@ -606,7 +610,7 @@ class Pattern:
                     part = inner.part.intersection(outer.part)
                     if not part:
                         return None
-                    return Event(whole, part, inner.value)
+                    return Hap(whole, part, inner.value)
 
                 return [
                     munge(outer_hap, inner_hap)
@@ -718,7 +722,7 @@ class Pattern:
             cycle = span.begin.sam()
             next_cycle = span.begin.next_sam()
 
-            def reflect(to_reflect: Event) -> Event:
+            def reflect(to_reflect: Hap) -> Hap:
                 reflected = to_reflect.with_time(lambda time: cycle + (next_cycle - time))
                 (reflected.begin, reflected.end) = (reflected.end, reflected.begin)
                 return reflected
@@ -740,7 +744,7 @@ class Pattern:
 
         return stack(left, func(right))
 
-    def first_cycle(self) -> List[Event]:
+    def first_cycle(self) -> List[Hap]:
         """Returns the events of the first cycle of the pattern"""
         return sorted(self.query(TimeSpan(TidalFraction(0), TidalFraction(1))))
 
@@ -826,7 +830,7 @@ class Pattern:
             end = span.begin.sam() + TidalFraction(span.end - span.begin.sam(), factor_)
             return TimeSpan(begin, end)
 
-        def _query(span: TimeSpan) -> List[Event]:
+        def _query(span: TimeSpan) -> List[Hap]:
             new_span = TimeSpan(munge_query(span.begin), munge_query(span.end))
             if new_span.begin == span.begin.next_sam():
                 return []
@@ -1093,14 +1097,14 @@ class Pattern:
         """Like silence, but with a 'tactus' (relative duration) of 0"""
         return self.gap(0)
 
-    def compress(self, begin: float, end: float):
-        """Compress each cycle into the given timespan, leaving a gap"""
-        b = TidalFraction(begin)
-        e = TidalFraction(end)
-        if (b > e) or (e > 1) or (b < 0) or (e < 0):
-            return silence()
-        else:
-            self._fastGap(TidalFraction(1).div(e.sub(b)))._late(b)
+    # def compress(self, begin: float, end: float):
+    #     """Compress each cycle into the given timespan, leaving a gap"""
+    #     b = TidalFraction(begin)
+    #     e = TidalFraction(end)
+    #     if (b > e) or (e > 1) or (b < 0) or (e < 0):
+    #         return silence()
+    #     else:
+    #         self._fastGap(TidalFraction(1).div(e.sub(b)))._late(b)
 
     def _opIn(self, other: Self, func: Callable) -> Self:
         return self.fmap(func)._app_left(other)
@@ -1126,6 +1130,27 @@ class Pattern:
     def _op_restart(self, other: Self, func: Callable) -> Self:
         otherPat = reify(other)
         return otherPat.fmap(lambda b: self.fmap(lambda a: func(a)(b))).restart_join()
+
+    def arp(self, pat: Self) -> Self:
+        return self.arp_with(lambda haps: pat.fmap(lambda i: haps[i % len(haps)]))
+
+    def arp_with(self, func: Callable) -> Self:
+        some_func = lambda h: Hap(whole=h.whole, part=h.part, value=h.value.value)
+        return self.collect().fmap(lambda v: reify(func(v))).inner_join().with_hap(some_func)
+
+    def with_hap(self, func: Callable) -> Self:
+        return self.with_haps(lambda haps: map(lambda a: func(a), haps))
+
+    def with_haps(self, func: Callable) -> Self:
+        result = Pattern(lambda state: func(self.query(state)))
+        result.tactus = self.tactus
+        return result
+
+    def collect(self) -> Self:
+        raise NotImplementedError
+
+    def to_bipolar(self) -> Self:
+        return self.fmap(lambda x: x * 2 - 1)
 
     def __repr__(self):
         events = [str(e) for e in self.first_cycle()]
@@ -1171,7 +1196,7 @@ def pure(value: Any) -> Pattern:
 
     def _query(span: TimeSpan):
         return [
-            Event(TidalFraction(subspan.begin).whole_cycle(), subspan, value)
+            Hap(TidalFraction(subspan.begin).whole_cycle(), subspan, value)
             for subspan in span.span_cycles()
         ]
 
@@ -1179,8 +1204,8 @@ def pure(value: Any) -> Pattern:
 
 
 def steady(value: Any) -> Pattern:
-    def _query(span: TimeSpan) -> List[Event]:
-        return [Event(None, span, value)]
+    def _query(span: TimeSpan) -> List[Hap]:
+        return [Hap(None, span, value)]
 
     return Pattern(_query)
 
@@ -1193,7 +1218,7 @@ def slowcat(*pats: Pattern) -> Pattern:
     """
     pats = [reify(pat) for pat in pats]
 
-    def _query(span: TimeSpan) -> List[Event]:
+    def _query(span: TimeSpan) -> List[Hap]:
         pat = pats[math.floor(span.begin) % len(pats)]
         return pat.query(span)
 
@@ -1214,7 +1239,7 @@ def stack(*pats: Tuple[Pattern]) -> Self:
     """Pile up patterns"""
     pats = [reify(pat) for pat in pats]
 
-    def _query(span: TimeSpan) -> List[Event]:
+    def _query(span: TimeSpan) -> List[Hap]:
         return flatten([pat.query(span) for pat in pats])
 
     return Pattern(_query)
@@ -1247,24 +1272,8 @@ def sequence(*args: Any) -> Pattern:
     return _sequence_count(args)[0]
 
 
-def arpWith(self, func: Callable) -> Self:
-    raise NotImplementedError
-
-
-def congruent(a, b):
-    raise NotImplementedError
-
-
-def collect(self):
-    raise NotImplementedError
-
-
-def arpWith(self, func: Callable) -> Self:
-    raise NotImplementedError
-
-
-def arpWith(self, pat: Self) -> Self:
-    raise NotImplementedError
+def congruent(a: Hap, b: Hap) -> bool:
+    return a.span_equals(b)
 
 
 # TODO: what is the steps type?
@@ -1373,245 +1382,26 @@ def scan(n):
     return slowcat(*[run(k) for k in range(1, n + 1)])
 
 
-def _choose_with(pat, *vals):
-    return pat.range(0, len(vals)).with_value(lambda v: reify(vals[math.floor(v)]))
+# def pick(lookup, pat):
+#     if isinstance(pat, list):
+#         pat, lookup = lookup, pat
+#     return _pick(lookup, pat)
 
+# def _pick(lookup, pat, modulo=True):
+#     array = isinstance(lookup, list)
+#     len = len(lookup)
 
-def choose_with(pat, *vals):
-    """
-    Choose from the list of values (or patterns of values) using the given
-    pattern of numbers, which should be in the range of 0..1
+#     def clamp(num, min, max):
+#         return min(max(num, min), max)
 
-    """
-    return _choose_with(pat, *vals).outer_join()
+#     lookup = {k: reify(v) for k, v in lookup.items()}
 
+#     if len == 0:
+#         return silence()
 
-def choose(*vals):
-    """Chooses randomly from the given list of values."""
-    return choose_with(rand(), *vals)
-
-
-def choose_cycles(*vals):
-    """
-    Similar to `cat`, but rather than playing the given patterns in order, it
-    picks them at random.
-
-    >>> s(choose_cycles("bd*2 sn", "jvbass*3", "drum*2", "ht mt")
-
-    """
-    return choose(*vals).segment(1)
-
-
-def randcat(*vals):
-    """Alias of `choose_cycles`"""
-    return choose_cycles(*vals)
-
-
-def wchoose_with(pat, *pairs):
-    """
-    Like `wchoose`, but works on an a list of tuples of values and weights
-
-    Values are samples using the 0..1 ranged numerical pattern `pat`.
-
-    """
-    values, weights = list(zip(*pairs))
-    cweights = list(accumulate(w for _, w in pairs))
-    total = sum(weights)
-
-    def match(r):
-        if r < 0 or r > 1:
-            raise ValueError("value from random pattern used by `wchooseby` is outside 0-1 range")
-        indices = [i for i, c in enumerate(cweights) if c >= r * total]
-        return values[indices[0]]
-
-    return pat.with_value(match)
-
-
-def wchoose(*vals):
-    """Like @choose@, but works on an a list of tuples of values and weights"""
-    return wchoose_with(rand(), *vals)
-
-
-# Randomness
-RANDOM_CONSTANT = 2**29
-RANDOM_CYCLES_LENGTH = 300
-
-
-def time_to_int_seed(a: float) -> int:
-    """
-    Stretch RANDOM_CYCLES_LENGTH cycles over the range of [0, RANDOM_CONSTANT]
-    then apply the xorshift algorithm.
-
-    """
-    return xorwise(math.trunc((a / RANDOM_CYCLES_LENGTH) * RANDOM_CONSTANT))
-
-
-def int_seed_to_rand(a: int) -> float:
-    """Converts an integer seed to a random float between 0 and 1"""
-    return (a % RANDOM_CONSTANT) / RANDOM_CONSTANT
-
-
-def time_to_rand(a: float) -> float:
-    """Converts a time value to a random float between 0 and 1"""
-    return int_seed_to_rand(time_to_int_seed(a))
-
-
-def signal(func: Callable) -> Pattern:
-    """
-    Base definition of a signal pattern. Returns an event with no whole, only a span and a value.
-    The value is taken from the function applied to the midpoint of the span.
-    """
-
-    def _query(span: TimeSpan):
-        return [Event(None, span, func(span.midpoint()))]
-
-    return Pattern(_query)
-
-
-def sine() -> Pattern:
-    """Returns a pattern that generates a sine wave between 0 and 1"""
-    return signal(lambda t: (math.sin(math.pi * 2 * t) + 1) / 2)
-
-
-def sine2() -> Pattern:
-    """Returns a pattern that generates a sine wave between -1 and 1"""
-    return signal(lambda t: math.sin(math.pi * 2 * t))
-
-
-def cosine() -> Pattern:
-    """Returns a pattern that generates a cosine wave between 0 and 1"""
-    return sine().early(0.25)
-
-
-def cosine2() -> Pattern:
-    """Returns a pattern that generates a cosine wave between -1 and 1"""
-    return sine2().early(0.25)
-
-
-def saw() -> Pattern:
-    """Returns a pattern that generates a saw wave between 0 and 1"""
-    return signal(lambda t: t % 1)
-
-
-def saw2() -> Pattern:
-    """Returns a pattern that generates a saw wave between -1 and 1"""
-    return signal(lambda t: (t % 1) * 2)
-
-
-def isaw() -> Pattern:
-    """Returns a pattern that generates an inverted saw wave between 0 and 1"""
-    return signal(lambda t: 1 - (t % 1))
-
-
-def isaw2() -> Pattern:
-    """Returns a pattern that generates an inverted saw wave between -1 and 1"""
-    return signal(lambda t: (1 - (t % 1)) * 2)
-
-
-def tri() -> Pattern:
-    """Returns a pattern that generates a triangle wave between 0 and 1"""
-    return fastcat(isaw(), saw())
-
-
-def tri2() -> Pattern:
-    """Returns a pattern that generates a triangle wave between -1 and 1"""
-    return fastcat(isaw2(), saw2())
-
-
-def square() -> Pattern:
-    """Returns a pattern that generates a square wave between 0 and 1"""
-    return signal(lambda t: math.floor((t * 2) % 2))
-
-
-def square2() -> Pattern:
-    """Returns a pattern that generates a square wave between -1 and 1"""
-    return signal(lambda t: (math.floor((t * 2) % 2) * 2) - 1)
-
-
-def envL() -> Pattern:
-    """
-    Returns a Pattern of continuous Double values, representing
-    a linear interpolation between 0 and 1 during the first cycle,
-    then staying constant at 1 for all following cycles.
-    """
-    return signal(lambda t: max(0, min(t, 1)))
-
-
-def envLR() -> Pattern:
-    """
-    Like envL but reversed.
-    """
-    return signal(lambda t: 1 - max(0, min(t, 1)))
-
-
-def envEq() -> Pattern:
-    """
-    'Equal power' version of env, for gain-based transitions.
-    """
-    return signal(lambda t: math.sqrt(math.sin(math.pi / 2 * max(0, min(1 - t, 1)))))
-
-
-def envEqR() -> Pattern:
-    """
-    Equal power reversed.
-    """
-    return signal(lambda t: math.sqrt(math.cos(math.pi / 2 * max(0, min(1 - t, 1)))))
-
-
-def rand() -> Pattern:
-    """
-    Generate a continuous pattern of pseudo-random numbers between `0` and `1`.
-
-    >>> rand().segment(4)
-
-    """
-    return signal(time_to_rand)
-
-
-def irand(n: int) -> Pattern:
-    """
-    Generate a pattern of pseudo-random whole numbers between `0` to `n-1` inclusive.
-
-    e.g this generates a pattern of 8 events per cycle, with values ranging from
-    0 to 15 inclusive.
-
-    >>> irand(16).segment(8)
-
-    """
-    return signal(lambda t: math.floor(time_to_rand(t) * n))
-
-
-def _perlin_with(p: Pattern) -> Pattern:
-    """
-    1D Perlin noise. Takes a pattern as the RNG's "input" for Perlin noise, instead of
-    automatically using the cycle count.
-
-    """
-    pa = p.with_value(math.floor)
-    pb = p.with_value(lambda v: math.floor(v) + 1)
-
-    def smoother_step(x: int | float) -> float:
-        return 6.0 * x**5 - 15.0 * x**4 + 10.0 * x**3
-
-    interp = lambda x: lambda a: lambda b: a + smoother_step(x) * (b - a)
-
-    return (
-        (p - pa)
-        .with_value(interp)
-        ._app_both(pa.with_value(time_to_rand))
-        ._app_both(pb.with_value(time_to_rand))
-    )
-
-
-def perlin(p: Optional[Pattern] = None) -> Pattern:
-    """
-    1D Perlin (smooth) noise, works like rand but smoothly moves between random
-    values each cycle.
-
-    """
-    if not p:
-        p = signal(identity)
-    return _perlin_with(p)
+#     return pat.fmap(
+#         lambda i: lookup[round(i) % len] if array else lookup[clamp(round(i), 0, len - 1)]
+#     )
 
 
 def timecat(*time_pat_tuples):
@@ -1636,3 +1426,17 @@ def timecat(*time_pat_tuples):
     return stack(
         *[pat.compress(TidalFraction(s, total), TidalFraction(e, total)) for s, e, pat in arranged]
     )
+
+
+# TODO: fix ??
+def group_haps_by(eq: Callable, haps: List[Hap]) -> List[List[Hap]]:
+    """returns List[Event] where each list of Events satisfies eq"""
+    groups = []
+    for hap in haps:
+        match = next((i for i, other in enumerate(groups) if eq(hap, other)), -1)
+        if match == -1:
+            groups.append([hap])
+        else:
+            groups[match].append(hap)
+
+    return groups

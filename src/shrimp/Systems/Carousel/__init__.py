@@ -1,4 +1,5 @@
 from .Pattern import *
+from .Signal import *
 from .Control import *
 from .Base.BaseStream import *
 from .Streams.CarouselStream import *
