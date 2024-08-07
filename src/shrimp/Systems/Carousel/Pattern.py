@@ -583,7 +583,6 @@ class Pattern:
 
         return Pattern(_query)
 
-
     def squeeze_join(self: Self) -> Self:
         """Like the other joins above, joins a pattern of patterns of values,
         into a flatter pattern of values. In this case it takes whole cycles
@@ -594,6 +593,7 @@ class Pattern:
             haps = pat_of_pats.discrete_only().query(state)
 
             def flat_hap(outer_hap: Event):
+                # What is _focus_span? It is not defined anywhere in the Strudel source...
                 inner_pat = outer_hap.value._focus_span(outer_hap.whole_or_part())
                 inner_haps = inner_pat.query(state.set_span(outer_hap.part))
 
@@ -608,13 +608,16 @@ class Pattern:
                         return None
                     return Event(whole, part, inner.value)
 
-                return [munge(outer_hap, inner_hap) for inner_hap in inner_haps if munge(outer_hap, inner_hap) is not None]
+                return [
+                    munge(outer_hap, inner_hap)
+                    for inner_hap in inner_haps
+                    if munge(outer_hap, inner_hap) is not None
+                ]
 
             result = [item for sublist in haps for item in flat_hap(sublist)]
             return [x for x in result if x is not None]
 
         return Pattern(_query)
-
 
     def restartJoin(self) -> Self:
         """TODO: add docstring"""
@@ -627,9 +630,8 @@ class Pattern:
         """
         return self.filter_events(lambda event: event.whole)
 
-
     def squeezeBind(self, func: Callable) -> Self:
-        return self.fmap(func).squeezeJoin()
+        return self.fmap(func).squeeze_join()
 
     @staticmethod
     def _patternify(method: Callable) -> Self:
@@ -1026,9 +1028,20 @@ class Pattern:
     def struct_all(self, *binary_pats: bool) -> Self:
         raise NotImplementedError
 
+    # export const ply = register('ply', function (factor, pat) {
+    #   const result = pat.fmap((x) => pure(x)._fast(factor)).squeezeJoin();
+    #   if (__tactus) {
+    #     result.tactus = Fraction(factor).mulmaybe(pat.tactus);
+    #   }
+    #   return result;
+    # });
+
     def ply(self, factor: int) -> Self:
-        self.with_value(lambda x: x.fast(factor)).squeezeJoin()  # TODO: squeezeJoin does not exist
-        raise NotImplementedError
+        """Tidal 'ply' function"""
+        result = self.fmap(lambda x: pure(x).fast(factor)).squeeze_join()
+        if self.tactus:
+            result.tactus = TidalFraction(factor).mulmaybe(self.tactus)
+        return result
 
     def mask(self, *binary_pats: bool) -> Self:
         """
@@ -1079,6 +1092,40 @@ class Pattern:
     def nothing(self) -> Self:
         """Like silence, but with a 'tactus' (relative duration) of 0"""
         return self.gap(0)
+
+    def compress(self, begin: float, end: float):
+        """Compress each cycle into the given timespan, leaving a gap"""
+        b = TidalFraction(begin)
+        e = TidalFraction(end)
+        if (b > e) or (e > 1) or (b < 0) or (e < 0):
+            return silence()
+        else:
+            self._fastGap(TidalFraction(1).div(e.sub(b)))._late(b)
+
+    def _opIn(self, other: Self, func: Callable) -> Self:
+        return self.fmap(func)._app_left(other)
+
+    def _opOut(self, other: Self, func: Callable) -> Self:
+        return self.fmap(func)._app_right(other)
+
+    def _opMix(self, other: Self, func: Callable) -> Self:
+        return self.fmap(func)._app_both(other)
+
+    def _op_squeeze(self, other: Self, func: Callable) -> Self:
+        otherPat = reify(other)
+        return self.fmap(lambda a: otherPat.fmap(lambda b: func(a)(b))).squeeze_join()
+
+    def _op_squeeze_out(self, other: Self, func: Callable) -> Self:
+        otherPat = reify(other)
+        return otherPat.fmap(lambda a: self.fmap(lambda b: func(b)(a))).squeeze_join()
+
+    def _op_reset(self, other: Self, func: Callable) -> Self:
+        otherPat = reify(other)
+        return otherPat.fmap(lambda b: self.fmap(lambda a: func(a)(b))).reset_join()
+
+    def _op_restart(self, other: Self, func: Callable) -> Self:
+        otherPat = reify(other)
+        return otherPat.fmap(lambda b: self.fmap(lambda a: func(a)(b))).restart_join()
 
     def __repr__(self):
         events = [str(e) for e in self.first_cycle()]
@@ -1163,7 +1210,7 @@ cat = fastcat
 seq = fastcat
 
 
-def stack(*pats: Pattern) -> Self:
+def stack(*pats: Tuple[Pattern]) -> Self:
     """Pile up patterns"""
     pats = [reify(pat) for pat in pats]
 
@@ -1171,6 +1218,10 @@ def stack(*pats: Pattern) -> Self:
         return flatten([pat.query(span) for pat in pats])
 
     return Pattern(_query)
+
+
+def stack_left(*pats: Tuple[Pattern]) -> Self:
+    return _s
 
 
 def _sequence_count(x: list | tuple | str | Any) -> Tuple[Pattern, int]:

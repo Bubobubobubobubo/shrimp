@@ -100,25 +100,29 @@ class Noise(Patch):
         self.set_output(output)
 
 
-@alias_param("period", "p")
-def kick(*args, **kwargs):
-    test = lambda *a, **k: graph.play(Kick(*a, **k))
-    return PatternPlayer.Player._play_factory(test, *args, **kwargs)
+# @alias_param("period", "p")
+# def kick(*args, **kwargs):
+#     test = lambda *a, **k: graph.play(Kick(*a, **k))
+#     return PatternPlayer.Player._play_factory(test, *args, **kwargs)
+synth_kick = lambda *args, **kwargs: graph.play(Kick(*args, **kwargs))
 
 
-@alias_param("period", "p")
-def noise(*args, **kwargs):
-    test = lambda *a, **k: graph.play(Noise(*a, **k))
-    return PatternPlayer.Player._play_factory(test, *args, **kwargs)
+# @alias_param("period", "p")
+# def noise(*args, **kwargs):
+#     test = lambda *a, **k: graph.play(Noise(*a, **k))
+#     return PatternPlayer.Player._play_factory(test, *args, **kwargs)
+synth_noise = lambda *args, **kwargs: graph.play(Noise(*args, **kwargs))
 
 
-@alias_param("period", "p")
-def hat(*args, **kwargs):
-    test = lambda *a, **k: graph.play(HiHat(*a, **k))
-    return PatternPlayer.Player._play_factory(test, *args, **kwargs)
+# @alias_param("period", "p")
+# def hat(*args, **kwargs):
+#     test = lambda *a, **k: graph.play(HiHat(*a, **k))
+#     return PatternPlayer.Player._play_factory(test, *args, **kwargs)
+synth_hat = lambda *args, **kwargs: graph.play(HiHat(*args, **kwargs))
 
 
-@alias_param("period", "p")
-def snare(*args, **kwargs):
-    test = lambda *a, **k: graph.play(Snare(*a, **k))
-    return PatternPlayer.Player._play_factory(test, *args, **kwargs)
+# @alias_param("period", "p")
+# def snare(*args, **kwargs):
+#     test = lambda *a, **k: graph.play(Snare(*a, **k))
+#     return PatternPlayer.Player._play_factory(test, *args, **kwargs)
+synth_snare = lambda *args, **kwargs: graph.play(Snare(*args, **kwargs))

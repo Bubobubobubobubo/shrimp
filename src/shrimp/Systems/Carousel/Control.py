@@ -12,6 +12,10 @@ generic_params = [
     ("sy", "sy", "Midi Sysex Message"),
     ("out", "out", "Pattern Backend"),
     ("s", "toArg", "for internal sound routing"),
+    ("f", "ratio", "fm synth ratio"),
+    ("f", "depth", "fm synth depth"),
+    ("f", "vib", "synth vibrato "),
+    ("f", "vib_depth", "synth vibrato depth"),
     # ("f", "from", "for internal sound routing"),  <- TODO - 'from' is a reserved word in python..
     ("f", "to", "for internal sound routing"),
     (
@@ -296,8 +300,8 @@ generic_params = [
     ("f", "octersub", "octaver effect"),
     ("f", "octersubsub", "octaver effect"),
     ("f", "ring", "ring modulation"),
-    ("f", "ringf", "ring modulation"),
     ("f", "ringdf", "ring modulation"),
+    ("f", "ringf", "ring modulation"),
     ("f", "distort", "noisy fuzzy distortion"),
     ("f", "freeze", "Spectral freeze"),
     ("f", "xsdelay", ""),
@@ -343,9 +347,7 @@ def make_control(control_name: str) -> Callable:
     """Creates a new control function with the given name"""
 
     def ctrl(*args):
-        return sequence(*[reify(arg) for arg in args]).with_value(
-            lambda v: {control_name: v}
-        )
+        return sequence(*[reify(arg) for arg in args]).with_value(lambda v: {control_name: v})
 
     def ctrl_pattern(self, *args):
         return self >> sequence(*[reify(arg) for arg in args]).with_value(

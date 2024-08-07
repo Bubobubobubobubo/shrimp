@@ -53,11 +53,14 @@ class MultiSaw(Patch):
         self.set_output(output)
 
 
-def multisaw(*args, **kwargs):
-    test = lambda *a, **k: graph.play(MultiSaw(*a, **k))
-    return PatternPlayer.Player._play_factory(
-        test,
-        *args,
-        manual_polyphony=True,
-        **kwargs,
-    )
+# def multisaw(*args, **kwargs):
+#     test = lambda *a, **k: graph.play(MultiSaw(*a, **k))
+#     return PatternPlayer.Player._play_factory(
+#         test,
+#         *args,
+#         manual_polyphony=True,
+#         **kwargs,
+#     )
+
+
+synth_multisaw = lambda *a, **k: graph.play(MultiSaw(*a, **k))

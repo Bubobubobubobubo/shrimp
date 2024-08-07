@@ -42,9 +42,16 @@ class CarouselStream(BaseCarouselStream):
         beats_per_cycle: int,
     ) -> None:
         if "m" in event:
-            self.send_midi_note(event=event, beat_timestamp=beat_timestamp, delta=delta, beats_per_cycle=beats_per_cycle)
+            self.send_midi_or_synth_note(
+                event=event,
+                beat_timestamp=beat_timestamp,
+                delta=delta,
+                beats_per_cycle=beats_per_cycle,
+            )
         if "s" in event:
-            self.send_superdirt_message(event=event, unix_timestamp=unix_timestamp, cps=cps, cycle=cycle, delta=delta)
+            self.send_superdirt_message(
+                event=event, unix_timestamp=unix_timestamp, cps=cps, cycle=cycle, delta=delta
+            )
         if "cc" in event:
             self.send_midi_cc(event=event, beat_timestamp=beat_timestamp)
         if "pc" in event:
@@ -97,7 +104,7 @@ class CarouselStream(BaseCarouselStream):
             timestamp=beat_timestamp,
         )
 
-    def send_midi_note(
+    def send_midi_or_synth_note(
         self,
         event: Dict[str, Any],
         beat_timestamp: float,
@@ -106,19 +113,25 @@ class CarouselStream(BaseCarouselStream):
     ):
         """Sending MIDI note"""
         # Missing MIDI backend
-        if "out" not in event or not isinstance(event.get("out", None), MIDIOut):
+        if "out" not in event:
             return
 
         base_duration = delta * beats_per_cycle
         duration = base_duration * event.get("dur", 1)
 
-        event["out"].note(
-            note=event.get("m", 60),
-            velocity=event.get("velocity", 100),
-            channel=event.get("channel", 1),
-            length=duration,
-            timestamp=beat_timestamp,
-        )
+        if isinstance(event.get("out", None), MIDIOut):
+            event["out"].note(
+                note=event.get("m", 60),
+                velocity=event.get("velocity", 100),
+                channel=event.get("channel", 1),
+                length=duration,
+                timestamp=beat_timestamp,
+            )
+        else:
+            self._clock.add_from_timestamp(
+                func=lambda: event["out"](note=event.get("m", 60), **event),
+                timestamp=beat_timestamp,
+            )
 
     def send_superdirt_message(
         self,

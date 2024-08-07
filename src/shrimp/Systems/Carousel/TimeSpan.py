@@ -8,6 +8,7 @@ Fraction.sam = lambda self: TidalFraction(math.floor(self))
 Fraction.next_sam = lambda self: TidalFraction(math.floor(self) + 1)
 Fraction.whole_cycle = lambda self: (self.sam(), self.next_sam())
 Fraction.cycle_pos = lambda self: self - self.sam()
+Fraction.mulmaybe = lambda self, other: self.mul(other) if other is not None else None
 
 
 class TidalFraction(Fraction):
@@ -118,9 +119,7 @@ class TimeSpan:
                 intersect_begin == other.end and other.begin < other.end
             ):
                 if throw:
-                    raise ValueError(
-                        f"TimeSpan {self} and TimeSpan {other} do not intersect"
-                    )
+                    raise ValueError(f"TimeSpan {self} and TimeSpan {other} do not intersect")
                 return
 
         return TimeSpan(intersect_begin, intersect_end)
@@ -133,7 +132,9 @@ class TimeSpan:
         return f"Span({repr(self.begin)}, {repr(self.end)})"
 
     def __str__(self) -> str:
-        return f"({TidalFraction.show_fraction(self.begin)}, {TidalFraction.show_fraction(self.end)})"
+        return (
+            f"({TidalFraction.show_fraction(self.begin)}, {TidalFraction.show_fraction(self.end)})"
+        )
 
     def __eq__(self, other) -> bool:
         if isinstance(other, TimeSpan):
