@@ -24,6 +24,7 @@ class Pattern:
 
     @property
     def tactus(self) -> Optional[int]:
+        """Returns the tactus of the pattern."""
         return self._tactus
 
     @tactus.setter
@@ -31,10 +32,177 @@ class Pattern:
         self._tactus = tactus
 
     def with_tactus(self, f) -> Self:
+        """Returns a new pattern with the tactus modified by the function `f`."""
         return Pattern(self.query, None if self.tactus is None else f(self.tactus))
 
     def has_tactus(self) -> bool:
+        """Returns True if the pattern has a tactus."""
         return self.tactus is not None
+
+    def with_value(self, func: Callable) -> Self:
+        """Returns a new pattern, with the function applied to the value of each event."""
+
+        def _query(span: TimeSpan) -> List[Event]:
+            return [event.with_value(func) for event in self.query(span)]
+
+        return Pattern(_query)
+
+    # NOTE: Strudel pattern.mjs port
+    def withHaps(self, func: Callable) -> Self:
+        result = Pattern(lambda state: func(self.query(state), state))
+        result.tactus = self.tactus
+        return result
+
+    # NOTE: Strudel pattern.mjs port
+    def with_state(self, func: Callable) -> Self:
+        def apply_func(haps, state):
+            func(state)
+            return haps
+
+        return self.with_apps(apply_func)
+
+    # NOTE: Strudel pattern.mjs port
+    def fmap(self, func: Callable) -> Self:
+        """Maps a function over the values of the pattern."""
+        return self.with_value(lambda x: func(x))
+
+    def _app_whole(
+        self,
+        whole_func: Callable[[Optional[TimeSpan], Optional[TimeSpan]], Optional[TimeSpan]],
+        pat_val: Self,
+    ) -> Self:
+        """
+        Assumes self is a pattern of functions, and given a function to
+        resolve wholes, applies a given pattern of values to that
+        pattern of functions.
+        """
+
+        def _query(span: TimeSpan) -> List[Event]:
+            event_funcs = self.query(span)
+            event_vals = pat_val.query(span)
+
+            def apply(event_func: Event, event_val: Event) -> Optional[Event]:
+                s = event_func.part.intersection(event_val.part)
+                return (
+                    None
+                    if s is None
+                    else Event(
+                        whole_func(event_func.whole, event_val.whole),
+                        s,
+                        event_func.value(event_val.value),
+                    )
+                )
+
+            return flatten(
+                [
+                    remove_nones([apply(event_func, event_val) for event_val in event_vals])
+                    for event_func in event_funcs
+                ]
+            )
+
+        return Pattern(_query)
+
+    # NOTE: Strudel pattern.mjs port
+    def _app_both(self, pat_val) -> Self:
+        """When this method is called on a pattern of functions, it matches its haps
+        with those in the given pattern of values.  A new pattern is returned, with
+        each matching value applied to the corresponding function.
+
+        In this `_appBoth` variant, where timespans of the function and value haps
+        are not the same but do intersect, the resulting hap has a timespan of the
+        intersection. This applies to both the part and the whole timespan.
+
+        Args:
+            pat_val (Pattern): The pattern of values to apply
+
+        Returns:
+            Pattern: A new pattern with the given pattern of values applied
+        """
+
+        def whole_func(span_a, span_b):
+            if (span_a is not None) and (span_b is not None):
+                return span_a.intersection(span_b, throw=True)
+            else:
+                return None
+
+        result = self._appwhole(whole_func, pat_val)
+        if self.tactus is not None:
+            result.tactus = math.lcm(pat_val.tactus, self.tactus)
+        return result
+
+    def _app_left(self, other: Self) -> Self:
+        """Tidal's <* operator. As with `_app_both`, but the `whole` timespan
+        is not the intersection, but the timespan from the function of patterns
+        that this method is called on. In practice, this means that the pattern
+        structure, including onsets, are preserved from the pattern of functions
+        (often referred to as the lefthand or inner pattern).
+
+        Args:
+            pat_val (Pattern): The pattern to apply to the left of the current pattern
+
+        Returns:
+            Pattern: A new pattern with the given pattern applied to the left
+        """
+
+        def _query(span: TimeSpan) -> List[Event]:
+            events: List[Event] = []
+
+            # Iterating over all the events in the current pattern
+            for func in self.query(span):
+                event_vals = other.query(func.whole_or_part())
+
+                # Iterating over all the events in the pattern passed as argument
+                for val in event_vals:
+                    new_whole: TimeSpan = func.whole
+                    new_part: TimeSpan = func.part.intersection(val.part)
+                    if new_part:
+                        new_value = func.value(val.value)
+                        events.append(Event(new_whole, new_part, new_value))
+            return events
+
+        result = Pattern(_query)
+        result.tactus = self.tactus
+        return result
+
+    def _app_right(self, other: Self) -> Self:
+        """Tidal's *> operator. As with `appLeft`, but `whole` timespans
+        are instead taken from the pattern of values, i.e. structure is
+        preserved from the right hand/outer pattern."""
+
+        def _query(span: TimeSpan) -> List[Event]:
+            events: List[Event] = []
+
+            # Iterating over all the events in the other pattern
+            for val in other.query(span):
+                event_funcs = self.query(val.whole_or_part())
+
+                # Iterating over all the events in the current pattern
+                for func in event_funcs:
+                    new_whole: TimeSpan = val.whole
+                    new_part: TimeSpan = func.part.intersection(val.part)
+                    if new_part:
+                        new_value = func.value(val.value)
+                        events.append(Event(new_whole, new_part, new_value))
+            return events
+
+        result = Pattern(_query)
+        result.tactus = other.tactus
+        return result
+
+    # NOTE: Strudel pattern.mjs port
+    def bind_whole(self, choose_whole, func: Callable) -> Self:
+        """???"""
+
+        def _query(state):
+            def with_whole(a, b):
+                return Event(choose_whole(a.whole, b.whole), b.part, b.value)
+
+            def match(a):
+                return func(a.value).query(state.set_span(a.part)).map(lambda b: with_whole(a, b))
+
+            return flatten(self.query(state).map(lambda a: match(a)))
+
+        return Pattern(_query)
 
     @staticmethod
     def reify(x: Any) -> Self:
@@ -91,18 +259,6 @@ class Pattern:
         """
         return self.with_event_span(lambda span: span.with_time(func))
 
-    def with_value(self, func: Callable) -> Self:
-        """Returns a new pattern, with the function applied to the value of each event."""
-
-        def _query(span: TimeSpan) -> List[Event]:
-            return [event.with_value(func) for event in self.query(span)]
-
-        return Pattern(_query)
-
-    def fmap(self, func: Callable) -> Self:
-        """Maps a function over the values of the pattern."""
-        return self.with_value(lambda x: func(x))
-
     def filter_events(self, event_test: Callable) -> Self:
         """Returns a new pattern that will only return events that pass the given test."""
         return Pattern(lambda span: list(filter(event_test, self.query(span))))
@@ -120,129 +276,14 @@ class Pattern:
         """
         return self.filter_events(Event.has_onset)
 
-    # applyPatToPatLeft :: Pattern (a -> b) -> Pattern a -> Pattern b
-    # applyPatToPatLeft pf px = Pattern q
-    #    where q st = catMaybes $ concatMap match $ query pf st
-    #            where
-    #              match ef = map (withFX ef) (query px $ st {arc = wholeOrPart ef})
-    #              withFX ef ex = do let whole' = whole ef
-    #                                part' <- subArc (part ef) (part ex)
-    #                                return (Event (combineContexts [context ef, context ex]) whole' part' (value ef $ value ex))
-
-    def _app_both( self, pat_val) -> Self:
-        """TODO: check if implementation is correct"""
-
-        def whole_func(span_a, span_b):
-            if (span_a is not None) and (span_b is not None):
-                return span_a.intersection(span_b, throw=True)
-            else:
-                return None
-
-        result = self._appwhole(whole_func, pat_val)
-        if self.tactus is not None:
-            result.tactus = math.lcm(pat_val.tactus, self.tactus)
-        return result
-
-
-        return NotImplementedError
-
-    def _app_whole(
-        self,
-        whole_func: Callable[[Optional[TimeSpan], Optional[TimeSpan]], Optional[TimeSpan]],
-        pat_val: Self,
-    ) -> Self:
-        """
-        Assumes self is a pattern of functions, and given a function to
-        resolve wholes, applies a given pattern of values to that
-        pattern of functions.
-        """
-
-        def _query(span: TimeSpan) -> List[Event]:
-            event_funcs = self.query(span)
-            event_vals = pat_val.query(span)
-
-            def apply(event_func: Event, event_val: Event) -> Optional[Event]:
-                s = event_func.part.intersection(event_val.part)
-                return (
-                    None
-                    if s is None
-                    else Event(
-                        whole_func(event_func.whole, event_val.whole),
-                        s,
-                        event_func.value(event_val.value),
-                    )
-                )
-
-            return flatten(
-                [
-                    remove_nones([apply(event_func, event_val) for event_val in event_vals])
-                    for event_func in event_funcs
-                ]
-            )
-
-        return Pattern(_query)
-
     # A bit more complicated than this..
-    def app_both(self, other: Self) -> Self:
+    def _app_both(self, other: Self) -> Self:
         """Tidal's <*> operator"""
 
         def whole_func(span_a: TimeSpan, span_b: TimeSpan) -> Optional[TimeSpan]:
             return span_a.intersection(span_b, throw=True) if span_a and span_b else None
 
         return self._app_whole(whole_func, other)
-
-    def _app_left(self, other: Self) -> Self:
-        """Tidal's <* operator.
-
-        Args:
-            pat_val (Pattern): The pattern to apply to the left of the current pattern
-
-        Returns:
-            Pattern: A new pattern with the given pattern applied to the left
-        """
-
-        def _query(span: TimeSpan) -> List[Event]:
-            events: List[Event] = []
-
-            # Iterating over all the events in the current pattern
-            for func in self.query(span):
-                event_vals = other.query(func.whole_or_part())
-
-                # Iterating over all the events in the pattern passed as argument
-                for val in event_vals:
-                    new_whole: TimeSpan = func.whole
-                    new_part: TimeSpan = func.part.intersection(val.part)
-                    if new_part:
-                        new_value = func.value(val.value)
-                        events.append(Event(new_whole, new_part, new_value))
-            return events
-
-        result = Pattern(_query)
-        result.tactus = self.tactus
-        return result
-
-    def _app_right(self, other: Self) -> Self:
-        """Tidal's *> operator"""
-
-        def _query(span: TimeSpan) -> List[Event]:
-            events: List[Event] = []
-
-            # Iterating over all the events in the other pattern
-            for val in other.query(span):
-                event_funcs = self.query(val.whole_or_part())
-
-                # Iterating over all the events in the current pattern
-                for func in event_funcs:
-                    new_whole: TimeSpan = val.whole
-                    new_part: TimeSpan = func.part.intersection(val.part)
-                    if new_part:
-                        new_value = func.value(val.value)
-                        events.append(Event(new_whole, new_part, new_value))
-            return events
-
-        result = Pattern(_query)
-        result.tactus = other.tactus
-        return result
 
     def _apply_op(
         self,
@@ -481,41 +522,114 @@ class Pattern:
 
         return self._bind_whole(whole_func, func)
 
-    def join(self) -> Self:
-        """Flattens a pattern of patterns into a pattern, where wholes are
-        the intersection of matched inner and outer events."""
-        return self.bind(identity)
+    def outer_bind(self, func) -> Self:
+        """TODO: add docstring"""
+        return self._bind_whole(lambda a, _: a, func)
 
     def inner_bind(self, func: Callable) -> Self:
         """TODO: add docstring"""
         return self._bind_whole(lambda _, b: b, func)
+
+    def join(self) -> Self:
+        """Flattens a pattern of patterns into a pattern, where wholes are
+        the intersection of matched inner and outer events."""
+        return self.bind(identity)
 
     def inner_join(self) -> Self:
         """Flattens a pattern of patterns into a pattern, where wholes are
         taken from inner events."""
         return self.inner_bind(identity)
 
-    def outer_bind(self, func) -> Self:
-        """TODO: add docstring"""
-        return self._bind_whole(lambda a, _: a, func)
-
     def outer_join(self) -> Self:
         """Flattens a pattern of patterns into a pattern, where wholes are
         taken from outer events."""
         return self.outer_bind(identity)
 
-    def discreteOnly(self) -> Self:
+    # NOTE: Strudel pattern.mjs port
+    def reset_join(self, restart: bool = False):
+        """Flatterns patterns of patterns, by retriggering/resetting inner patterns at onsets of outer pattern haps"""
+        pat_of_pats = self
+
+        def _query(state):
+            outer_haps = pat_of_pats.discrete_only().query(state)
+
+            def process_outer_hap(outer_hap):
+                inner_pattern = outer_hap.value
+                start = outer_hap.whole.begin if restart else outer_hap.whole.begin.cycle_pos()
+
+                inner_haps = inner_pattern.late(start).query(state)
+
+                def process_inner_hap(inner_hap):
+                    combined_whole = (
+                        inner_hap.whole.intersection(outer_hap.whole) if inner_hap.whole else None
+                    )
+                    combined_part = inner_hap.part.intersection(outer_hap.part)
+                    if combined_part:
+                        return Event(
+                            combined_whole,
+                            combined_part,
+                            inner_hap.value,
+                        )
+                    return None
+
+                processed_inner_haps = [process_inner_hap(inner_hap) for inner_hap in inner_haps]
+                return [hap for hap in processed_inner_haps if hap is not None]
+
+            processed_haps = [
+                hap for outer_hap in outer_haps for hap in process_outer_hap(outer_hap)
+            ]
+
+            return processed_haps
+
+        return Pattern(_query)
+
+
+    def squeeze_join(self: Self) -> Self:
+        """Like the other joins above, joins a pattern of patterns of values,
+        into a flatter pattern of values. In this case it takes whole cycles
+        of the inner pattern to fit each event in the outer pattern."""
+        pat_of_pats = self
+
+        def _query(state):
+            haps = pat_of_pats.discrete_only().query(state)
+
+            def flat_hap(outer_hap: Event):
+                inner_pat = outer_hap.value._focus_span(outer_hap.whole_or_part())
+                inner_haps = inner_pat.query(state.set_span(outer_hap.part))
+
+                def munge(outer, inner):
+                    whole = None
+                    if inner.whole and outer.whole:
+                        whole = inner.whole.intersection(outer.whole)
+                        if not whole:
+                            return None
+                    part = inner.part.intersection(outer.part)
+                    if not part:
+                        return None
+                    return Event(whole, part, inner.value)
+
+                return [munge(outer_hap, inner_hap) for inner_hap in inner_haps if munge(outer_hap, inner_hap) is not None]
+
+            result = [item for sublist in haps for item in flat_hap(sublist)]
+            return [x for x in result if x is not None]
+
+        return Pattern(_query)
+
+
+    def restartJoin(self) -> Self:
+        """TODO: add docstring"""
+        return self.resetJoin(True)
+
+    def discrete_only(self) -> Self:
         """
         Removes continuous events that don't have a 'whole' timespan.
         TODO: check if this is the right way to implement this
         """
         return self.filter_events(lambda event: event.whole)
 
-    def squeezeJoin(self) -> Self:
-        return NotImplementedError
 
-    def squeezeBind(self) -> Self:
-        raise NotImplementedError
+    def squeezeBind(self, func: Callable) -> Self:
+        return self.fmap(func).squeezeJoin()
 
     @staticmethod
     def _patternify(method: Callable) -> Self:
@@ -594,7 +708,6 @@ class Pattern:
     def append(self, other: Self) -> Self:
         """Appends two patterns together and compress them into a single cycle"""
         return fastcat(self, other)
-
 
     def rev(self) -> Self:
         """Returns the reversed the pattern"""
@@ -910,8 +1023,12 @@ class Pattern:
             .remove_none()
         )
 
+    def struct_all(self, *binary_pats: bool) -> Self:
+        raise NotImplementedError
+
     def ply(self, factor: int) -> Self:
-        self.with_value(lambda x: x.fast(factor)).squeezeJoin() # TODO: squeezeJoin does not exist
+        self.with_value(lambda x: x.fast(factor)).squeezeJoin()  # TODO: squeezeJoin does not exist
+        raise NotImplementedError
 
     def mask(self, *binary_pats: bool) -> Self:
         """
@@ -925,6 +1042,15 @@ class Pattern:
             ._app_right(self)
             .remove_none()
         )
+
+    def mask_all(self, *binary_pats: bool) -> Self:
+        raise NotImplementedError
+
+    def reset(self, *args: Any) -> Self:
+        raise NotImplementedError
+
+    def reset_all(self, *args: Any) -> Self:
+        raise NotImplementedError
 
     def euclid(self, k: int, n: int, rot: int = 0) -> Self:
         """
@@ -941,6 +1067,18 @@ class Pattern:
 
         """
         return self.struct(_tparams(_euclid, k, n, rot).inner_join())
+
+    def gap(self, tactus: int | float) -> Self:
+        """Does absolutely nothing, but with a given matrical 'tactus'"""
+        return Pattern(query=lambda _: [], tactus=tactus)
+
+    def silence(self) -> Self:
+        """Does absolutely nothing"""
+        return self.gap(1)
+
+    def nothing(self) -> Self:
+        """Like silence, but with a 'tactus' (relative duration) of 0"""
+        return self.gap(0)
 
     def __repr__(self):
         events = [str(e) for e in self.first_cycle()]
@@ -966,7 +1104,7 @@ def _tparams(func, *params: Any) -> Pattern:
         return silence()
     curried_func = curry(func)
     return reduce(
-        lambda a, b: a.app_both(reify(b)),
+        lambda a, b: a._app_both(reify(b)),
         params[1:],
         reify(params[0]).with_value(curried_func),
     )
@@ -1056,6 +1194,26 @@ def _sequence_count(x: list | tuple | str | Any) -> Tuple[Pattern, int]:
 def sequence(*args: Any) -> Pattern:
     """TODO: add docstring"""
     return _sequence_count(args)[0]
+
+
+def arpWith(self, func: Callable) -> Self:
+    raise NotImplementedError
+
+
+def congruent(a, b):
+    raise NotImplementedError
+
+
+def collect(self):
+    raise NotImplementedError
+
+
+def arpWith(self, func: Callable) -> Self:
+    raise NotImplementedError
+
+
+def arpWith(self, pat: Self) -> Self:
+    raise NotImplementedError
 
 
 # TODO: what is the steps type?
@@ -1389,8 +1547,8 @@ def _perlin_with(p: Pattern) -> Pattern:
     return (
         (p - pa)
         .with_value(interp)
-        .app_both(pa.with_value(time_to_rand))
-        .app_both(pb.with_value(time_to_rand))
+        ._app_both(pa.with_value(time_to_rand))
+        ._app_both(pb.with_value(time_to_rand))
     )
 
 
