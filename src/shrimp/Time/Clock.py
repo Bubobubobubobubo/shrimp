@@ -12,7 +12,6 @@ import time as time_module
 import math
 import link
 import types
-import datetime
 
 
 @dataclass(order=True)
@@ -69,11 +68,6 @@ class Clock(Subscriber):
     def __repr__(self) -> str:
         state = "PLAY" if self._playing else "STOP"
         return f"Clock {state}: {self.tempo} BPM, {self.bar} bars, {self.beat} beats, {self.phase} phase."
-
-    def _log(self, level: str = "info", message: str = "") -> None:
-        """Helper function to log messages within this class"""
-        levels = {"debug": 10, "info": 20, "warning": 30, "error": 40, "critical": 50}
-        logging.log(levels[level], f"(Clock: {round(self.now, 3)}) {message}")
 
     def sync(self, value: bool = True):
         """Enable or disable the sync of the clock"""
@@ -144,7 +138,7 @@ class Clock(Subscriber):
     @property
     def tempo(self):
         """Get the tempo of the clock"""
-        return self._tempo
+        return self._link.captureSessionState().tempo()
 
     @property
     def cps(self):
@@ -206,8 +200,8 @@ class Clock(Subscriber):
         if self.env:
             self.env.dispatch(self, "start", {})
         if not self._clock_thread:
-            self._clock_thread = threading.Thread(target=self.run, daemon=False)
-            self._carousel_thread = threading.Thread(target=self._run_vortex, daemon=False)
+            self._clock_thread = threading.Thread(target=self.run, daemon=True)
+            self._carousel_thread = threading.Thread(target=self._run_carousel, daemon=True)
             logging.info("Starting Main Clock Thread")
             self._clock_thread.start()
             logging.info("Starting Vortex Clock Thread")
@@ -222,7 +216,6 @@ class Clock(Subscriber):
         """Play the clock"""
         if self._playing:
             return
-        # self._log("warning", f"Clock has started at: {self._phase}")
         self._reset_children_times()
         session = self._link.captureSessionState()
         session.setIsPlaying(True, self._link.clock().micros())
@@ -236,7 +229,6 @@ class Clock(Subscriber):
         if not self._playing:
             return
         else:
-            # self._log("warning", f"paused at: {self._phase}")
             self._playing = False
             if self.env:
                 self.env.dispatch(self, "pause", {})
@@ -264,12 +256,10 @@ class Clock(Subscriber):
         Args:
             data (dict): Data to be passed to the event handler
         """
-        self._link.startStopSyncEnabled = False
         self._stop_event.set()
-        self._link.enabled = False
         if self.env:
             self.env.dispatch(self, "stop", {})
-        del self._link
+        self._clock_thread.join()
 
     def _capture_link_info(self) -> bool:
         """
@@ -308,7 +298,7 @@ class Clock(Subscriber):
         # Other times, looping around!
         else:
             if isPlaying and not self._playing:
-                self._log("warning", "Play Requested by Peer")
+                logging.warning("Play Requested by Peer")
                 self.add(
                     name="restart_playback",
                     func=lambda: self.play(),
@@ -318,11 +308,11 @@ class Clock(Subscriber):
                     passthrough=True,
                 )
             elif not isPlaying and self._playing:
-                self._log("warning", "Pause Requested by Peer")
+                logging.warning("Pause Requested by Peer")
                 self.pause()
             return True
 
-    def _run_vortex(self):
+    def _run_carousel(self):
 
         ticks, start = 0, self._link.clock().micros()
 
@@ -478,7 +468,6 @@ class Clock(Subscriber):
         once: bool,
         passthrough: bool,
     ) -> PriorityEvent:
-        # self._log("info", f"{name} [UPDATE]")
         children = self._events[name]
 
         if time_reference is not None:
@@ -506,7 +495,7 @@ class Clock(Subscriber):
         passthrough: bool,
     ) -> PriorityEvent:
         if not name.startswith(("note_on_", "note_off_")):
-            self._log("info", f" {name} [ADDED]")
+            logging.info(f" {name} [ADDED]")
 
         if time_reference is not None:
             time = time_reference + time
@@ -543,8 +532,19 @@ class Clock(Subscriber):
             if func.__name__ in self._events:
                 del self._events[func.__name__]
 
+    def remove_by_func(self, *args) -> None:
+        """Remove an event from the clock from its func."""
+        args = filter(lambda x: isinstance(x, types.FunctionType | types.LambdaType), args)
+        to_remove = []
+        for func in args:
+            for name, event in self._events.items():
+                if event.item[0] == func:
+                    to_remove.append(name)
+        for name in to_remove:
+            del self._events[name]
+
     def remove_by_name(self, name: str) -> None:
-        """Remove an event from the clock by name."""
+        """Remove an event from the clock by its event name."""
         if name in self._events:
             del self._events[name]
 

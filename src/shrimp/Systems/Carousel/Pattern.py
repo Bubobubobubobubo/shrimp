@@ -1032,6 +1032,31 @@ class Pattern:
             return silence()
         return self.fast_gap(TidalFraction(1, end - begin)).late(begin)
 
+    def loop_at(self, factor: float, cps: float = 0.5) -> Self:
+        """Makes the sample fit the given number of cycles by changing the speed."""
+        return self.speed((1 / factor) * cps).unit("c").slow(factor)
+
+    def zoom(self, zoom_start: TidalFraction, zoom_end: TidalFraction) -> Self:
+        """Plays a portion of a pattern, specified by the beginning and end of a time span.
+        The new resulting pattern is played over the time period of the original pattern"""
+        zoom_start = TidalFraction(zoom_start)
+        zoom_end = TidalFraction(zoom_end)
+        if zoom_start >= zoom_end:
+            return self.nothing()
+        duration = zoom_end - zoom_start
+        # TODO: I suppose that all patterns are supposed to have a tactus ?!
+        # TODO: Update everything to get the tactus automatically set...
+        tactus = self.tactus.mulmaybe(duration)
+        result = (
+            self.with_query_span(
+                lambda span: span.with_cycle(lambda t: (t * duration) + zoom_start)
+            )
+            .with_hap_span(lambda span: span.with_cycle(lambda t: (t - zoom_start) / duration))
+            .split_queries()
+        )
+        result.tactus = tactus
+        return result
+
     ################################################################################
     # STRIATE
     ################################################################################
@@ -1480,6 +1505,9 @@ def _sequence_count(x: list | tuple | str | Any) -> Tuple[Pattern, int]:
 
 def sequence(*args: Any) -> Pattern:
     """TODO: add docstring"""
+
+    print(len(_sequence_count(args)[0]))
+
     return _sequence_count(args)[0]
 
 

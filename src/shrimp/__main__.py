@@ -29,6 +29,7 @@ if __name__ == "__main__":
                 history_filename=get_ptpython_history_file(),
                 vi_mode=CONFIGURATION["editor"]["vim_mode"],
             )
+            exit()
         case "python":
             logging.info("Entering Python shell.")
             import code
@@ -37,3 +38,4 @@ if __name__ == "__main__":
             exit()
         case _:
             print("Invalid shell selection. Exiting.")
+            exit()

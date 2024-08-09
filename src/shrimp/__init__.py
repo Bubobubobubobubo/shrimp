@@ -5,7 +5,6 @@ sys.dont_write_bytecode = True
 from .configuration import read_configuration, open_config_folder
 from .utils import info_message, greeter, alias_param
 from .Time.Clock import Clock
-from functools import partial
 from .IO.midi import MIDIOut, MIDIIn, list_midi_ports
 from .IO.osc import OSC
 from rich import print
@@ -15,12 +14,15 @@ import os
 
 logging.warning("=========== Program start ==============")
 
+
+CONFIGURATION = read_configuration()
+
 # Do not import signalflow if on Linux or Windows!
 current_os = os.uname().sysname
 if current_os == "Darwin":
-    from .Synths import *
+    if CONFIGURATION["audio_engine"]["enabled"]:
+        from .Synths import *
 
-CONFIGURATION = read_configuration()
 
 if CONFIGURATION["editor"]["greeter"]:
     greeter()

@@ -71,7 +71,7 @@ class Hap:
         return (not self.whole and not other.whole) or self.whole == other.whole
 
     def __repr__(self) -> str:
-        return f"Event({repr(self.whole)}, {repr(self.part)}, {repr(self.value)})"
+        return f"Hap({repr(self.whole)}, {repr(self.part)}, {repr(self.value)})"
 
     def __str__(self) -> str:
         return f"({self.whole}, {self.part}, {pformat(self.value)})"

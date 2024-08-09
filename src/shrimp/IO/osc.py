@@ -31,8 +31,13 @@ class OSC(Subscriber):
         self.setup_osc_loop()
 
         # Event handlers
-        self.register_handler("stop", lambda _: self._osc_loop_shutdown.set())
+        self.register_handler("stop", lambda _: self._stop(_))
         self.register_handler("silence", lambda _: self.panic())
+
+    def _stop(self, _):
+        """Stops the OSC processing loop"""
+        self._osc_loop_shutdown.set()
+        self._osc_loop_thread.join()
 
     def setup_osc_loop(self) -> None:
         """Initialise the background OSC process loop."""

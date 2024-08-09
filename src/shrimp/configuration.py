@@ -107,6 +107,7 @@ def _create_default_configuration() -> dict:
             "greeter": True,
         },
         "audio_engine": {
+            "enabled": False,
             "sample_rate": 44100,
             "cpu_limit": 50,
             "output_buffer_size": 256,

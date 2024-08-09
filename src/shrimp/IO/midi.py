@@ -90,6 +90,8 @@ class MIDIIn(Subscriber):
                         )
                 sleep(0.01)
 
+            self._midi_loop_thread.join()
+
         self._midi_loop_thread = threading.Thread(target=_midi_process_loop, daemon=True)
         self._midi_loop_thread.start()
 

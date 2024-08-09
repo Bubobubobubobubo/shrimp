@@ -390,39 +390,39 @@ def note_to_midi(note: str) -> int:
     - ValueError: If the note notation is invalid.
     """
     note_dict = {
-        "c": 0,
+        "C": 0,
         "do": 0,
-        "c#": 1,
+        "C#": 1,
         "do#": 1,
-        "db": 1,
+        "Db": 1,
         "reb": 1,
-        "d": 2,
+        "D": 2,
         "re": 2,
-        "d#": 3,
+        "D#": 3,
         "re#": 3,
-        "eb": 3,
+        "Eb": 3,
         "mib": 3,
-        "e": 4,
+        "E": 4,
         "mi": 4,
-        "f": 5,
+        "F": 5,
         "fa": 5,
-        "f#": 6,
+        "F#": 6,
         "fa#": 6,
-        "gb": 6,
+        "Gb": 6,
         "solb": 6,
-        "g": 7,
+        "G": 7,
         "sol": 7,
-        "g#": 8,
+        "G#": 8,
         "sol#": 8,
-        "ab": 8,
+        "Ab": 8,
         "lab": 8,
-        "a": 9,
+        "A": 9,
         "la": 9,
-        "a#": 10,
+        "A#": 10,
         "la#": 10,
-        "bb": 10,
+        "Bb": 10,
         "sib": 10,
-        "b": 11,
+        "B": 11,
         "si": 11,
     }
 
@@ -465,5 +465,5 @@ def is_valid_note_name(note: str) -> bool:
     Returns:
     - bool: True if the note name is valid, False otherwise.
     """
-    note_pattern = r"^(c|do|d|re|e|mi|f|fa|g|sol|a|la|b|si)(#{1,2}|b{1,2})?\d?$"
+    note_pattern = r"^(C|do|D|re|E|mi|F|fa|G|sol|A|la|B|si)(#{1,2}|b{1,2})?\d?$"
     return bool(re.match(note_pattern, note))
