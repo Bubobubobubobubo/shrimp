@@ -44,9 +44,12 @@ class OSC(Subscriber):
             It should call osc_process() repeatedly to keep the OSC server
             alive. It will run until the _osc_loop_shutdown event is set.
             """
-            while not self._osc_loop_shutdown.is_set():
-                osc_process()
-                time.sleep(0.001)
+            try:
+                while not self._osc_loop_shutdown.is_set():
+                    osc_process()
+                    time.sleep(0.001)
+            except BlockingIOError:
+                pass
 
         osc_startup()
         self._osc_loop_thread = threading.Thread(target=_osc_process_loop, daemon=True)

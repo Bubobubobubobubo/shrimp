@@ -10,8 +10,8 @@ from ..Pattern import (
     silence,
     stack,
     timecat,
+    choose_cycles,
 )
-from ..Signal import choose_cycles
 from ..Utils import flatten
 
 

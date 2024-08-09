@@ -1,5 +1,5 @@
 import sys
-from .Pattern import sequence, reify, Pattern
+from .Pattern import sequence, Pattern
 from typing import Callable
 
 # Create functions for making control patterns (patterns of dictionaries)
@@ -347,10 +347,12 @@ def make_control(control_name: str) -> Callable:
     """Creates a new control function with the given name"""
 
     def ctrl(*args):
-        return sequence(*[reify(arg) for arg in args]).with_value(lambda v: {control_name: v})
+        return sequence(*[Pattern.reify(arg) for arg in args]).with_value(
+            lambda v: {control_name: v}
+        )
 
     def ctrl_pattern(self, *args):
-        return self >> sequence(*[reify(arg) for arg in args]).with_value(
+        return self >> sequence(*[Pattern.reify(arg) for arg in args]).with_value(
             lambda v: {control_name: v}
         )
 
