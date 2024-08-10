@@ -95,9 +95,9 @@ class OSC(Subscriber):
 
         bundle = oscbuildparse.OSCBundle(
             timetag=(
-                oscbuildparse.unixtime2timetag(timestamp)
+                oscbuildparse.unixtime2timetag(timestamp + self._nudge)
                 if timestamp
-                else oscbuildparse.OSC_IMMEDIATELY
+                else oscbuildparse.OSC_IMMEDIATELY + self._nudge
             ),
             elements=messages,
         )

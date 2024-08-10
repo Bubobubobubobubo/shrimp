@@ -350,6 +350,17 @@ class Pattern:
     # WITH FUNCTIONS
     ################################################################################
 
+    def with_hap_span(self, func: Callable) -> Self:
+        """Similar to `withQuerySpan`, but the function is applied to the timespans
+        of all haps returned by pattern queries (both `part` timespans, and where
+        present, `whole` timespans)."""
+
+        def _query(state):
+            pat = map(lambda hap: hap.with_span(func), self.query(state))
+            return pat
+
+        return Pattern(_query)
+
     def with_tactus(self, f) -> Self:
         """Returns a new pattern with the tactus modified by the function `f`."""
         return Pattern(self.query, None if self.tactus is None else f(self.tactus))
@@ -1039,14 +1050,10 @@ class Pattern:
     def zoom(self, zoom_start: TidalFraction, zoom_end: TidalFraction) -> Self:
         """Plays a portion of a pattern, specified by the beginning and end of a time span.
         The new resulting pattern is played over the time period of the original pattern"""
-        zoom_start = TidalFraction(zoom_start)
-        zoom_end = TidalFraction(zoom_end)
+        zoom_start, zoom_end = TidalFraction(zoom_start), TidalFraction(zoom_end)
         if zoom_start >= zoom_end:
             return self.nothing()
         duration = zoom_end - zoom_start
-        # TODO: I suppose that all patterns are supposed to have a tactus ?!
-        # TODO: Update everything to get the tactus automatically set...
-        tactus = self.tactus.mulmaybe(duration)
         result = (
             self.with_query_span(
                 lambda span: span.with_cycle(lambda t: (t * duration) + zoom_start)
@@ -1054,8 +1061,23 @@ class Pattern:
             .with_hap_span(lambda span: span.with_cycle(lambda t: (t - zoom_start) / duration))
             .split_queries()
         )
-        result.tactus = tactus
         return result
+
+    def inside(self, factor, func):
+        """Carries out an operation 'inside' a cycle."""
+        return func(self.slow(factor)).fast(factor)
+
+    def swing_by(self, swing, n) -> Self:
+        """Swing a pattern by a given amount."""
+        return self.inside(n, late(sequence(0, swing / 2)))
+
+    def swing(self, n) -> Self:
+        """Swing a pattern by 1/3."""
+        return self.swing_by(1 / 3, n)
+
+    def reset(self, *args):
+        """Resets the pattern to the start of the cycle for each onset of the reset pattern."""
+        return self.keepif.reset(*args)
 
     ################################################################################
     # STRIATE
@@ -1505,9 +1527,6 @@ def _sequence_count(x: list | tuple | str | Any) -> Tuple[Pattern, int]:
 
 def sequence(*args: Any) -> Pattern:
     """TODO: add docstring"""
-
-    print(len(_sequence_count(args)[0]))
-
     return _sequence_count(args)[0]
 
 
@@ -1554,6 +1573,24 @@ def _euclid(k: int, n: int, rotation: float):
 def fast(arg: int | float, pat: Any):
     """Override for `fast` method"""
     return Pattern.reify(pat).fast(arg)
+
+
+@partial_decorator
+def zoom(zoom_begin: TidalFraction, zoom_end: TidalFraction, pat: Any):
+    """Override for `zoom` method"""
+    return Pattern.reify(pat).zoom(zoom_begin, zoom_end)
+
+
+@partial_decorator
+def swing(n: TidalFraction, pat: Any):
+    """Override for `zoom` method"""
+    return Pattern.reify(pat).swing(n)
+
+
+@partial_decorator
+def swing_by(swing: TidalFraction, n: TidalFraction, pat: Any):
+    """Override for `zoom` method"""
+    return Pattern.reify(pat).swing_by(swing, n)
 
 
 @partial_decorator

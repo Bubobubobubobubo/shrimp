@@ -29,17 +29,18 @@ def vortex_clock_callback(start, ticks: int, session: "LinkSession", now: int | 
         session.beatAtTime(logical_now, 0) / env.clock._denominator,
         session.beatAtTime(logical_next, 0) / env.clock._denominator,
     )
-    try:
-        for player in CarouselManager._players.values():
-            player.notify_tick(
-                current_cycle=(cycle_from, cycle_to),
-                link_session=session,
-                cycles_per_second=env.clock.cps,
-                beats_per_cycle=env.clock._denominator,
-                now=now,
-            )
-    except Exception as _:
-        print(_)
+    if env.clock._playing:
+        try:
+            for player in CarouselManager._players.values():
+                player.notify_tick(
+                    current_cycle=(cycle_from, cycle_to),
+                    link_session=session,
+                    cycles_per_second=env.clock.cps,
+                    beats_per_cycle=env.clock._denominator,
+                    now=now,
+                )
+        except Exception as _:
+            print(_)
 
     return (logical_now - now) / 1e6
 

@@ -82,6 +82,25 @@ def test_superimpose():
         stack(pure("bd"), pure("bd").fast(3)),
     )
 
+def test_zoom():
+    """Test of the zoom pattern function"""
+    assert_equal_patterns(
+        fastcat(pure("bd"), pure("bd"), pure("bd"), pure("bd")).zoom(0, 0.5),
+        fastcat(pure("bd"), pure("bd")),
+    )
+
+def test_inside():
+    """Test of the inside function"""
+    raise NotImplementedError
+
+def test_swing():
+    """Test of the swing function"""
+    raise NotImplementedError
+
+def test_swing_by():
+    """Test of the swing_by function"""
+    raise NotImplementedError
+
 
 def test_layer():
     """Test of the layer pattern function"""

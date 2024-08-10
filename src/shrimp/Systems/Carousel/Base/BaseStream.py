@@ -56,15 +56,16 @@ class BaseCarouselStream(ABC, Subscriber):
             # event_onset_time = link_session.timeAtBeat(event.whole.begin * beats_per_cycle, 0)
             event_beat_timestamp = link_session.beatAtTime(link_on, beats_per_cycle)
 
-            self.notify_event(
-                event.value,
-                unix_timestamp=unix_ts,
-                beat_timestamp=event_beat_timestamp,
-                cps=float(cycles_per_second),
-                cycle=float(event.whole.begin),
-                delta=float(delta_secs),
-                beats_per_cycle=beats_per_cycle,
-            )
+            if self.env.clock._playing:
+                self.notify_event(
+                    event.value,
+                    unix_timestamp=unix_ts,
+                    beat_timestamp=event_beat_timestamp,
+                    cps=float(cycles_per_second),
+                    cycle=float(event.whole.begin),
+                    delta=float(delta_secs),
+                    beats_per_cycle=beats_per_cycle,
+                )
 
     def notify_event(
         self,
@@ -74,6 +75,7 @@ class BaseCarouselStream(ABC, Subscriber):
         cps: float,
         cycle: float,
         delta: float,
+        beats_per_cycle: int,
     ):
         """Called by `notify_tick` with the event and timestamp that should be played"""
         raise NotImplementedError

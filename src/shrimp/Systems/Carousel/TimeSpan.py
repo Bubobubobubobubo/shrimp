@@ -31,16 +31,6 @@ class TidalFraction(Fraction):
         """Returns the position of a time value relative to the start of its cycle."""
         return self - self.sam()
 
-    def with_cycle(self, func_time: Callable) -> Self:
-        """
-        Like withTime, but time is relative to relative to the cycle
-        (i.e. the  sam of the start of the timespan)
-        """
-        sam = self.begin.sam()
-        begin = sam + func_time(self.begin - sam)
-        end = sam + func_time(self.end - sam)
-        return TimeSpan(begin=begin, end=end)
-
     @staticmethod
     def show_fraction(frac: Self) -> str:
         """Returns a string representation of a Fraction"""
@@ -89,6 +79,16 @@ class TimeSpan:
     def __init__(self, begin: TidalFraction, end: TidalFraction):
         self.begin = TidalFraction(begin)
         self.end = TidalFraction(end)
+
+    def with_cycle(self, func_time: Callable) -> Self:
+        """
+        Like withTime, but time is relative to relative to the cycle
+        (i.e. the  sam of the start of the timespan)
+        """
+        sam = self.begin.sam()
+        begin = sam + func_time(self.begin - sam)
+        end = sam + func_time(self.end - sam)
+        return TimeSpan(begin=begin, end=end)
 
     def span_cycles(self) -> List[Self]:
         """Splits a timespan at cycle boundaries"""

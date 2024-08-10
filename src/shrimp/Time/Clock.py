@@ -43,7 +43,6 @@ class Clock(Subscriber):
         self._carousel_clock_callback: Optional[Callable] = lambda a, b, c, d: 0.1
         self._stop_event: threading.Event = threading.Event()
         self._events: Dict[str, PriorityEvent] = {}
-        self._first_loop = True
         self._playing: bool = True
         self._link = link.Link(tempo)
         self._link_epoch = self._link.clock().micros()
@@ -213,28 +212,34 @@ class Clock(Subscriber):
             child.next_time = 0
 
     def play(self) -> None:
-        """Play the clock"""
+        """Play the clock: start the clock and update the session state to request play.
+        This method cannot be called if the clock is already playing. This method will
+        reset the children times and request a beat at time 0. This method will also dispatch
+        a message to the environment to notify all subscribers that the clock is playing."""
         if self._playing:
             return
-        self._reset_children_times()
         session = self._link.captureSessionState()
+        session.requestBeatAtTime(0, self._link.clock().micros(), self._denominator)
         session.setIsPlaying(True, self._link.clock().micros())
         self._link.commitSessionState(session)
-        session.requestBeatAtTime(0, self._link.clock().micros(), self._denominator)
-        self._link.commitSessionState(session)
-        self._playing = True
+        self._reset_children_times()
 
     def pause(self) -> None:
-        """Pause the clock"""
+        """Pause mechanism: pause the clock and update the session state to request pause.
+        This method cannot be called if the clock is already paused.
+
+        Pausing the clock dispatches a pause event to the environment. It allows all subscribers
+        to react accordingly.
+
+        """
         if not self._playing:
             return
-        else:
-            self._playing = False
-            if self.env:
-                self.env.dispatch(self, "pause", {})
-            session = self._link.captureSessionState()
-            session.setIsPlaying(False, self._link.clock().micros())
-            self._link.commitSessionState(session)
+
+        session = self._link.captureSessionState()
+        session.setIsPlaying(False, self._link.clock().micros())
+        self._link.commitSessionState(session)
+        if self.env:
+            self.env.dispatch(self, "pause", {})
 
     def precise_wait(self, duration) -> None:
         """
@@ -244,11 +249,13 @@ class Clock(Subscriber):
             duration (float): The duration to wait in seconds.
         """
         end_time = time_module.perf_counter() + duration
-        sleep_duration = duration - 0.001  # Sleep until 1000 microseconds before target
+        # Sleep until 1000 microseconds before target
+        sleep_duration = duration - 0.001
         if sleep_duration > 0:
             time_module.sleep(sleep_duration)
         while time_module.perf_counter() < end_time:
-            pass  # Busy-wait for the remaining time
+            # Busy-wait for the remaining time
+            pass
 
     def _stop(self, _: dict = {}) -> None:
         """Stop the clock and wait for the thread to finish
@@ -261,7 +268,7 @@ class Clock(Subscriber):
             self.env.dispatch(self, "stop", {})
         self._clock_thread.join()
 
-    def _capture_link_info(self) -> bool:
+    def _update_time(self):
         """
         Utility function to capture timing information from Link Session.
 
@@ -270,47 +277,15 @@ class Clock(Subscriber):
         """
         link_state = self._link.captureSessionState()
         self.internal_time = self._link.clock().micros()
-        isPlaying = link_state.isPlaying()
+        self._playing = link_state.isPlaying()
         self._beat, self._phase, self._tempo = (
             link_state.beatAtTime(self.internal_time, self._denominator),
             link_state.phaseAtTime(self.internal_time, self._denominator),
             link_state.tempo(),
         )
         self._bar = self._beat // self._denominator
-
-        # First time capturing information
-        if self._first_loop:
-            self._playing = isPlaying
-            if isPlaying:
-                pass
-            else:
-                if not math.isclose(self._phase, 0, abs_tol=0.02):
-                    # NOTE: this will loop until the phase is 0
-                    # It can take a while depending on the grain
-                    # and runtime conditions!
-                    # logging.warning(f"(Clock) Clock phase: {self._phase}")
-                    return False
-                else:
-                    self.play()
-                    self._first_loop = False
-                    return True
-
-        # Other times, looping around!
-        else:
-            if isPlaying and not self._playing:
-                logging.warning("Play Requested by Peer")
-                self.add(
-                    name="restart_playback",
-                    func=lambda: self.play(),
-                    time_reference=0,
-                    time=0,
-                    once=True,
-                    passthrough=True,
-                )
-            elif not isPlaying and self._playing:
-                logging.warning("Pause Requested by Peer")
-                self.pause()
-            return True
+        if not self._playing:
+            self.pause()
 
     def _run_carousel(self):
 
@@ -318,24 +293,21 @@ class Clock(Subscriber):
 
         while not self._stop_event.is_set():
             session, now = (self._link.captureSessionState(), self._link.clock().micros())
-            if self._playing and self.beat >= 0:
+            if self.beat >= 0:
                 wait_time = self._carousel_clock_callback(start, ticks, session, now)
                 if wait_time > 0:
                     self.precise_wait(wait_time)
                 ticks += 1
 
     def run(self) -> None:
-        """Main Clock Event Loop"""
+        """Clock mechanism entry point. This method is called when the clock thread is started.
+        It periodically updates the internal time representation and executes due functions.
+        This function busy loops in its own thread (!!)."""
 
         while not self._stop_event.is_set():
             start_time = time_module.perf_counter()
-            time_captured = self._capture_link_info()
-            if time_captured:
-                try:
-                    self._execute_due_functions()
-                except Exception as e:
-                    print(e)
-
+            self._update_time()
+            self._execute_due_functions()
             end_time = time_module.perf_counter()
             elapsed_time = end_time - start_time
             wait_time = max(0, self._grain - elapsed_time)
@@ -468,6 +440,22 @@ class Clock(Subscriber):
         once: bool,
         passthrough: bool,
     ) -> PriorityEvent:
+        """Update an event already scheduled for execution
+
+        Args:
+            name (str): The name of the event.
+            time (int | float): The time at which the event should be executed.
+            time_reference (int | float): The time reference for the event.
+            nudge (int | float): The nudge for the event.
+            func (Callable): The function to be executed.
+            args (tuple): Positional arguments to be passed to the function.
+            kwargs (dict): Keyword arguments to be passed to the function.
+            once (bool): Whether the event should be executed only once.
+            passthrough (bool): Whether the event should be executed even if the clock is paused.
+
+        Returns:
+            PriorityEvent: The updated event.
+        """
         children = self._events[name]
 
         if time_reference is not None:
@@ -494,6 +482,22 @@ class Clock(Subscriber):
         once: bool,
         passthrough: bool,
     ) -> PriorityEvent:
+        """Add an event to the scheduler: create a new event and add it to the scheduler.
+
+        Args:
+            name (str): The name of the event.
+            func (Callable): The function to be executed.
+            time (int | float): The time at which the event should be executed.
+            time_reference (int | float): The time reference for the event.
+            nudge (int | float): The nudge for the event.
+            args (tuple): Positional arguments to be passed to the function.
+            kwargs (dict): Keyword arguments to be passed to the function.
+            once (bool): Whether the event should be executed only once.
+            passthrough (bool): Whether the event should be executed even if the clock is paused.
+
+        Returns:
+            PriorityEvent: The event that was added.
+        """
         if not name.startswith(("note_on_", "note_off_")):
             logging.info(f" {name} [ADDED]")
 
@@ -512,14 +516,21 @@ class Clock(Subscriber):
         )
         return children
 
-    def generate_event_name(self, func, name):
-        """Generate a unique name for an event"""
+    def generate_event_name(self, func: Callable, name: Optional[str] = None) -> str:
+        """Generate a unique name for an event based on the function name or a custom name.
+
+        Args:
+            func (Callable): The function to generate a name for.
+            name (str): A custom name for the event.
+        Returns:
+            str: The generated name.
+        """
         not_a_lambda = isinstance(func, Callable) and func.__name__ != "<lambda>"
         func_name = name if name else func.__name__ if not_a_lambda else str(uuid.uuid1())[:8]
         return func_name
 
     def clear(self) -> None:
-        """Clear all events from the clock."""
+        """Clear all events currently scheduled."""
         if self.env:
             self.env.dispatch(self, "all_notes_off", {})
         # Clear all events except those who are persistant
