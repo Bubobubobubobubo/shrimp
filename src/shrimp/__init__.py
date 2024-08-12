@@ -18,10 +18,13 @@ logging.warning("=========== Program start ==============")
 CONFIGURATION = read_configuration()
 
 # Do not import signalflow if on Linux or Windows!
-current_os = os.uname().sysname
-if current_os == "Darwin":
-    if CONFIGURATION["audio_engine"]["enabled"]:
-        from .Synths import *
+try:
+    current_os = os.uname().sysname
+    if current_os == "Darwin":
+        if CONFIGURATION["audio_engine"]["enabled"]:
+            from .Synths import *
+except AttributeError:
+    ...
 
 
 if CONFIGURATION["editor"]["greeter"]:
